@@ -1,0 +1,6 @@
+# Office lock files
+~$*
+
+# draw.io temp and backup files
+.$*.bkp
+.$*.dtmp
