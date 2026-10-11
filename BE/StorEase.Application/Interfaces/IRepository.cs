@@ -9,6 +9,6 @@ public interface IRepository<T> where T : class
 
     void Add(T entity);
 
-    /// <summary>Deletes a row. Only for link rows with no history (e.g. <c>StaffFacility</c>); everything else changes status.</summary>
+    /// <summary>Deletes a row. Only for link rows with no history (e.g. <c>StaffFacility</c>, a not-yet-started <c>Shift</c>); everything else changes status.</summary>
     void Remove(T entity);
 }
