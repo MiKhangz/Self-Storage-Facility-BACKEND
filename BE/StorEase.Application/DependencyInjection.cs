@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<ISupportTicketService, SupportTicketService>();
         services.AddScoped<IStaffAccountService, StaffAccountService>();
         services.AddScoped<IMaintenanceService, MaintenanceService>();
+        services.AddScoped<IStaffTaskService, StaffTaskService>();
         return services;
     }
 }
