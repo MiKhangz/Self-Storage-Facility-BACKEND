@@ -9,6 +9,7 @@ public class StaffTask
     public int AssignedTo { get; set; }
     public TaskType TaskType { get; set; }
     public string? ReferenceCode { get; set; }
+    public string? Note { get; set; }
     public DateTime ScheduledAt { get; set; }
     public StaffTaskStatus Status { get; set; }
 
