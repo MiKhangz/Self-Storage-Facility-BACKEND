@@ -1056,6 +1056,10 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<int>("AssignedTo")
                         .HasColumnType("int");
 
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("ReferenceCode")
                         .HasMaxLength(30)
                         .IsUnicode(false)
