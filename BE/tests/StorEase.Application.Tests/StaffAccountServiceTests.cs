@@ -209,4 +209,51 @@ public class StaffAccountServiceTests
         byRole.Value.Items.Select(i => i.Email).Should().Equal("b@x.vn");
         byStatus.Value.Items.Select(i => i.Email).Should().Equal("a@x.vn");
     }
+
+    [Fact]
+    public async Task SetFacilities_refuses_to_unassign_while_open_work_remains()
+    {
+        var w = new World();
+        var id = (await w.AsAdmin().CreateAsync(World.Create(), default)).Value!.UserId;
+        await w.AsAdmin().SetFacilitiesAsync(id, new SetStaffFacilitiesRequest([w.F1.FacilityId, w.F2.FacilityId]), default);
+        var ticket = new SupportTicket
+        {
+            Customer = w.Customer, Facility = w.F1, Category = new TicketCategory { Name = "Lock", DefaultPriority = Priority.Normal },
+            TicketCode = "TK1", Subject = "s", Priority = Priority.Normal, Status = SupportTicketStatus.InProgress,
+            AssignedTo = id, CreatedAt = DateTime.UtcNow,
+        };
+        w.Db.Db.SupportTickets.Add(ticket);
+        await w.Db.Db.SaveChangesAsync();
+
+        var blocked = await w.AsAdmin().SetFacilitiesAsync(id, new SetStaffFacilitiesRequest([w.F2.FacilityId]), default);
+
+        blocked.Error!.Type.Should().Be(ErrorType.Conflict);
+        blocked.Error.Message.Should().Contain("1 open ticket");
+        (await w.Db.Db.StaffFacilities.CountAsync(s => s.UserId == id)).Should().Be(2);
+
+        // The failed call rolled back and cleared the tracker, so re-read the row before editing it.
+        (await w.Db.Db.SupportTickets.SingleAsync()).Status = SupportTicketStatus.Resolved;
+        await w.Db.Db.SaveChangesAsync();
+        var ok = await w.AsAdmin().SetFacilitiesAsync(id, new SetStaffFacilitiesRequest([w.F2.FacilityId]), default);
+        ok.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SetFacilities_refuses_to_unassign_with_an_upcoming_shift()
+    {
+        var w = new World();
+        var id = (await w.AsAdmin().CreateAsync(World.Create(), default)).Value!.UserId;
+        await w.AsAdmin().SetFacilitiesAsync(id, new SetStaffFacilitiesRequest([w.F1.FacilityId]), default);
+        w.Db.Db.Shifts.Add(new Shift
+        {
+            UserId = id, FacilityId = w.F1.FacilityId, ShiftDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2)),
+            StartTime = new TimeOnly(8, 0), EndTime = new TimeOnly(16, 0), ShiftType = ShiftType.Morning,
+        });
+        await w.Db.Db.SaveChangesAsync();
+
+        var r = await w.AsAdmin().SetFacilitiesAsync(id, new SetStaffFacilitiesRequest([]), default);
+
+        r.Error!.Type.Should().Be(ErrorType.Conflict);
+        r.Error.Message.Should().Contain("1 upcoming shift");
+    }
 }
