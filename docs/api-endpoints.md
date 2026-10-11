@@ -221,6 +221,24 @@ unit · the contract is not `Draft` · the customer has not signed yet · the un
 
 ---
 
+## Support tickets (BE-59..62)
+
+
+
+## Maintenance orders (BE-63)
+
+
+
+## Staff accounts (BE-64)
+
+
+
+## Shifts and tasks (BE-65, BE-66)
+
+
+
+---
+
 ## Demo accounts
 
 Seeded by Trường's `DbSeeder`. Password for all three: `Demo@123`.
