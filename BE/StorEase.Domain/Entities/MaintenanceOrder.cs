@@ -12,6 +12,7 @@ public class MaintenanceOrder
     public DateTime? ScheduledAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public decimal? Cost { get; set; }
+    public string? WorkNote { get; set; }
     public MaintenanceOrderStatus Status { get; set; }
 
     public StorageUnit StorageUnit { get; set; } = null!;
