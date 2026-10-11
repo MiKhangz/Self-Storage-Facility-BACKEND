@@ -521,6 +521,10 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<int?>("TicketId")
                         .HasColumnType("int");
 
+                    b.Property<string>("WorkNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.HasKey("MaintenanceOrderId");
 
                     b.HasIndex("AssignedTo");
@@ -1007,9 +1011,9 @@ namespace StorEase.Infrastructure.Migrations
 
                     b.HasKey("ShiftId");
 
-                    b.HasIndex("FacilityId");
+                    b.HasIndex("FacilityId", "ShiftDate");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "ShiftDate");
 
                     b.ToTable("Shift", (string)null);
                 });
@@ -1035,7 +1039,8 @@ namespace StorEase.Infrastructure.Migrations
 
                     b.HasIndex("FacilityId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "FacilityId")
+                        .IsUnique();
 
                     b.ToTable("StaffFacility", (string)null);
                 });
@@ -1050,6 +1055,10 @@ namespace StorEase.Infrastructure.Migrations
 
                     b.Property<int>("AssignedTo")
                         .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("ReferenceCode")
                         .HasMaxLength(30)
@@ -1161,6 +1170,9 @@ namespace StorEase.Infrastructure.Migrations
 
                     b.Property<int>("CustomerId")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("FacilityId")
                         .HasColumnType("int");
