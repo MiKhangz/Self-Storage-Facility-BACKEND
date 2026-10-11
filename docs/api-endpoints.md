@@ -223,7 +223,27 @@ unit · the contract is not `Draft` · the customer has not signed yet · the un
 
 ## Support tickets (BE-59..62)
 
-### Queue, assign, status (BE-61, BE-62 — Hung)
+### BE-59 · BE-60 — create a ticket, conversation
+
+| Method | Route | Role | Notes |
+|---|---|---|---|
+| GET | `/api/ticket-categories` | any signed-in | `[{categoryId, name, defaultPriority}]`. The table has no seed yet. |
+| POST | `/api/support-tickets` | StorageCustomer | `201` + `Location`, body = ticket. |
+| GET | `/api/support-tickets/{id}` | any signed-in | Customer: own tickets. FacilityStaff/Manager: tickets of their facilities. Admin/BusinessOps: all. Anyone else's: `404`. |
+| GET | `/api/support-tickets/{id}/messages` | any signed-in | Oldest first. Customers never get internal notes. |
+| POST | `/api/support-tickets/{id}/messages` | any signed-in | `201`, body = message. |
+
+`POST /api/support-tickets` body: `{categoryId, subject (≤200), description (≤1000), storageUnitId?, facilityId?, priority?}`.
+Give `storageUnitId` (needs your own Active/Overdue/Suspended/PendingMoveOut contract on it; the facility comes from the unit) or `facilityId`. `priority` defaults to the category's `defaultPriority` (`Low|Normal|High|Urgent`).
+The description is stored as the first message (no description column). Status starts `New`; `ticketCode` = `TK{yyMMdd}{6 digits}`.
+
+`POST .../messages` body: `{body (≤1000), isInternalNote, nextStatus?}`. `isInternalNote` and `nextStatus` (`InProgress|WaitingForCustomer`) are staff-only (`403` for customers).
+Status moves: a staff reply to a `New` ticket → `InProgress`; staff `nextStatus` sets it; a customer reply on `WaitingForCustomer` or `Resolved` → `InProgress` (clears `resolvedAt`); an internal note never changes status.
+`409` when the ticket is `Closed`. `400` validation, `404` unknown category/unit/facility/ticket.
+
+File attachments (BE-59) are **not built**: there is no table or storage for them.
+
+### BE-61 · BE-62 — queue, assignment, status
 
 | Method | Route | Who | Success |
 |---|---|---|---|
