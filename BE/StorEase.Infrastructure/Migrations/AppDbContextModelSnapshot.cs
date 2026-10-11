@@ -1162,6 +1162,9 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<int>("CustomerId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("FacilityId")
                         .HasColumnType("int");
 
