@@ -1011,9 +1011,9 @@ namespace StorEase.Infrastructure.Migrations
 
                     b.HasKey("ShiftId");
 
-                    b.HasIndex("FacilityId");
+                    b.HasIndex("FacilityId", "ShiftDate");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "ShiftDate");
 
                     b.ToTable("Shift", (string)null);
                 });
