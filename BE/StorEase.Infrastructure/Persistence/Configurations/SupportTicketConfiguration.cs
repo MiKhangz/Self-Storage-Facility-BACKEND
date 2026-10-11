@@ -18,6 +18,7 @@ public class SupportTicketConfiguration : IEntityTypeConfiguration<SupportTicket
         builder.HasOne(x => x.AssignedToUser).WithMany().HasForeignKey(x => x.AssignedTo);
         builder.Property(x => x.TicketCode).HasMaxLength(20).IsUnicode(false);
         builder.Property(x => x.Subject).HasMaxLength(200);
+        builder.Property(x => x.DueDate).HasColumnType("datetime2");
         builder.Property(x => x.Priority).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
         builder.HasIndex(x => x.Status);
