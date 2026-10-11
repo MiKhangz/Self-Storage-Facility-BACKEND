@@ -208,7 +208,9 @@ namespace StorEase.Infrastructure.Migrations
 
                     b.HasIndex("Status");
 
-                    b.HasIndex("StorageUnitId");
+                    b.HasIndex("StorageUnitId")
+                        .IsUnique()
+                        .HasFilter("[Status] IN ('Active', 'Draft')");
 
                     b.ToTable("Contract", (string)null);
                 });

@@ -20,5 +20,7 @@ public class ContractConfiguration : IEntityTypeConfiguration<Contract>
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
         builder.HasIndex(x => x.Status);
         builder.HasIndex(x => x.ContractNumber).IsUnique();
+        // Business rule 1 enforced by the database: one Active/Draft contract per unit.
+        builder.HasIndex(x => x.StorageUnitId).IsUnique().HasFilter("[Status] IN ('Active', 'Draft')");
     }
 }
