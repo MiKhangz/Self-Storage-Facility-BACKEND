@@ -15,6 +15,7 @@ public class MaintenanceOrderConfiguration : IEntityTypeConfiguration<Maintenanc
         builder.HasOne(x => x.Ticket).WithMany().HasForeignKey(x => x.TicketId);
         builder.HasOne(x => x.AssignedToUser).WithMany().HasForeignKey(x => x.AssignedTo);
         builder.Property(x => x.Description).HasMaxLength(300);
+        builder.Property(x => x.WorkNote).HasMaxLength(500);
         builder.Property(x => x.Cost).HasColumnType("decimal(12,2)");
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
         builder.HasIndex(x => x.Status);
