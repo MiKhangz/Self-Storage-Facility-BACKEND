@@ -8,6 +8,7 @@ using StorEase.Application.Features.Maintenance;
 using StorEase.Application.Features.Reservations;
 using StorEase.Application.Features.Staff;
 using StorEase.Application.Features.StorageUnits;
+using StorEase.Application.Features.Staff;
 using StorEase.Application.Features.SupportTickets;
 
 namespace StorEase.Application;
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IContractService, ContractServiceNotReady>();
         services.AddScoped<ITicketQueueService, TicketQueueService>();
         services.AddScoped<ISupportTicketService, SupportTicketService>();
+        services.AddScoped<IStaffAccountService, StaffAccountService>();
         services.AddScoped<IMaintenanceService, MaintenanceService>();
         services.AddScoped<IShiftService, ShiftService>();
         return services;
