@@ -234,6 +234,30 @@ Activation is live: the contract becomes `Active`, the unit `Occupied`, and a 6-
 `terminate`: allowed from `Active`, `Overdue`, `Suspended`, `PendingMoveOut`; the unit goes back to `Available` and every active access code is revoked. `409` for `Draft`, `Closed`, `Terminated`.
 `access-codes`: re-issues a code for an `Active` contract and revokes the previous one (`409` otherwise). `code` is plaintext and shown once.
 
+### Access codes and logs (Nhân, BE-34..38)
+
+| Method | Route | Who | Success |
+|---|---|---|---|
+| `POST` | `/api/access-codes/{id}/revoke` | Staff | `200` `AccessCodeSummaryDto` (`isActive: false`) |
+| `GET` | `/api/contracts/{id}/access-code` | Staff, or the owning customer | `200` `AccessCodeSummaryDto` |
+| `POST` | `/api/contracts/{id}/access-codes/request` | `StorageCustomer` (own) | `201` `AccessCodeDto` (plaintext `code`, once) |
+| `GET` | `/api/access-logs?storageUnitId=&customerId=&from=&to=&page=&pageSize=` | `FacilityManager` | `200` `PagedResult<AccessLogDto>` |
+| `GET` | `/api/access-logs/mine?from=&to=&page=&pageSize=` | `StorageCustomer` | `200` `PagedResult<AccessLogDto>` (own only) |
+
+```jsonc
+// AccessCodeSummaryDto — the plaintext is never returned again
+{ "accessCodeId": 1, "contractId": 1, "issuedAt": "2026-10-11T15:13:30Z", "expiresAt": "2027-01-14T00:00:00Z", "isActive": true }
+
+// AccessLogDto — newest first
+{ "accessLogId": 7, "accessCodeId": 1, "contractId": 1, "customerId": 1, "customerName": "Khách Demo",
+  "storageUnitId": 3, "unitCode": "A-103", "accessTime": "2026-10-05T08:00:00Z", "result": "Granted", "deviceId": "GATE-1" }
+```
+
+`result`: `Granted`, `Denied`, `Expired`. `from`/`to` are dates (`2026-10-05`), inclusive, UTC; `400` when `from` > `to`.
+`revoke`: `409` when the code is already inactive. `access-code` (GET): `404` when the contract is not the caller's or has no valid (active, unexpired) code.
+`access-codes/request`: same rules as staff re-issue (`409` unless the contract is `Active`) and revokes the previous code; a customer asking for someone else's contract gets `404`.
+`POST /api/contracts/{id}/access-codes` (staff) remains as above.
+
 ---
 
 ## Demo accounts
