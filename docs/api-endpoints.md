@@ -298,6 +298,22 @@ All routes: `SystemAdministrator` only. Customers are never returned or editable
 
 
 
+
+### BE-66 — tasks in a shift
+
+Base `/api/staff-tasks`. Create: `FacilityManager`. Progress/cancel: `FacilityStaff`, `FacilityManager`. Read: those two plus `BusinessOperationsManager`, `SystemAdministrator`. A staff member sees only their own tasks, a manager the tasks of shifts at their facilities (plus their own), admin and business manager all. Anything outside that view is `404`.
+
+| Method | Route | Notes |
+|---|---|---|
+| `POST` | `/api/staff-tasks` | body `{shiftId, assignedTo, taskType, referenceCode? (≤30), note? (≤200), scheduledAt}`. The shift must be at one of the manager's facilities (`404`); `assignedTo` must be the person on that shift and `Active` (`400`); `scheduledAt` must fall in `[start, end)` of the shift (`400`). Shift times are facility-local (UTC+7); a shift whose end is not after its start runs past midnight. `taskType` `Other` requires `note` (`400`). Starts `ToDo`. `201` + `Location`. |
+| `GET` | `/api/staff-tasks?shiftId=&assignedTo=&status=&page=&pageSize=` | `PagedResult`, ordered by `scheduledAt`. |
+| `GET` | `/api/staff-tasks/{id}` | `{taskId, shiftId, facilityId, assignedTo, assignedToName, taskType, referenceCode, note, scheduledAt, status}` |
+| `POST` | `/api/staff-tasks/{id}/status` | body `{status}`; returns the task. |
+
+Status moves: `ToDo → InProgress → Done`, only by the assignee (`403` for anyone else, `409` for a skipped step). `Cancelled`: only a `FacilityManager` (`403` otherwise), only from `ToDo`/`InProgress` (`409` once `Done` or `Cancelled`). `Done` and `Cancelled` are final.
+
+
+
 ---
 
 ## Demo accounts
