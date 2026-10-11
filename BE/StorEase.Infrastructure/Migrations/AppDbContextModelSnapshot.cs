@@ -521,6 +521,10 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<int?>("TicketId")
                         .HasColumnType("int");
 
+                    b.Property<string>("WorkNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.HasKey("MaintenanceOrderId");
 
                     b.HasIndex("AssignedTo");
