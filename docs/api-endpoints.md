@@ -89,6 +89,7 @@ Also available:
 |---|---|---|---|---|
 | `GET` | `/api/reservations/{id}` | any logged-in user (customer: own) | `200` `ReservationDto` | Khang |
 | `GET` | `/api/contracts/{id}` | Staff, or the owning customer | `200` `ContractDto` | Nhân |
+| `GET` | `/api/contracts?status=&page=&pageSize=` | any logged-in user (customer: own) | `200` `PagedResult<ContractDto>` | Nhân |
 
 ---
 
@@ -195,6 +196,9 @@ the unit is not `Available` · the unit already has an `Active` or `Draft` contr
 
 No body. `200` `ContractDto` with `signedAt` set and **status still `Draft`**.
 
+`404` when the contract is not the caller's own (same as missing) · `409` when it is not `Draft` or is already signed. Only `StorageCustomer` may call it (`403` otherwise).
+`GET /api/contracts/{id}` returns the same `ContractDto`; a customer asking for someone else's contract gets `404`.
+
 ### 9. `POST /api/handovers` — staff confirms handover
 
 ```jsonc
@@ -217,7 +221,42 @@ In one transaction: contract `Draft` → `Active`, unit `Reserved` → `Occupied
 
 `409` when: the reservation is not `Confirmed` · the contract belongs to another reservation or
 unit · the contract is not `Draft` · the customer has not signed yet · the unit is not `Reserved`.
-`501` until Nhân's contract activation lands; nothing is changed in that case.
+Activation is live: the contract becomes `Active`, the unit `Occupied`, and a 6-digit access code is issued (valid until the day after `endDate`, hash only stored). `409` also when another `Active`/`Draft` contract holds the unit. Any `409` leaves everything unchanged.
+
+### More contract endpoints (Nhân)
+
+| Method | Route | Who | Success |
+|---|---|---|---|
+| `GET` | `/api/contracts/export?status=` | Staff | `200` `text/csv` (UTF-8 with BOM), same columns as the list |
+| `POST` | `/api/contracts/{id}/terminate` | `FacilityManager` | `200` `ContractDto` with `status: "Terminated"` |
+| `POST` | `/api/contracts/{id}/access-codes` | Staff | `201` `{ accessCodeId, contractId, code, issuedAt, expiresAt }` |
+
+`terminate`: allowed from `Active`, `Overdue`, `Suspended`, `PendingMoveOut`; the unit goes back to `Available` and every active access code is revoked. `409` for `Draft`, `Closed`, `Terminated`.
+`access-codes`: re-issues a code for an `Active` contract and revokes the previous one (`409` otherwise). `code` is plaintext and shown once.
+
+### Access codes and logs (Nhân, BE-34..38)
+
+| Method | Route | Who | Success |
+|---|---|---|---|
+| `POST` | `/api/access-codes/{id}/revoke` | Staff | `200` `AccessCodeSummaryDto` (`isActive: false`) |
+| `GET` | `/api/contracts/{id}/access-code` | Staff, or the owning customer | `200` `AccessCodeSummaryDto` |
+| `POST` | `/api/contracts/{id}/access-codes/request` | `StorageCustomer` (own) | `201` `AccessCodeDto` (plaintext `code`, once) |
+| `GET` | `/api/access-logs?storageUnitId=&customerId=&from=&to=&page=&pageSize=` | `FacilityManager` | `200` `PagedResult<AccessLogDto>` |
+| `GET` | `/api/access-logs/mine?from=&to=&page=&pageSize=` | `StorageCustomer` | `200` `PagedResult<AccessLogDto>` (own only) |
+
+```jsonc
+// AccessCodeSummaryDto — the plaintext is never returned again
+{ "accessCodeId": 1, "contractId": 1, "issuedAt": "2026-10-11T15:13:30Z", "expiresAt": "2027-01-14T00:00:00Z", "isActive": true }
+
+// AccessLogDto — newest first
+{ "accessLogId": 7, "accessCodeId": 1, "contractId": 1, "customerId": 1, "customerName": "Khách Demo",
+  "storageUnitId": 3, "unitCode": "A-103", "accessTime": "2026-10-05T08:00:00Z", "result": "Granted", "deviceId": "GATE-1" }
+```
+
+`result`: `Granted`, `Denied`, `Expired`. `from`/`to` are dates (`2026-10-05`), inclusive, UTC; `400` when `from` > `to`.
+`revoke`: `409` when the code is already inactive. `access-code` (GET): `404` when the contract is not the caller's or has no valid (active, unexpired) code.
+`access-codes/request`: same rules as staff re-issue (`409` unless the contract is `Active`) and revokes the previous code; a customer asking for someone else's contract gets `404`.
+`POST /api/contracts/{id}/access-codes` (staff) remains as above.
 
 ---
 
