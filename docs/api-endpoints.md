@@ -296,6 +296,33 @@ All routes: `SystemAdministrator` only. Customers are never returned or editable
 
 ## Shifts and tasks (BE-65, BE-66)
 
+### BE-65 — shifts
+
+| Method | Route | Roles | Returns |
+|---|---|---|---|
+| `POST` | `/api/shifts` `{userId, facilityId, shiftDate, startTime, endTime, shiftType}` | FacilityManager (own facilities), SystemAdministrator | `201` + `Location`, `ShiftDto` |
+| `GET` | `/api/shifts?facilityId=&userId=&from=&to=&page=&pageSize=` | any staff role | `200` `PagedResult<ShiftDto>`, oldest first |
+| `GET` | `/api/shifts/{id}` | any staff role | `200` `ShiftDto` |
+| `PUT` | `/api/shifts/{id}` `{shiftDate, startTime, endTime, shiftType}` | FacilityManager, SystemAdministrator | `200` `ShiftDto` |
+| `DELETE` | `/api/shifts/{id}` | FacilityManager, SystemAdministrator | `204` |
+
+```jsonc
+// POST body; times are facility-local, "HH:mm:ss"
+{ "userId": 4, "facilityId": 1, "shiftDate": "2026-10-20", "startTime": "22:00:00", "endTime": "06:00:00", "shiftType": "Night" }
+// 201 ShiftDto
+{ "shiftId": 7, "userId": 4, "userName": "Lê Văn B", "facilityId": 1, "facilityName": "Kho Quận 7",
+  "shiftDate": "2026-10-20", "startTime": "22:00:00", "endTime": "06:00:00", "endsNextDay": true, "shiftType": "Night" }
+```
+
+- `shiftType`: `Morning` | `Afternoon` | `Night`. `endTime` at or before `startTime` means an overnight shift ending the next day (`endsNextDay: true`); equal times are `400`.
+- Visibility: FacilityStaff see only their own shifts; FacilityManager see shifts of their facilities; SystemAdministrator and BusinessOperationsManager see all. A shift outside the caller's view is `404`.
+- Create: the person must be an `Active` FacilityStaff/FacilityManager with a `StaffFacility` row at that facility (`409` otherwise; `404` for an unknown person); a facility outside a manager's scope is `404`. A shift that starts in the past is `409`.
+- No overlap: one person's shifts, at any facility, may not intersect as `[start, end)`; a shift that ends exactly when the next begins is fine. An overnight shift of the previous day counts. `409` with the clashing shift named. `PUT` ignores the shift itself. (Two simultaneous requests can still both pass; accepted for this project.)
+- `PUT` cannot change the person or the facility, and refuses a shift that already ended or a move into the past (`409`).
+- `DELETE` is a hard delete (a shift is a plan, not history): only before it starts and only with no `StaffTask` on it; otherwise `409`.
+- "Now" is Asia/Ho_Chi_Minh (UTC+7).
+
+
 
 
 
