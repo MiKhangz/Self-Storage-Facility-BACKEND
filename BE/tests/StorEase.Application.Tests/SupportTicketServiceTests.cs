@@ -252,4 +252,57 @@ public class SupportTicketServiceTests
         Customer = customer, StorageUnit = unit, ContractNumber = number,
         StartDate = new DateOnly(2026, 10, 1), EndDate = new DateOnly(2027, 1, 1), Status = status,
     };
+
+    [Fact]
+    public async Task Staff_status_in_a_message_follows_the_transition_table()
+    {
+        var w = await SeedAsync();
+        using var _ = w.Db;
+        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value.TicketId;
+
+        // New cannot jump to WaitingForCustomer, and plain staff cannot close.
+        var skipped = await w.As(w.Staff).PostMessageAsync(id, new("hi", false, SupportTicketStatus.WaitingForCustomer), default);
+        var closed = await w.As(w.Staff).PostMessageAsync(id, new("bye", false, SupportTicketStatus.Closed), default);
+
+        skipped.Error!.Type.Should().Be(ErrorType.Conflict);
+        closed.Error!.Type.Should().Be(ErrorType.Forbidden);
+        (await StatusAsync(w, id)).Should().Be(SupportTicketStatus.New);
+        (await w.Db.Db.TicketMessages.CountAsync(m => m.TicketId == id)).Should().Be(1, "refused replies are not stored");
+    }
+
+    [Fact]
+    public async Task Staff_cannot_reopen_a_resolved_ticket_through_a_message_but_may_resolve_with_a_timestamp()
+    {
+        var w = await SeedAsync();
+        using var _ = w.Db;
+        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value.TicketId;
+
+        var resolved = await w.As(w.Staff).PostMessageAsync(id, new("fixed", false, SupportTicketStatus.Resolved), default);
+        var reopened = await w.As(w.Staff).PostMessageAsync(id, new("oops", false, SupportTicketStatus.InProgress), default);
+
+        resolved.IsSuccess.Should().BeTrue();
+        (await w.Db.Db.SupportTickets.AsNoTracking().SingleAsync()).ResolvedAt.Should().NotBeNull();
+        reopened.Error!.Type.Should().Be(ErrorType.Conflict);
+        (await StatusAsync(w, id)).Should().Be(SupportTicketStatus.Resolved);
+    }
+
+    private sealed class FixedCodeService(StorEase.Application.Interfaces.IUnitOfWork uow, StorEase.Application.Interfaces.ICurrentUser user)
+        : SupportTicketService(uow, user)
+    {
+        protected override string NewTicketCode() => "TKCLASH";
+    }
+
+    [Fact]
+    public async Task Clashing_ticket_code_is_409_not_500()
+    {
+        var w = await SeedAsync();
+        using var _ = w.Db;
+        var svc = new FixedCodeService(w.Db.Uow, new FakeCurrentUser(w.Customer.UserId, Roles.StorageCustomer));
+
+        var first = await svc.CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default);
+        var second = await svc.CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default);
+
+        first.IsSuccess.Should().BeTrue();
+        second.Error!.Type.Should().Be(ErrorType.Conflict);
+    }
 }
