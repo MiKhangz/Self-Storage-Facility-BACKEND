@@ -66,4 +66,21 @@ public class ContractsController(IContractService contracts, IAccessCodeService 
         var result = await accessCodes.IssueAsync(id, ct);
         return result.IsSuccess ? StatusCode(StatusCodes.Status201Created, result.Value) : Failure(result.Error);
     }
+
+    /// <summary>The current valid code's metadata. The plaintext is never returned again.</summary>
+    [HttpGet("{id:int}/access-code")]
+    [Authorize]
+    public async Task<ActionResult<AccessCodeSummaryDto>> GetAccessCode(int id, CancellationToken ct)
+    {
+        var result = await accessCodes.GetActiveAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    [HttpPost("{id:int}/access-codes/request")]
+    [Authorize(Roles = Roles.StorageCustomer)]
+    public async Task<ActionResult<AccessCodeDto>> RequestAccessCode(int id, CancellationToken ct)
+    {
+        var result = await accessCodes.IssueAsync(id, ct);
+        return result.IsSuccess ? StatusCode(StatusCodes.Status201Created, result.Value) : Failure(result.Error);
+    }
 }

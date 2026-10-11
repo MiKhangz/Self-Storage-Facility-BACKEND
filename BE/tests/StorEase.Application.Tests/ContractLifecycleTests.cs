@@ -50,7 +50,7 @@ public class ContractLifecycleTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
         var uow = new TestUow(db);
         var user = new FakeUser(9, role);
-        var codes = new AccessCodeService(uow, new FakeHasher());
+        var codes = new AccessCodeService(uow, new FakeHasher(), user);
         var contracts = new ContractService(uow, user, codes);
         return new Fixture(db, contracts, codes, new HandoverService(uow, user, contracts));
     }

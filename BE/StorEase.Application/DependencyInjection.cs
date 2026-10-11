@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IHandoverService, HandoverService>();
         services.AddScoped<IContractService, ContractService>();
         services.AddScoped<IAccessCodeService, AccessCodeService>();
+        services.AddScoped<IAccessLogService, AccessLogService>();
         return services;
     }
 }
