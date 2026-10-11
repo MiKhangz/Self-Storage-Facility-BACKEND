@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.AccessCodes;
 using StorEase.Application.Features.Contracts;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
@@ -33,6 +34,12 @@ public class ContractServiceTests
         }
     }
 
+    private sealed class FakeHasher : IPasswordHasher
+    {
+        public string Hash(string value) => "h:" + value;
+        public bool Verify(string value, string hash) => hash == "h:" + value;
+    }
+
     private static (ContractService Service, AppDbContext Db) Create(int userId, string role)
     {
         var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
@@ -45,7 +52,8 @@ public class ContractServiceTests
             new Contract { ContractId = 2, ContractNumber = "CT2", CustomerId = 1, Customer = customer, StorageUnitId = 1, StorageUnit = unit, Status = ContractStatus.Active, SignedAt = DateTime.UtcNow },
             new Contract { ContractId = 3, ContractNumber = "CT3", CustomerId = 2, Customer = other, StorageUnitId = 1, StorageUnit = unit, Status = ContractStatus.Draft });
         db.SaveChanges();
-        return (new ContractService(new TestUow(db), new FakeUser(userId, role)), db);
+        return (new ContractService(new TestUow(db), new FakeUser(userId, role),
+            new AccessCodeService(new TestUow(db), new FakeHasher())), db);
     }
 
     [Fact]
