@@ -221,7 +221,18 @@ In one transaction: contract `Draft` → `Active`, unit `Reserved` → `Occupied
 
 `409` when: the reservation is not `Confirmed` · the contract belongs to another reservation or
 unit · the contract is not `Draft` · the customer has not signed yet · the unit is not `Reserved`.
-`501` until Nhân's contract activation lands; nothing is changed in that case.
+Activation is live: the contract becomes `Active`, the unit `Occupied`, and a 6-digit access code is issued (valid until the day after `endDate`, hash only stored). `409` also when another `Active`/`Draft` contract holds the unit. Any `409` leaves everything unchanged.
+
+### More contract endpoints (Nhân)
+
+| Method | Route | Who | Success |
+|---|---|---|---|
+| `GET` | `/api/contracts/export?status=` | Staff | `200` `text/csv` (UTF-8 with BOM), same columns as the list |
+| `POST` | `/api/contracts/{id}/terminate` | `FacilityManager` | `200` `ContractDto` with `status: "Terminated"` |
+| `POST` | `/api/contracts/{id}/access-codes` | Staff | `201` `{ accessCodeId, contractId, code, issuedAt, expiresAt }` |
+
+`terminate`: allowed from `Active`, `Overdue`, `Suspended`, `PendingMoveOut`; the unit goes back to `Available` and every active access code is revoked. `409` for `Draft`, `Closed`, `Terminated`.
+`access-codes`: re-issues a code for an `Active` contract and revokes the previous one (`409` otherwise). `code` is plaintext and shown once.
 
 ---
 
