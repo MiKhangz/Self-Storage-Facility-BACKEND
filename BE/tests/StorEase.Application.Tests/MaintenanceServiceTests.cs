@@ -162,6 +162,8 @@ public class MaintenanceServiceTests
         await svc.ChangeStatusAsync(first, To(MaintenanceOrderStatus.Cancelled), default);
         (await w.UnitStatus(w.Unit)).Should().Be(StorageUnitStatus.Maintenance);
 
+        // The second order never started, so it cannot tell whether the hold is its own to release.
+        await svc.ChangeStatusAsync(second, To(MaintenanceOrderStatus.InProgress), default);
         await svc.ChangeStatusAsync(second, To(MaintenanceOrderStatus.Cancelled), default);
         (await w.UnitStatus(w.Unit)).Should().Be(StorageUnitStatus.Available);
     }
@@ -213,4 +215,36 @@ public class MaintenanceServiceTests
         Customer = customer, Category = category, Facility = facility, StorageUnit = unit, TicketCode = code,
         Subject = "s", Priority = Priority.Normal, Status = SupportTicketStatus.New, CreatedAt = DateTime.UtcNow,
     };
+
+    [Fact]
+    public async Task Cancelling_an_order_that_never_started_leaves_a_unit_held_for_another_reason()
+    {
+        var w = await SeedAsync();
+        using var _ = w.Db;
+        var svc = w.As(w.Staff);
+        var id = (await svc.CreateAsync(Req(w.Unit), default)).Value.MaintenanceOrderId;
+        // e.g. a move-out inspection found damage and parked the unit in Maintenance.
+        (await w.Db.Db.StorageUnits.SingleAsync(u => u.StorageUnitId == w.Unit.StorageUnitId)).Status = StorageUnitStatus.Maintenance;
+        await w.Db.Db.SaveChangesAsync();
+
+        await svc.ChangeStatusAsync(id, To(MaintenanceOrderStatus.Cancelled), default);
+
+        (await w.UnitStatus(w.Unit)).Should().Be(StorageUnitStatus.Maintenance);
+    }
+
+    [Fact]
+    public async Task Offsetless_schedule_time_is_read_as_vietnam_time_whatever_the_server_zone()
+    {
+        var w = await SeedAsync();
+        using var _ = w.Db;
+        var at = new DateTime(2026, 10, 20, 9, 0, 0, DateTimeKind.Unspecified);
+
+        var created = await w.As(w.Staff).CreateAsync(Req(w.Unit, at), default);
+        var id = (await w.As(w.Staff).CreateAsync(Req(w.Unit), default)).Value.MaintenanceOrderId;
+        var scheduled = await w.As(w.Staff).ChangeStatusAsync(
+            id, new(MaintenanceOrderStatus.Scheduled, at, null, null), default);
+
+        created.Value.ScheduledAt.Should().Be(new DateTime(2026, 10, 20, 2, 0, 0));
+        scheduled.Value.ScheduledAt.Should().Be(new DateTime(2026, 10, 20, 2, 0, 0));
+    }
 }

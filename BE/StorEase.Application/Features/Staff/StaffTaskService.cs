@@ -40,7 +40,7 @@ public class StaffTaskService(IUnitOfWork uow, ICurrentUser currentUser) : IStaf
             return Error.Validation("The assignee must be an active account.");
 
         var (from, to) = ShiftWindowUtc(shift.ShiftDate, shift.StartTime, shift.EndTime);
-        var at = request.ScheduledAt.ToUniversalTime();
+        var at = VietnamTime.ToUtc(request.ScheduledAt);
         if (at < from || at >= to)
             return Error.Validation("scheduledAt must fall inside the shift.");
 

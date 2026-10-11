@@ -64,7 +64,7 @@ public class MaintenanceService(IUnitOfWork uow, ICurrentUser currentUser) : IMa
             TicketId = request.TicketId,
             AssignedTo = request.AssignedTo,
             Description = request.Description.Trim(),
-            ScheduledAt = request.ScheduledAt?.ToUniversalTime(),
+            ScheduledAt = request.ScheduledAt is { } at ? VietnamTime.ToUtc(at) : null,
             Status = request.ScheduledAt is null ? MaintenanceOrderStatus.Open : MaintenanceOrderStatus.Scheduled,
         };
         uow.Repository<MaintenanceOrder>().Add(order);
@@ -115,10 +115,13 @@ public class MaintenanceService(IUnitOfWork uow, ICurrentUser currentUser) : IMa
                 return Error.Conflict($"A {order.Status} order cannot move to {target}.");
 
             var unit = order.StorageUnit;
+            // Only work that was actually under way took the unit off the market; closing an order that
+            // never started must not release a unit held in Maintenance for another reason (e.g. move-out damage).
+            var wasUnderWay = order.Status == MaintenanceOrderStatus.InProgress;
             switch (target)
             {
                 case MaintenanceOrderStatus.Scheduled:
-                    order.ScheduledAt = request.ScheduledAt!.Value.ToUniversalTime();
+                    order.ScheduledAt = VietnamTime.ToUtc(request.ScheduledAt!.Value);
                     break;
                 case MaintenanceOrderStatus.InProgress:
                     // A Reserved or Occupied unit keeps its status; only a free unit is taken off the market.
@@ -133,7 +136,7 @@ public class MaintenanceService(IUnitOfWork uow, ICurrentUser currentUser) : IMa
             }
             order.Status = target;
 
-            if (target is MaintenanceOrderStatus.Done or MaintenanceOrderStatus.Cancelled &&
+            if (target is MaintenanceOrderStatus.Done or MaintenanceOrderStatus.Cancelled && wasUnderWay &&
                 unit.Status == StorageUnitStatus.Maintenance)
             {
                 var otherLive = await uow.Repository<MaintenanceOrder>().Query().AnyAsync(o =>
