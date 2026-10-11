@@ -6,6 +6,7 @@ using StorEase.Application.Features.Facilities;
 using StorEase.Application.Features.Handovers;
 using StorEase.Application.Features.Reservations;
 using StorEase.Application.Features.StorageUnits;
+using StorEase.Application.Features.SupportTickets;
 
 namespace StorEase.Application;
 
@@ -21,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<IHandoverService, HandoverService>();
         services.AddScoped<IContractService, ContractServiceNotReady>();
+        services.AddScoped<ISupportTicketService, SupportTicketService>();
         return services;
     }
 }
