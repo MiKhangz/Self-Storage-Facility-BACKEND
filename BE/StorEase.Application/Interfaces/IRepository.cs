@@ -8,4 +8,7 @@ public interface IRepository<T> where T : class
     Task<T?> FindAsync(object id, CancellationToken ct);
 
     void Add(T entity);
+
+    /// <summary>Hard delete. Only for plans and link rows that carry no history (e.g. a future shift).</summary>
+    void Remove(T entity);
 }
