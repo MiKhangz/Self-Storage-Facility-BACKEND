@@ -13,5 +13,6 @@ public class StaffFacilityConfiguration : IEntityTypeConfiguration<StaffFacility
 
         builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
         builder.HasOne(x => x.Facility).WithMany().HasForeignKey(x => x.FacilityId);
+        builder.HasIndex(x => new { x.UserId, x.FacilityId }).IsUnique();
     }
 }

@@ -16,6 +16,7 @@ public class SupportTicket
     public SupportTicketStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? ResolvedAt { get; set; }
+    public DateTime? DueDate { get; set; }
 
     public User Customer { get; set; } = null!;
     public StorageUnit? StorageUnit { get; set; }

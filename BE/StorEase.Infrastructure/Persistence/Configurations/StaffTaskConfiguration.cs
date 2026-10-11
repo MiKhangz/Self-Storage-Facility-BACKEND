@@ -15,6 +15,7 @@ public class StaffTaskConfiguration : IEntityTypeConfiguration<StaffTask>
         builder.HasOne(x => x.AssignedToUser).WithMany().HasForeignKey(x => x.AssignedTo);
         builder.Property(x => x.TaskType).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
         builder.Property(x => x.ReferenceCode).HasMaxLength(30).IsUnicode(false);
+        builder.Property(x => x.Note).HasMaxLength(200);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
         builder.HasIndex(x => x.Status);
     }
