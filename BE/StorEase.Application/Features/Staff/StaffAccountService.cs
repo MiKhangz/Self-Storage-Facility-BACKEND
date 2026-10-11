@@ -117,6 +117,11 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
             var current = await uow.Repository<StaffFacility>().Query()
                 .Where(s => s.UserId == userId).ToListAsync(ct);
 
+            // Unassigning must not strand work: refuse while the person still has open work at that facility.
+            var leaving = current.Where(r => !wanted.Contains(r.FacilityId)).Select(r => r.FacilityId).ToList();
+            if (leaving.Count > 0 && await OpenWorkAsync(userId, leaving, ct) is { } blocker)
+                return Error.Conflict(blocker);
+
             // StaffFacility is a link, not history, so unassigning deletes the row (design Q4).
             foreach (var row in current.Where(r => !wanted.Contains(r.FacilityId)))
                 uow.Repository<StaffFacility>().Remove(row);
@@ -128,6 +133,28 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
             return userId;
         }, ct);
         return done.IsSuccess ? await GetAsync(userId, ct) : done.Error;
+    }
+
+    /// <summary>Describes open work that ties <paramref name="userId"/> to one of the facilities, or null if none.</summary>
+    private async Task<string?> OpenWorkAsync(int userId, List<int> facilityIds, CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        var shifts = await uow.Repository<Shift>().Query()
+            .CountAsync(s => s.UserId == userId && facilityIds.Contains(s.FacilityId) && s.ShiftDate >= today, ct);
+        var tickets = await uow.Repository<SupportTicket>().Query()
+            .CountAsync(t => t.AssignedTo == userId && facilityIds.Contains(t.FacilityId) &&
+                             t.Status != SupportTicketStatus.Resolved && t.Status != SupportTicketStatus.Closed, ct);
+        var tasks = await uow.Repository<StaffTask>().Query()
+            .CountAsync(t => t.AssignedTo == userId && t.Shift != null && facilityIds.Contains(t.Shift.FacilityId) &&
+                             (t.Status == StaffTaskStatus.ToDo || t.Status == StaffTaskStatus.InProgress), ct);
+        var orders = await uow.Repository<MaintenanceOrder>().Query()
+            .CountAsync(o => o.AssignedTo == userId && facilityIds.Contains(o.StorageUnit.FacilityId) &&
+                             (o.Status == MaintenanceOrderStatus.Open || o.Status == MaintenanceOrderStatus.Scheduled ||
+                              o.Status == MaintenanceOrderStatus.InProgress), ct);
+        if (shifts + tickets + tasks + orders == 0)
+            return null;
+        return $"Cannot unassign a facility with open work: {shifts} upcoming shift(s), {tickets} open ticket(s), " +
+               $"{tasks} open task(s), {orders} open maintenance order(s). Reassign or finish them first.";
     }
 
     // Customers are not managed here; this service only sees staff roles.

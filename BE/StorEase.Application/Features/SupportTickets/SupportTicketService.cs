@@ -87,7 +87,19 @@ public class SupportTicketService(IUnitOfWork uow, ICurrentUser currentUser) : I
             ],
         };
         uow.Repository<SupportTicket>().Add(ticket);
-        await uow.SaveChangesAsync(ct);
+        try
+        {
+            await uow.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            var clash = await uow.Repository<SupportTicket>().Query()
+                .AnyAsync(t => t.TicketCode == ticket.TicketCode && t.TicketId != ticket.TicketId, ct);
+            if (!clash)
+                throw;
+            // The unique index on TicketCode rejected a random-code clash; the caller can simply retry.
+            return Error.Conflict("Could not allocate a ticket code, please try again.");
+        }
 
         return await GetAsync(ticket.TicketId, ct);
     }
@@ -131,6 +143,11 @@ public class SupportTicketService(IUnitOfWork uow, ICurrentUser currentUser) : I
             if (ticket.Status == SupportTicketStatus.Closed)
                 return Error.Conflict("The ticket is closed and no longer accepts messages.");
 
+            // Same transition table as the queue; asking for the status the ticket already has is a no-op.
+            if (!isCustomer && !request.IsInternalNote && request.NextStatus is { } wanted && wanted != ticket.Status &&
+                TicketStatusRules.CheckMove(currentUser.Role, false, ticket.Status, wanted) is { } refused)
+                return refused;
+
             var message = new TicketMessage
             {
                 TicketId = ticket.TicketId,
@@ -152,8 +169,12 @@ public class SupportTicketService(IUnitOfWork uow, ICurrentUser currentUser) : I
             }
             else if (!request.IsInternalNote)
             {
-                if (request.NextStatus is { } next && ticket.Status != SupportTicketStatus.Resolved)
+                if (request.NextStatus is { } next && next != ticket.Status)
+                {
                     ticket.Status = next;
+                    if (next == SupportTicketStatus.Resolved)
+                        ticket.ResolvedAt = DateTime.UtcNow;
+                }
                 else if (ticket.Status == SupportTicketStatus.New)
                     ticket.Status = SupportTicketStatus.InProgress;
             }
@@ -207,6 +228,6 @@ public class SupportTicketService(IUnitOfWork uow, ICurrentUser currentUser) : I
             t.CreatedAt,
             t.ResolvedAt));
 
-    // ponytail: random suffix, ~1-in-a-million clash per day; the unique index turns a clash into a 500. Switch to a sequence if volume grows.
-    private static string NewTicketCode() => $"TK{DateTime.UtcNow:yyMMdd}{Random.Shared.Next(1_000_000):D6}";
+    // ponytail: random suffix, ~1-in-a-million clash per day; a clash is reported as a 409 to retry. Switch to a sequence if volume grows.
+    protected virtual string NewTicketCode() => $"TK{DateTime.UtcNow:yyMMdd}{Random.Shared.Next(1_000_000):D6}";
 }

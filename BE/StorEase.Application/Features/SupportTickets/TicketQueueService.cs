@@ -67,13 +67,14 @@ public class TicketQueueService(IUnitOfWork uow, ICurrentUser currentUser) : ITi
                 assignee.RoleName is not (Roles.FacilityStaff or Roles.FacilityManager))
                 return Error.Conflict("The assignee must be an active facility staff member or manager.");
 
-            var worksHere = await uow.Repository<StaffFacility>().Query()
-                .AnyAsync(s => s.UserId == request.AssigneeId && s.FacilityId == ticket.FacilityId, ct);
+            // A manager runs the facility through Facility.ManagerId and may have no StaffFacility row.
+            var worksHere = await StaffScope.FacilityIdsOf(uow, request.AssigneeId)
+                .AnyAsync(id => id == ticket.FacilityId, ct);
             if (!worksHere)
                 return Error.Conflict("The assignee is not assigned to this ticket's facility.");
 
             ticket.AssignedTo = request.AssigneeId;
-            ticket.DueDate = request.DueDate;
+            ticket.DueDate = request.DueDate is { } due ? VietnamTime.ToUtc(due) : null;
             if (ticket.Status == SupportTicketStatus.New)
                 ticket.Status = SupportTicketStatus.InProgress;
             return ticket.TicketId;
@@ -92,24 +93,8 @@ public class TicketQueueService(IUnitOfWork uow, ICurrentUser currentUser) : ITi
                 return Error.NotFound("Ticket not found.");
 
             var target = request.Status;
-            if (ticket.Status == SupportTicketStatus.Closed)
-                return Error.Conflict("A Closed ticket cannot change status.");
-            if (ticket.Status == target)
-                return Error.Conflict($"The ticket is already {target}.");
-
-            // Who may reach each target: the owning customer or a manager closes; staff do the rest.
-            if (target == SupportTicketStatus.Closed)
-            {
-                if (!currentUser.IsCustomer && currentUser.Role != Roles.FacilityManager)
-                    return Error.Forbidden("Only the customer or a facility manager can close a ticket.");
-            }
-            else
-            {
-                if (currentUser.IsCustomer)
-                    return Error.Forbidden("A customer can only close their own ticket.");
-                if (!AllowedStaffMove(ticket.Status, target))
-                    return Error.Conflict($"A {ticket.Status} ticket cannot move to {target}.");
-            }
+            if (TicketStatusRules.CheckMove(currentUser.Role, currentUser.IsCustomer, ticket.Status, target) is { } refused)
+                return refused;
 
             ticket.Status = target;
             if (target == SupportTicketStatus.Resolved)
@@ -119,16 +104,6 @@ public class TicketQueueService(IUnitOfWork uow, ICurrentUser currentUser) : ITi
 
         return done.IsSuccess ? await GetAsync(done.Value, ct) : done.Error;
     }
-
-    private static bool AllowedStaffMove(SupportTicketStatus from, SupportTicketStatus to) => (from, to) switch
-    {
-        (SupportTicketStatus.New, SupportTicketStatus.InProgress) => true,
-        (SupportTicketStatus.InProgress, SupportTicketStatus.WaitingForCustomer) => true,
-        (SupportTicketStatus.WaitingForCustomer, SupportTicketStatus.InProgress) => true,
-        (SupportTicketStatus.New or SupportTicketStatus.InProgress or SupportTicketStatus.WaitingForCustomer,
-            SupportTicketStatus.Resolved) => true,
-        _ => false,
-    };
 
     private async Task<Result<TicketQueueItemDto>> GetAsync(int ticketId, CancellationToken ct)
     {
