@@ -5,6 +5,7 @@ using StorEase.Application.Features.Contracts;
 using StorEase.Application.Features.Facilities;
 using StorEase.Application.Features.Handovers;
 using StorEase.Application.Features.MoveOuts;
+using StorEase.Application.Features.Renewals;
 using StorEase.Application.Features.Reservations;
 using StorEase.Application.Features.StorageUnits;
 
@@ -22,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<IHandoverService, HandoverService>();
         services.AddScoped<IMoveOutService, MoveOutService>();
+        services.AddScoped<IRenewalService, RenewalService>();
         services.AddScoped<IContractService, ContractServiceNotReady>();
         return services;
     }
