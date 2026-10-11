@@ -53,7 +53,7 @@ public class ContractServiceTests
             new Contract { ContractId = 3, ContractNumber = "CT3", CustomerId = 2, Customer = other, StorageUnitId = 1, StorageUnit = unit, Status = ContractStatus.Draft });
         db.SaveChanges();
         return (new ContractService(new TestUow(db), new FakeUser(userId, role),
-            new AccessCodeService(new TestUow(db), new FakeHasher())), db);
+            new AccessCodeService(new TestUow(db), new FakeHasher(), new FakeUser(userId, role))), db);
     }
 
     [Fact]

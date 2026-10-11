@@ -8,14 +8,15 @@ using StorEase.Domain.Enums;
 
 namespace StorEase.Application.Features.AccessCodes;
 
-public class AccessCodeService(IUnitOfWork uow, IPasswordHasher hasher) : IAccessCodeService
+public class AccessCodeService(IUnitOfWork uow, IPasswordHasher hasher, ICurrentUser currentUser) : IAccessCodeService
 {
+    // Staff may issue for any contract; a customer only for their own (someone else's is a 404).
     public Task<Result<AccessCodeDto>> IssueAsync(int contractId, CancellationToken ct) =>
         uow.InTransactionAsync<AccessCodeDto>(async () =>
         {
             var contract = await uow.Repository<Contract>().Query()
                 .Include(c => c.AccessCodes).FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
-            if (contract is null)
+            if (contract is null || (currentUser.IsCustomer && contract.CustomerId != currentUser.UserId))
                 return Error.NotFound("Contract not found.");
             if (contract.Status != ContractStatus.Active)
                 return Error.Conflict($"Access codes are issued for an Active contract; this one is {contract.Status}.");
@@ -24,6 +25,32 @@ public class AccessCodeService(IUnitOfWork uow, IPasswordHasher hasher) : IAcces
             await uow.SaveChangesAsync(ct); // the id is only known after the insert
             return new AccessCodeDto(entity.AccessCodeId, contract.ContractId, code, entity.IssuedAt, entity.ExpiresAt);
         }, ct);
+
+    public Task<Result<AccessCodeSummaryDto>> RevokeAsync(int accessCodeId, CancellationToken ct) =>
+        uow.InTransactionAsync<AccessCodeSummaryDto>(async () =>
+        {
+            var code = await uow.Repository<AccessCode>().Query().FirstOrDefaultAsync(a => a.AccessCodeId == accessCodeId, ct);
+            if (code is null)
+                return Error.NotFound("Access code not found.");
+            if (!code.IsActive)
+                return Error.Conflict("The access code is already revoked.");
+
+            code.IsActive = false;
+            return ToSummary(code);
+        }, ct);
+
+    public async Task<Result<AccessCodeSummaryDto>> GetActiveAsync(int contractId, CancellationToken ct)
+    {
+        var contract = await uow.Repository<Contract>().Query().AsNoTracking()
+            .Include(c => c.AccessCodes).FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
+        if (contract is null || (currentUser.IsCustomer && contract.CustomerId != currentUser.UserId))
+            return Error.NotFound("Contract not found.");
+
+        // An expired code is no use to the customer even while its flag is still set.
+        var active = contract.AccessCodes.Where(a => a.IsActive && a.ExpiresAt > DateTime.UtcNow)
+            .OrderByDescending(a => a.IssuedAt).FirstOrDefault();
+        return active is null ? Error.NotFound("The contract has no active access code.") : ToSummary(active);
+    }
 
     /// <summary>
     /// Revokes the contract's active codes and adds a new one, valid until the contract ends (business rule 9).
@@ -47,4 +74,7 @@ public class AccessCodeService(IUnitOfWork uow, IPasswordHasher hasher) : IAcces
         contract.AccessCodes.Add(entity);
         return (entity, code);
     }
+
+    private static AccessCodeSummaryDto ToSummary(AccessCode a) =>
+        new(a.AccessCodeId, a.ContractId, a.IssuedAt, a.ExpiresAt, a.IsActive);
 }
