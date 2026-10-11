@@ -753,3 +753,15 @@ Read this as "one `Parent` has many `Child`". Relationships marked *optional* ha
 | `User` | `SupportTicket` | `SupportTicket.AssignedTo` | *optional* |
 | `SupportTicket` | `TicketMessage` | `TicketMessage.TicketId` |  |
 | `User` | `TicketMessage` | `TicketMessage.SenderId` |  |
+
+---
+
+## 13. Local environment on the agent runtime (Windows)
+
+- SDKs side by side: .NET 8.0.425 and 10.0.300 (`dotnet --list-sdks`); the projects target `net8.0`, so `dotnet build` / `dotnet test` from `BE/` work without `DOTNET_ROLL_FORWARD`. `dotnet-ef` is installed globally (v10) and works with these projects.
+- SQL Server 2022 runs in Docker, bound to loopback only:
+  `docker run -d --name storease-sql -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=<dev password>" -p 127.0.0.1:14333:1433 mcr.microsoft.com/mssql/server:2022-latest`
+  Start/stop later with `docker start|stop storease-sql`.
+- Create `BE/StorEase.Api/appsettings.Development.json` (git-ignored) with `ConnectionStrings:DefaultConnection` = `Server=127.0.0.1,14333;Database=StorEase;User Id=sa;Password=<dev password>;TrustServerCertificate=True` and `Jwt:Key` (≥32 chars).
+- Then from `BE/`: `dotnet ef database update -p StorEase.Infrastructure -s StorEase.Api` (31 tables, including `__EFMigrationsHistory`), `dotnet run --project StorEase.Api` (https://localhost:7001), `dotnet test`.
+- Git Bash on Windows rewrites `/opt/...` paths for `docker exec`; prefix with `MSYS_NO_PATHCONV=1`.
