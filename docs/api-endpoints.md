@@ -264,6 +264,22 @@ File attachments (BE-59) are **not built**: there is no table or storage for the
 
 ## Staff accounts (BE-64)
 
+All routes: `SystemAdministrator` only. Customers are never returned or editable here (`404`).
+
+| Method | Route | Success |
+|---|---|---|
+| `GET` | `/api/staff?role=&status=&page=1&pageSize=20` | `200` `PagedResult<StaffAccountDto>` |
+| `GET` | `/api/staff/{id}` | `200` `StaffAccountDto` |
+| `POST` | `/api/staff` `{fullName, email, phoneNumber, password (8-100), role}` | `201` + `Location` |
+| `PUT` | `/api/staff/{id}` `{fullName?, phoneNumber?, role?, status?}` | `200` `StaffAccountDto` |
+| `PUT` | `/api/staff/{id}/facilities` `{facilityIds: [int]}` | `200` `StaffAccountDto` |
+
+- `StaffAccountDto`: `userId, fullName, email, phoneNumber, role, status, createdAt, facilities: [{facilityId, facilityName}]`. The password hash is never returned.
+- `role` is one of `FacilityStaff|FacilityManager|BusinessOperationsManager|SystemAdministrator` (`400` otherwise; `StorageCustomer` is refused). `404` if that role row does not exist yet (the `Role` table has no seed).
+- Create: new account is `Active`; duplicate email (case-insensitive) is `409`.
+- Update: only the fields given change; no delete, lock an account with `status` `Suspended` or `Inactive` (not `Pending`). An admin cannot deactivate their own account or change their own role (`409`). A locked account's existing JWT keeps working until it expires.
+- Facilities: replaces the whole list. Unassigned rows are deleted (`StaffFacility` is a link, not history); unknown facility id is `404` and nothing changes.
+
 
 
 ## Shifts and tasks (BE-65, BE-66)
