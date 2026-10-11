@@ -279,3 +279,30 @@ Rules:
 - Approve: only `Requested`. Inspection: only `Approved`; request becomes `Inspected`.
 - Settle: only `Inspected`. `refundAmount = max(0, deposit − cleaning − repair − other − unpaid Issued/Overdue invoices)`; any excess is `shortfall`. Request → `Completed`, contract → `Closed`, access codes revoked, unit → `Available` (`Maintenance` after `MajorDamage`). **No money is paid out**: the payment gateway is not connected, so the refund is only recorded.
 - Damage notes and photos are not stored: `ReturnInspection` has no column for them.
+
+---
+
+## Contract renewal (Nhân, BE-54, BE-55)
+
+Not part of the frozen demo set. `Renewal.Status` values: `Requested`, `Approved`, `Rejected`, `Cancelled` (varchar column, no enum).
+
+| Method | Route | Who | Success |
+|---|---|---|---|
+| `POST` | `/api/renewals` | `StorageCustomer` (own contract) | `201` + `Location`, `RenewalDto` |
+| `GET` | `/api/renewals?contractId=1&status=Requested&page=1&pageSize=20` | any logged-in user (customer: own) | `200` `PagedResult<RenewalDto>`, newest first |
+| `GET` | `/api/renewals/{id}` | any logged-in user (customer: own) | `200` `RenewalDto` |
+
+```jsonc
+// POST /api/renewals
+{ "contractId": 1, "extendMonths": 6 }          // extendMonths 1..36
+
+// RenewalDto — status + the contract it extends (BE-55)
+{ "renewalId": 1, "contractId": 1, "contractNumber": "CT…", "unitCode": "A-103", "requestedAt": "…Z",
+  "extendMonths": 6, "currentEndDate": "2027-01-31", "newEndDate": "2027-07-31",
+  "currentMonthlyRent": 1000000, "newMonthlyRent": 900000, "status": "Requested", "approvedBy": null }
+```
+
+Rules:
+- Create: `409` unless the contract is `Active` and has no renewal in `Requested`. Another customer's contract is `404`.
+- `newEndDate = contract.endDate + extendMonths`. `newMonthlyRent` = active pricing policy's base price for the unit type less the discount tier reached (≥3 / ≥6 / ≥12 months, percent); if there is no active policy it is the current rent. The contract's own rent and end date are not changed by the request.
+- **Not built:** approve/reject (Facility Manager) and applying an approved renewal to the contract; they are not in BE-54/55, so a renewal stays `Requested`.
