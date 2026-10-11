@@ -221,6 +221,69 @@ unit · the contract is not `Draft` · the customer has not signed yet · the un
 
 ---
 
+## Support tickets (BE-59..62)
+
+### BE-59 · BE-60 — create a ticket, conversation
+
+| Method | Route | Role | Notes |
+|---|---|---|---|
+| GET | `/api/ticket-categories` | any signed-in | `[{categoryId, name, defaultPriority}]`. The table has no seed yet. |
+| POST | `/api/support-tickets` | StorageCustomer | `201` + `Location`, body = ticket. |
+| GET | `/api/support-tickets/{id}` | any signed-in | Customer: own tickets. FacilityStaff/Manager: tickets of their facilities. Admin/BusinessOps: all. Anyone else's: `404`. |
+| GET | `/api/support-tickets/{id}/messages` | any signed-in | Oldest first. Customers never get internal notes. |
+| POST | `/api/support-tickets/{id}/messages` | any signed-in | `201`, body = message. |
+
+`POST /api/support-tickets` body: `{categoryId, subject (≤200), description (≤1000), storageUnitId?, facilityId?, priority?}`.
+Give `storageUnitId` (needs your own Active/Overdue/Suspended/PendingMoveOut contract on it; the facility comes from the unit) or `facilityId`. `priority` defaults to the category's `defaultPriority` (`Low|Normal|High|Urgent`).
+The description is stored as the first message (no description column). Status starts `New`; `ticketCode` = `TK{yyMMdd}{6 digits}`.
+
+`POST .../messages` body: `{body (≤1000), isInternalNote, nextStatus?}`. `isInternalNote` and `nextStatus` (`InProgress|WaitingForCustomer`) are staff-only (`403` for customers).
+Status moves: a staff reply to a `New` ticket → `InProgress`; staff `nextStatus` sets it; a customer reply on `WaitingForCustomer` or `Resolved` → `InProgress` (clears `resolvedAt`); an internal note never changes status.
+`409` when the ticket is `Closed`. `400` validation, `404` unknown category/unit/facility/ticket.
+
+File attachments (BE-59) are **not built**: there is no table or storage for them.
+
+### BE-61 · BE-62 — queue, assignment, status
+
+| Method | Route | Who | Success |
+|---|---|---|---|
+| `GET` | `/api/support-tickets?status=&priority=&facilityId=&assignedToMe=false&page=1&pageSize=20` | any logged-in user | `200` `PagedResult<TicketQueueItemDto>` |
+| `POST` | `/api/support-tickets/{id}/assign` `{assigneeId, dueDate?}` | `FacilityManager` | `200` `TicketQueueItemDto` |
+| `POST` | `/api/support-tickets/{id}/status` `{status}` | customer (own), Staff | `200` `TicketQueueItemDto` |
+
+- List order: `Urgent` > `High` > `Normal` > `Low`, then oldest first. Facility staff and managers see only tickets of their facilities; admin and business manager see all; a customer sees only their own. A ticket outside the caller's scope is `404`.
+- `TicketQueueItemDto`: `ticketId, ticketCode, subject, priority, status, categoryId, categoryName, customerId, customerName, facilityId, facilityName, storageUnitId, unitCode, assignedTo, assignedToName, dueDate, createdAt, resolvedAt`.
+- Assign: the assignee must be an `Active` `FacilityStaff`/`FacilityManager` with a `StaffFacility` row at the ticket's facility, `dueDate` not in the past; a `New` ticket becomes `InProgress`. `409` for a `Resolved`/`Closed` ticket or an unsuitable assignee; `404` for an unknown assignee.
+- Status moves by staff: `New→InProgress`, `InProgress⇄WaitingForCustomer`, any open status `→Resolved` (sets `resolvedAt`). `Closed` only by the owning customer or a `FacilityManager` (`403` otherwise), and is final. Anything else `409`; a customer asking for another status gets `403`.
+
+
+
+## Maintenance orders (BE-63)
+
+Base `/api/maintenance-orders`. Write: `FacilityStaff`, `FacilityManager`. Read: those two plus `BusinessOperationsManager`, `SystemAdministrator`. Staff only see orders on units of their own facilities (`StaffFacility` or managed); admin and business manager see all. Anything outside the scope is `404`.
+
+| Method | Route | Notes |
+|---|---|---|
+| `POST` | `/api/maintenance-orders` | body `{description (≤300), storageUnitId?, ticketId?, scheduledAt?, assignedTo?}`; one of `storageUnitId`/`ticketId` is required. A ticket must name a unit (else `400`) and its unit wins; both given must agree. `assignedTo` must be an active staff member of the unit's facility (`400`). Starts `Open`, or `Scheduled` when `scheduledAt` is given. `201` + `Location`. |
+| `GET` | `/api/maintenance-orders?status=&storageUnitId=&page=&pageSize=` | `PagedResult`, newest first. |
+| `GET` | `/api/maintenance-orders/{id}` | `{maintenanceOrderId, storageUnitId, unitCode, facilityId, ticketId, assignedTo, description, scheduledAt, completedAt, cost, workNote, status}` |
+| `POST` | `/api/maintenance-orders/{id}/status` | body `{status, scheduledAt?, cost?, workNote?}`; returns the order. |
+
+Status moves (anything else `409`): `Open|Scheduled → Scheduled` (needs `scheduledAt`, also reschedules); `Open|Scheduled → InProgress`; `InProgress → Done` (needs `cost ≥ 0` and `workNote ≤500`, sets `completedAt`); `Open|Scheduled|InProgress → Cancelled`. `Done` and `Cancelled` are final.
+
+Unit side effects, in the same transaction: starting work on an `Available` unit makes it `Maintenance` (`Reserved`/`Occupied` units are left alone). On `Done` or `Cancelled`, a unit in `Maintenance` goes back to `Available` unless another live (Open/Scheduled/InProgress) order is on it.
+
+
+## Staff accounts (BE-64)
+
+
+
+## Shifts and tasks (BE-65, BE-66)
+
+
+
+---
+
 ## Demo accounts
 
 Seeded by Trường's `DbSeeder`. Password for all three: `Demo@123`.
