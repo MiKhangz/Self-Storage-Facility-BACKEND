@@ -245,6 +245,17 @@ File attachments (BE-59) are **not built**: there is no table or storage for the
 
 ### BE-61 · BE-62 — queue, assignment, status
 
+| Method | Route | Who | Success |
+|---|---|---|---|
+| `GET` | `/api/support-tickets?status=&priority=&facilityId=&assignedToMe=false&page=1&pageSize=20` | any logged-in user | `200` `PagedResult<TicketQueueItemDto>` |
+| `POST` | `/api/support-tickets/{id}/assign` `{assigneeId, dueDate?}` | `FacilityManager` | `200` `TicketQueueItemDto` |
+| `POST` | `/api/support-tickets/{id}/status` `{status}` | customer (own), Staff | `200` `TicketQueueItemDto` |
+
+- List order: `Urgent` > `High` > `Normal` > `Low`, then oldest first. Facility staff and managers see only tickets of their facilities; admin and business manager see all; a customer sees only their own. A ticket outside the caller's scope is `404`.
+- `TicketQueueItemDto`: `ticketId, ticketCode, subject, priority, status, categoryId, categoryName, customerId, customerName, facilityId, facilityName, storageUnitId, unitCode, assignedTo, assignedToName, dueDate, createdAt, resolvedAt`.
+- Assign: the assignee must be an `Active` `FacilityStaff`/`FacilityManager` with a `StaffFacility` row at the ticket's facility, `dueDate` not in the past; a `New` ticket becomes `InProgress`. `409` for a `Resolved`/`Closed` ticket or an unsuitable assignee; `404` for an unknown assignee.
+- Status moves by staff: `New→InProgress`, `InProgress⇄WaitingForCustomer`, any open status `→Resolved` (sets `resolvedAt`). `Closed` only by the owning customer or a `FacilityManager` (`403` otherwise), and is final. Anything else `409`; a customer asking for another status gets `403`.
+
 
 
 ## Maintenance orders (BE-63)
