@@ -20,7 +20,7 @@ public static class DependencyInjection
         services.AddScoped<IStorageUnitService, StorageUnitService>();
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<IHandoverService, HandoverService>();
-        services.AddScoped<IContractService, ContractServiceNotReady>();
+        services.AddScoped<IContractService, ContractService>();
         return services;
     }
 }
