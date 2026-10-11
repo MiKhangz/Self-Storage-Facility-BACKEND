@@ -5,6 +5,8 @@ using StorEase.Application.Features.Auth;
 using StorEase.Application.Features.Contracts;
 using StorEase.Application.Features.Facilities;
 using StorEase.Application.Features.Handovers;
+using StorEase.Application.Features.MoveOuts;
+using StorEase.Application.Features.Renewals;
 using StorEase.Application.Features.Reservations;
 using StorEase.Application.Features.StorageUnits;
 
@@ -24,6 +26,8 @@ public static class DependencyInjection
         services.AddScoped<IContractService, ContractService>();
         services.AddScoped<IAccessCodeService, AccessCodeService>();
         services.AddScoped<IAccessLogService, AccessLogService>();
+        services.AddScoped<IMoveOutService, MoveOutService>();
+        services.AddScoped<IRenewalService, RenewalService>();
         return services;
     }
 }

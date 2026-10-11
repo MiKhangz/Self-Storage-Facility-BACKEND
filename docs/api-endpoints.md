@@ -272,3 +272,76 @@ Seeded by Trường's `DbSeeder`. Password for all three: `Demo@123`.
 
 Ids in the examples (`facilityId: 1`, unit A-103 = `storageUnitId: 3`) assume the seeder inserts in
 order on an empty database. Read real ids from endpoints 2 and 3, never hard-code them.
+
+---
+
+## Move-out and deposit settlement (Nhân, BE-46..50)
+
+Not part of the frozen demo set. Enum `MoveOutRequestStatus`: `Requested`, `Approved`, `Inspected`, `Completed`, `Cancelled`.
+`ConditionResult`: `Good`, `MinorDamage`, `MajorDamage`. `RefundMethod`: `BankTransfer`, `Cash`.
+
+| Method | Route | Who | Success |
+|---|---|---|---|
+| `POST` | `/api/move-out-requests` | `StorageCustomer` (own contract) | `201` + `Location`, `MoveOutRequestDto` |
+| `GET` | `/api/move-out-requests?status=Approved&page=1&pageSize=20` | any logged-in user (customer: own) | `200` `PagedResult<MoveOutRequestDto>`, nearest `plannedMoveOutDate` first. Staff queue = `status=Approved` |
+| `GET` | `/api/move-out-requests/{id}` | any logged-in user (customer: own) | `200` `MoveOutRequestDto` (carries `inspection` once inspected) |
+| `POST` | `/api/move-out-requests/{id}/approve` | Staff | `200` `MoveOutRequestDto` |
+| `POST` | `/api/move-out-requests/{id}/inspection` | Staff | `200` `MoveOutRequestDto` |
+| `POST` | `/api/move-out-requests/{id}/settle-deposit` | `BusinessOperationsManager` | `200` `DepositSettlementDto` |
+
+```jsonc
+// POST /api/move-out-requests
+{ "contractId": 1, "plannedMoveOutDate": "2026-11-20", "reason": "Relocating",
+  "refundMethod": "BankTransfer", "refundAccount": "VCB 0123456789" }   // reason, refund* optional; account required for BankTransfer
+
+// POST …/approve
+{ "inspectionSlot": "2026-11-20T02:00:00Z" }
+
+// POST …/inspection
+{ "conditionResult": "MinorDamage", "cleaningFee": 100000, "repairCharge": 200000, "otherDeduction": 0 }
+
+// MoveOutRequestDto
+{ "moveOutRequestId": 1, "contractId": 1, "contractNumber": "CT…", "customerId": 1, "customerName": "…",
+  "storageUnitId": 3, "unitCode": "A-103", "requestedAt": "…Z", "plannedMoveOutDate": "2026-11-20",
+  "reason": null, "inspectionSlot": null, "refundMethod": null, "refundAccount": null,
+  "status": "Requested",
+  "inspection": null /* or { returnInspectionId, inspectedAt, conditionResult, cleaningFee, repairCharge,
+                              otherDeduction, refundAmount, status } — refundAmount stays 0 until settled */ }
+
+// DepositSettlementDto
+{ "moveOutRequestId": 1, "depositAmount": 900000, "damageDeductions": 300000, "outstandingInvoices": 0,
+  "refundAmount": 600000, "shortfall": 0, "status": "Completed" }
+```
+
+Rules:
+- Create: `409` unless the contract is `Active`, has no open request, and `plannedMoveOutDate` ≥ today + `NoticeDays` of the active pricing policy (30 if none). Contract becomes `PendingMoveOut`. Another customer's contract is `404`.
+- Approve: only `Requested`. Inspection: only `Approved`; request becomes `Inspected`.
+- Settle: only `Inspected`. `refundAmount = max(0, deposit − cleaning − repair − other − unpaid Issued/Overdue invoices)`; any excess is `shortfall`. Request → `Completed`, contract → `Closed`, access codes revoked, unit → `Available` (`Maintenance` after `MajorDamage`). **No money is paid out**: the payment gateway is not connected, so the refund is only recorded.
+- Damage notes and photos are not stored: `ReturnInspection` has no column for them.
+
+---
+
+## Contract renewal (Nhân, BE-54, BE-55)
+
+Not part of the frozen demo set. `Renewal.Status` values: `Requested`, `Approved`, `Rejected`, `Cancelled` (varchar column, no enum).
+
+| Method | Route | Who | Success |
+|---|---|---|---|
+| `POST` | `/api/renewals` | `StorageCustomer` (own contract) | `201` + `Location`, `RenewalDto` |
+| `GET` | `/api/renewals?contractId=1&status=Requested&page=1&pageSize=20` | any logged-in user (customer: own) | `200` `PagedResult<RenewalDto>`, newest first |
+| `GET` | `/api/renewals/{id}` | any logged-in user (customer: own) | `200` `RenewalDto` |
+
+```jsonc
+// POST /api/renewals
+{ "contractId": 1, "extendMonths": 6 }          // extendMonths 1..36
+
+// RenewalDto — status + the contract it extends (BE-55)
+{ "renewalId": 1, "contractId": 1, "contractNumber": "CT…", "unitCode": "A-103", "requestedAt": "…Z",
+  "extendMonths": 6, "currentEndDate": "2027-01-31", "newEndDate": "2027-07-31",
+  "currentMonthlyRent": 1000000, "newMonthlyRent": 900000, "status": "Requested", "approvedBy": null }
+```
+
+Rules:
+- Create: `409` unless the contract is `Active` and has no renewal in `Requested`. Another customer's contract is `404`.
+- `newEndDate = contract.endDate + extendMonths`. `newMonthlyRent` = active pricing policy's base price for the unit type less the discount tier reached (≥3 / ≥6 / ≥12 months, percent); if there is no active policy it is the current rent. The contract's own rent and end date are not changed by the request.
+- **Not built:** approve/reject (Facility Manager) and applying an approved renewal to the contract; they are not in BE-54/55, so a renewal stays `Requested`.
