@@ -14,5 +14,7 @@ public class ShiftConfiguration : IEntityTypeConfiguration<Shift>
         builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
         builder.HasOne(x => x.Facility).WithMany().HasForeignKey(x => x.FacilityId);
         builder.Property(x => x.ShiftType).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
+        builder.HasIndex(x => new { x.FacilityId, x.ShiftDate });
+        builder.HasIndex(x => new { x.UserId, x.ShiftDate });
     }
 }
