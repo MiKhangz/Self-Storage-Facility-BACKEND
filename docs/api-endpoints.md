@@ -260,6 +260,128 @@ Activation is live: the contract becomes `Active`, the unit `Occupied`, and a 6-
 
 ---
 
+## Support tickets (BE-59..62)
+
+### BE-59 · BE-60 — create a ticket, conversation
+
+| Method | Route | Role | Notes |
+|---|---|---|---|
+| GET | `/api/ticket-categories` | any signed-in | `[{categoryId, name, defaultPriority}]`. The table has no seed yet. |
+| POST | `/api/support-tickets` | StorageCustomer | `201` + `Location`, body = ticket. |
+| GET | `/api/support-tickets/{id}` | any signed-in | Customer: own tickets. FacilityStaff/Manager: tickets of their facilities. Admin/BusinessOps: all. Anyone else's: `404`. |
+| GET | `/api/support-tickets/{id}/messages` | any signed-in | Oldest first. Customers never get internal notes. |
+| POST | `/api/support-tickets/{id}/messages` | any signed-in | `201`, body = message. |
+
+`POST /api/support-tickets` body: `{categoryId, subject (≤200), description (≤1000), storageUnitId?, facilityId?, priority?}`.
+Give `storageUnitId` (needs your own Active/Overdue/Suspended/PendingMoveOut contract on it; the facility comes from the unit) or `facilityId`. `priority` defaults to the category's `defaultPriority` (`Low|Normal|High|Urgent`).
+The description is stored as the first message (no description column). Status starts `New`; `ticketCode` = `TK{yyMMdd}{6 digits}`.
+
+`POST .../messages` body: `{body (≤1000), isInternalNote, nextStatus?}`. `isInternalNote` and `nextStatus` (`InProgress|WaitingForCustomer`) are staff-only (`403` for customers).
+Status moves: a staff reply to a `New` ticket → `InProgress`; staff `nextStatus` sets it; a customer reply on `WaitingForCustomer` or `Resolved` → `InProgress` (clears `resolvedAt`); an internal note never changes status.
+`409` when the ticket is `Closed`. `400` validation, `404` unknown category/unit/facility/ticket.
+
+File attachments (BE-59) are **not built**: there is no table or storage for them.
+
+### BE-61 · BE-62 — queue, assignment, status
+
+| Method | Route | Who | Success |
+|---|---|---|---|
+| `GET` | `/api/support-tickets?status=&priority=&facilityId=&assignedToMe=false&page=1&pageSize=20` | any logged-in user | `200` `PagedResult<TicketQueueItemDto>` |
+| `POST` | `/api/support-tickets/{id}/assign` `{assigneeId, dueDate?}` | `FacilityManager` | `200` `TicketQueueItemDto` |
+| `POST` | `/api/support-tickets/{id}/status` `{status}` | customer (own), Staff | `200` `TicketQueueItemDto` |
+
+- List order: `Urgent` > `High` > `Normal` > `Low`, then oldest first. Facility staff and managers see only tickets of their facilities; admin and business manager see all; a customer sees only their own. A ticket outside the caller's scope is `404`.
+- `TicketQueueItemDto`: `ticketId, ticketCode, subject, priority, status, categoryId, categoryName, customerId, customerName, facilityId, facilityName, storageUnitId, unitCode, assignedTo, assignedToName, dueDate, createdAt, resolvedAt`.
+- Assign: the assignee must be an `Active` `FacilityStaff`/`FacilityManager` with a `StaffFacility` row at the ticket's facility, `dueDate` not in the past; a `New` ticket becomes `InProgress`. `409` for a `Resolved`/`Closed` ticket or an unsuitable assignee; `404` for an unknown assignee.
+- Status moves by staff: `New→InProgress`, `InProgress⇄WaitingForCustomer`, any open status `→Resolved` (sets `resolvedAt`). `Closed` only by the owning customer or a `FacilityManager` (`403` otherwise), and is final. Anything else `409`; a customer asking for another status gets `403`.
+
+
+
+## Maintenance orders (BE-63)
+
+Base `/api/maintenance-orders`. Write: `FacilityStaff`, `FacilityManager`. Read: those two plus `BusinessOperationsManager`, `SystemAdministrator`. Staff only see orders on units of their own facilities (`StaffFacility` or managed); admin and business manager see all. Anything outside the scope is `404`.
+
+| Method | Route | Notes |
+|---|---|---|
+| `POST` | `/api/maintenance-orders` | body `{description (≤300), storageUnitId?, ticketId?, scheduledAt?, assignedTo?}`; one of `storageUnitId`/`ticketId` is required. A ticket must name a unit (else `400`) and its unit wins; both given must agree. `assignedTo` must be an active staff member of the unit's facility (`400`). Starts `Open`, or `Scheduled` when `scheduledAt` is given. `201` + `Location`. |
+| `GET` | `/api/maintenance-orders?status=&storageUnitId=&page=&pageSize=` | `PagedResult`, newest first. |
+| `GET` | `/api/maintenance-orders/{id}` | `{maintenanceOrderId, storageUnitId, unitCode, facilityId, ticketId, assignedTo, description, scheduledAt, completedAt, cost, workNote, status}` |
+| `POST` | `/api/maintenance-orders/{id}/status` | body `{status, scheduledAt?, cost?, workNote?}`; returns the order. |
+
+Status moves (anything else `409`): `Open|Scheduled → Scheduled` (needs `scheduledAt`, also reschedules); `Open|Scheduled → InProgress`; `InProgress → Done` (needs `cost ≥ 0` and `workNote ≤500`, sets `completedAt`); `Open|Scheduled|InProgress → Cancelled`. `Done` and `Cancelled` are final.
+
+Unit side effects, in the same transaction: starting work on an `Available` unit makes it `Maintenance` (`Reserved`/`Occupied` units are left alone). On `Done` or `Cancelled`, a unit in `Maintenance` goes back to `Available` unless another live (Open/Scheduled/InProgress) order is on it.
+
+
+## Staff accounts (BE-64)
+
+All routes: `SystemAdministrator` only. Customers are never returned or editable here (`404`).
+
+| Method | Route | Success |
+|---|---|---|
+| `GET` | `/api/staff?role=&status=&page=1&pageSize=20` | `200` `PagedResult<StaffAccountDto>` |
+| `GET` | `/api/staff/{id}` | `200` `StaffAccountDto` |
+| `POST` | `/api/staff` `{fullName, email, phoneNumber, password (8-100), role}` | `201` + `Location` |
+| `PUT` | `/api/staff/{id}` `{fullName?, phoneNumber?, role?, status?}` | `200` `StaffAccountDto` |
+| `PUT` | `/api/staff/{id}/facilities` `{facilityIds: [int]}` | `200` `StaffAccountDto` |
+
+- `StaffAccountDto`: `userId, fullName, email, phoneNumber, role, status, createdAt, facilities: [{facilityId, facilityName}]`. The password hash is never returned.
+- `role` is one of `FacilityStaff|FacilityManager|BusinessOperationsManager|SystemAdministrator` (`400` otherwise; `StorageCustomer` is refused). `404` if that role row does not exist yet (the `Role` table has no seed).
+- Create: new account is `Active`; duplicate email (case-insensitive) is `409`.
+- Update: only the fields given change; no delete, lock an account with `status` `Suspended` or `Inactive` (not `Pending`). An admin cannot deactivate their own account or change their own role (`409`). A locked account's existing JWT keeps working until it expires.
+- Facilities: replaces the whole list. Unassigned rows are deleted (`StaffFacility` is a link, not history); unknown facility id is `404` and nothing changes.
+
+
+
+## Shifts and tasks (BE-65, BE-66)
+
+### BE-65 — shifts
+
+| Method | Route | Roles | Returns |
+|---|---|---|---|
+| `POST` | `/api/shifts` `{userId, facilityId, shiftDate, startTime, endTime, shiftType}` | FacilityManager (own facilities), SystemAdministrator | `201` + `Location`, `ShiftDto` |
+| `GET` | `/api/shifts?facilityId=&userId=&from=&to=&page=&pageSize=` | any staff role | `200` `PagedResult<ShiftDto>`, oldest first |
+| `GET` | `/api/shifts/{id}` | any staff role | `200` `ShiftDto` |
+| `PUT` | `/api/shifts/{id}` `{shiftDate, startTime, endTime, shiftType}` | FacilityManager, SystemAdministrator | `200` `ShiftDto` |
+| `DELETE` | `/api/shifts/{id}` | FacilityManager, SystemAdministrator | `204` |
+
+```jsonc
+// POST body; times are facility-local, "HH:mm:ss"
+{ "userId": 4, "facilityId": 1, "shiftDate": "2026-10-20", "startTime": "22:00:00", "endTime": "06:00:00", "shiftType": "Night" }
+// 201 ShiftDto
+{ "shiftId": 7, "userId": 4, "userName": "Lê Văn B", "facilityId": 1, "facilityName": "Kho Quận 7",
+  "shiftDate": "2026-10-20", "startTime": "22:00:00", "endTime": "06:00:00", "endsNextDay": true, "shiftType": "Night" }
+```
+
+- `shiftType`: `Morning` | `Afternoon` | `Night`. `endTime` at or before `startTime` means an overnight shift ending the next day (`endsNextDay: true`); equal times are `400`.
+- Visibility: FacilityStaff see only their own shifts; FacilityManager see shifts of their facilities; SystemAdministrator and BusinessOperationsManager see all. A shift outside the caller's view is `404`.
+- Create: the person must be an `Active` FacilityStaff/FacilityManager with a `StaffFacility` row at that facility (`409` otherwise; `404` for an unknown person); a facility outside a manager's scope is `404`. A shift that starts in the past is `409`.
+- No overlap: one person's shifts, at any facility, may not intersect as `[start, end)`; a shift that ends exactly when the next begins is fine. An overnight shift of the previous day counts. `409` with the clashing shift named. `PUT` ignores the shift itself. (Two simultaneous requests can still both pass; accepted for this project.)
+- `PUT` cannot change the person or the facility, and refuses a shift that already ended or a move into the past (`409`).
+- `DELETE` is a hard delete (a shift is a plan, not history): only before it starts and only with no `StaffTask` on it; otherwise `409`.
+- "Now" is Asia/Ho_Chi_Minh (UTC+7).
+
+
+
+
+
+### BE-66 — tasks in a shift
+
+Base `/api/staff-tasks`. Create: `FacilityManager`. Progress/cancel: `FacilityStaff`, `FacilityManager`. Read: those two plus `BusinessOperationsManager`, `SystemAdministrator`. A staff member sees only their own tasks, a manager the tasks of shifts at their facilities (plus their own), admin and business manager all. Anything outside that view is `404`.
+
+| Method | Route | Notes |
+|---|---|---|
+| `POST` | `/api/staff-tasks` | body `{shiftId, assignedTo, taskType, referenceCode? (≤30), note? (≤200), scheduledAt}`. The shift must be at one of the manager's facilities (`404`); `assignedTo` must be the person on that shift and `Active` (`400`); `scheduledAt` must fall in `[start, end)` of the shift (`400`). Shift times are facility-local (UTC+7); a shift whose end is not after its start runs past midnight. `taskType` `Other` requires `note` (`400`). Starts `ToDo`. `201` + `Location`. |
+| `GET` | `/api/staff-tasks?shiftId=&assignedTo=&status=&page=&pageSize=` | `PagedResult`, ordered by `scheduledAt`. |
+| `GET` | `/api/staff-tasks/{id}` | `{taskId, shiftId, facilityId, assignedTo, assignedToName, taskType, referenceCode, note, scheduledAt, status}` |
+| `POST` | `/api/staff-tasks/{id}/status` | body `{status}`; returns the task. |
+
+Status moves: `ToDo → InProgress → Done`, only by the assignee (`403` for anyone else, `409` for a skipped step). `Cancelled`: only a `FacilityManager` (`403` otherwise), only from `ToDo`/`InProgress` (`409` once `Done` or `Cancelled`). `Done` and `Cancelled` are final.
+
+
+
+---
+
 ## Demo accounts
 
 Seeded by Trường's `DbSeeder`. Password for all three: `Demo@123`.

@@ -7,8 +7,11 @@ using StorEase.Application.Features.Facilities;
 using StorEase.Application.Features.Handovers;
 using StorEase.Application.Features.MoveOuts;
 using StorEase.Application.Features.Renewals;
+using StorEase.Application.Features.Maintenance;
 using StorEase.Application.Features.Reservations;
+using StorEase.Application.Features.Staff;
 using StorEase.Application.Features.StorageUnits;
+using StorEase.Application.Features.SupportTickets;
 
 namespace StorEase.Application;
 
@@ -28,6 +31,12 @@ public static class DependencyInjection
         services.AddScoped<IAccessLogService, AccessLogService>();
         services.AddScoped<IMoveOutService, MoveOutService>();
         services.AddScoped<IRenewalService, RenewalService>();
+        services.AddScoped<ITicketQueueService, TicketQueueService>();
+        services.AddScoped<ISupportTicketService, SupportTicketService>();
+        services.AddScoped<IStaffAccountService, StaffAccountService>();
+        services.AddScoped<IMaintenanceService, MaintenanceService>();
+        services.AddScoped<IStaffTaskService, StaffTaskService>();
+        services.AddScoped<IShiftService, ShiftService>();
         return services;
     }
 }
