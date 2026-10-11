@@ -1,0 +1,67 @@
+using StorEase.Application.Common;
+using StorEase.Application.Features.Contracts;
+using StorEase.Application.Features.Handovers.Dtos;
+using StorEase.Application.Interfaces;
+using StorEase.Domain.Entities;
+using StorEase.Domain.Enums;
+
+namespace StorEase.Application.Features.Handovers;
+
+public interface IHandoverService
+{
+    Task<Result<HandoverDto>> CreateAsync(CreateHandoverRequest request, CancellationToken ct);
+}
+
+/// <summary>Business rule 3: handover, not signing, activates the contract and occupies the unit.</summary>
+public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser, IContractService contracts) : IHandoverService
+{
+    public Task<Result<HandoverDto>> CreateAsync(CreateHandoverRequest request, CancellationToken ct) =>
+        uow.InTransactionAsync<HandoverDto>(async () =>
+        {
+            var reservation = await uow.Repository<Reservation>().FindAsync(request.ReservationId, ct);
+            if (reservation is null)
+                return Error.NotFound("Reservation not found.");
+            if (reservation.Status != ReservationStatus.Confirmed || reservation.StorageUnitId is null)
+                return Error.Conflict($"The reservation must be Confirmed with a unit assigned; it is {reservation.Status}.");
+
+            var contract = await uow.Repository<Contract>().FindAsync(request.ContractId, ct);
+            if (contract is null)
+                return Error.NotFound("Contract not found.");
+            if (contract.ReservationId != reservation.ReservationId || contract.StorageUnitId != reservation.StorageUnitId)
+                return Error.Conflict("The contract does not belong to this reservation and unit.");
+            if (contract.Status != ContractStatus.Draft)
+                return Error.Conflict($"Only a Draft contract can be handed over; this one is {contract.Status}.");
+            if (contract.SignedAt is null)
+                return Error.Conflict("The customer has not signed the contract yet.");
+
+            var unit = (await uow.Repository<StorageUnit>().FindAsync(reservation.StorageUnitId.Value, ct))!;
+            if (unit.Status != StorageUnitStatus.Reserved)
+                return Error.Conflict($"Unit {unit.UnitCode} is {unit.Status}, expected Reserved.");
+
+            var handover = new Handover
+            {
+                ReservationId = reservation.ReservationId,
+                ContractId = contract.ContractId,
+                StorageUnitId = unit.StorageUnitId,
+                StaffId = currentUser.UserId,
+                HandoverTime = DateTime.UtcNow,
+                LockSerial = request.LockSerial,
+                CardNumber = request.CardNumber,
+                ConditionNote = request.ConditionNote,
+                Status = HandoverStatus.Completed,
+            };
+            uow.Repository<Handover>().Add(handover);
+            reservation.Status = ReservationStatus.CheckedIn;
+            unit.Status = StorageUnitStatus.Occupied;
+
+            var accessCode = await contracts.ActivateAsync(contract.ContractId, ct);
+            if (!accessCode.IsSuccess)
+                return accessCode.Error;
+
+            await uow.SaveChangesAsync(ct);
+            return new HandoverDto(
+                handover.HandoverId, handover.ReservationId, contract.ContractId, unit.StorageUnitId, unit.UnitCode,
+                handover.HandoverTime, request.LockSerial, request.CardNumber, request.ConditionNote,
+                handover.Status, accessCode.Value);
+        }, ct);
+}

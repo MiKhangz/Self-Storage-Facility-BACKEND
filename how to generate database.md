@@ -49,6 +49,9 @@ Create the file **`BE/StorEase.Api/appsettings.Development.json`**:
   "ConnectionStrings": {
     "DefaultConnection": "Server=localhost\\SQLEXPRESS;Database=StorEase;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True"
   },
+  "Jwt": {
+    "Key": "<paste a random string of at least 32 characters>"
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Information",
@@ -59,6 +62,9 @@ Create the file **`BE/StorEase.Api/appsettings.Development.json`**:
 ```
 
 - Replace `localhost\\SQLEXPRESS` with your value from step 2.
+- `Jwt:Key` signs login tokens. Any random string of 32+ characters; generate one with
+  `[Convert]::ToBase64String((1..48 | % { Get-Random -Max 256 }))` in PowerShell. Migrations work
+  without it, but the API refuses to start until it is set.
 - Keep the backslash **doubled** — JSON needs it.
 - This file is gitignored. **Never commit it**: everyone's instance name is different.
 
@@ -116,6 +122,7 @@ All from `BE/`:
 | `Login failed for user...` | Your Windows account has no access to that instance. Use SQL Server Configuration Manager / SSMS to grant it, or use LocalDB. |
 | `dotnet-ef` not recognized | Step 1 not done, or open a new terminal so `PATH` picks it up. |
 | `The ConnectionString property has not been initialized` | `appsettings.Development.json` missing or in the wrong folder — it must be in `BE/StorEase.Api/`. |
+| `Jwt:Key is missing or shorter than 32 characters` when starting the API | Add `Jwt:Key` to `appsettings.Development.json` (step 3). |
 | `Build failed.` | Run `dotnet build` from `BE/` to see the real error and fix it first. |
 | `There is already an object named '...' in the database` | Your database was created some other way. Drop it (see Everyday commands) and run `database update` again. |
 
