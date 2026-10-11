@@ -238,4 +238,36 @@ public class TicketQueueServiceTests
         v.Validate(new AssignTicketRequest(1, DateTime.UtcNow)).IsValid.Should().BeTrue();
         v.Validate(new AssignTicketRequest(1, null)).IsValid.Should().BeTrue();
     }
+
+    [Fact]
+    public async Task Assign_accepts_a_facility_manager_who_has_no_staff_facility_row()
+    {
+        var w = new World();
+        var lead = new User
+        {
+            Role = w.ManagerRole, FullName = "lead", Email = "lead@x.vn", PasswordHash = "x",
+            Status = UserStatus.Active, CreatedAt = DateTime.UtcNow,
+        };
+        w.Db.Db.Add(lead);
+        w.F1.Manager = lead;
+        await w.Db.Db.SaveChangesAsync();
+        var t = w.AddTicket(w.F1, Priority.Normal, DateTime.UtcNow);
+
+        var r = await w.As(w.Manager).AssignAsync(t.TicketId, new AssignTicketRequest(lead.UserId, null), default);
+
+        r.Error.Should().BeNull();
+        r.Value.AssignedTo.Should().Be(lead.UserId);
+    }
+
+    [Fact]
+    public async Task Assign_reads_an_offsetless_due_date_as_vietnam_time()
+    {
+        var w = new World();
+        var t = w.AddTicket(w.F1, Priority.Normal, DateTime.UtcNow);
+        var due = DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(2).AddHours(9), DateTimeKind.Unspecified);
+
+        var r = await w.As(w.Manager).AssignAsync(t.TicketId, new AssignTicketRequest(w.Staff.UserId, due), default);
+
+        r.Value.DueDate.Should().Be(due.AddHours(-7));
+    }
 }
