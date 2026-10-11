@@ -10,6 +10,8 @@ namespace StorEase.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.Sql(ExistingDataCleanup.DeduplicateStaffFacility);
+
             migrationBuilder.DropIndex(
                 name: "IX_StaffFacility_UserId",
                 table: "StaffFacility");
