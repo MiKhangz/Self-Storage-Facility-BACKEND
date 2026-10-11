@@ -1039,7 +1039,8 @@ namespace StorEase.Infrastructure.Migrations
 
                     b.HasIndex("FacilityId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "FacilityId")
+                        .IsUnique();
 
                     b.ToTable("StaffFacility", (string)null);
                 });
