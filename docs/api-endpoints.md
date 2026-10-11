@@ -249,6 +249,18 @@ File attachments (BE-59) are **not built**: there is no table or storage for the
 
 ## Maintenance orders (BE-63)
 
+Base `/api/maintenance-orders`. Write: `FacilityStaff`, `FacilityManager`. Read: those two plus `BusinessOperationsManager`, `SystemAdministrator`. Staff only see orders on units of their own facilities (`StaffFacility` or managed); admin and business manager see all. Anything outside the scope is `404`.
+
+| Method | Route | Notes |
+|---|---|---|
+| `POST` | `/api/maintenance-orders` | body `{description (≤300), storageUnitId?, ticketId?, scheduledAt?, assignedTo?}`; one of `storageUnitId`/`ticketId` is required. A ticket must name a unit (else `400`) and its unit wins; both given must agree. `assignedTo` must be an active staff member of the unit's facility (`400`). Starts `Open`, or `Scheduled` when `scheduledAt` is given. `201` + `Location`. |
+| `GET` | `/api/maintenance-orders?status=&storageUnitId=&page=&pageSize=` | `PagedResult`, newest first. |
+| `GET` | `/api/maintenance-orders/{id}` | `{maintenanceOrderId, storageUnitId, unitCode, facilityId, ticketId, assignedTo, description, scheduledAt, completedAt, cost, workNote, status}` |
+| `POST` | `/api/maintenance-orders/{id}/status` | body `{status, scheduledAt?, cost?, workNote?}`; returns the order. |
+
+Status moves (anything else `409`): `Open|Scheduled → Scheduled` (needs `scheduledAt`, also reschedules); `Open|Scheduled → InProgress`; `InProgress → Done` (needs `cost ≥ 0` and `workNote ≤500`, sets `completedAt`); `Open|Scheduled|InProgress → Cancelled`. `Done` and `Cancelled` are final.
+
+Unit side effects, in the same transaction: starting work on an `Available` unit makes it `Maintenance` (`Reserved`/`Occupied` units are left alone). On `Done` or `Cancelled`, a unit in `Maintenance` goes back to `Available` unless another live (Open/Scheduled/InProgress) order is on it.
 
 
 ## Staff accounts (BE-64)
