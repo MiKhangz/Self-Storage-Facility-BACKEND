@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using StorEase.Application.Features.AccessCodes;
 using StorEase.Application.Features.Auth;
 using StorEase.Application.Features.Contracts;
 using StorEase.Application.Features.Facilities;
@@ -21,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<IHandoverService, HandoverService>();
         services.AddScoped<IContractService, ContractService>();
+        services.AddScoped<IAccessCodeService, AccessCodeService>();
         return services;
     }
 }
