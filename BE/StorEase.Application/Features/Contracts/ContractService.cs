@@ -1,0 +1,129 @@
+using Microsoft.EntityFrameworkCore;
+using StorEase.Application.Common;
+using StorEase.Application.Features.AccessCodes;
+using StorEase.Application.Features.Contracts.Dtos;
+using StorEase.Application.Interfaces;
+using StorEase.Domain.Entities;
+using StorEase.Domain.Enums;
+
+namespace StorEase.Application.Features.Contracts;
+
+public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessCodeService accessCodes) : IContractService
+{
+    public async Task<Result<ContractDto>> GetAsync(int contractId, CancellationToken ct)
+    {
+        var dto = await Visible().Where(c => c.ContractId == contractId).ToDto().FirstOrDefaultAsync(ct);
+        // Someone else's contract is a 404, not a 403, so ids cannot be probed.
+        return dto is null ? Error.NotFound("Contract not found.") : dto;
+    }
+
+    public async Task<Result<PagedResult<ContractDto>>> ListAsync(
+        ContractStatus? status, int page, int pageSize, CancellationToken ct)
+    {
+        var query = Visible();
+        if (status is not null)
+            query = query.Where(c => c.Status == status);
+
+        return await query.OrderByDescending(c => c.ContractId).ToDto().ToPagedResultAsync(page, pageSize, ct);
+    }
+
+    public async Task<Result<ContractDto>> SignAsync(int contractId, CancellationToken ct)
+    {
+        var signed = await uow.InTransactionAsync<int>(async () =>
+        {
+            var contract = await Visible().FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
+            if (contract is null)
+                return Error.NotFound("Contract not found.");
+            if (contract.Status != ContractStatus.Draft)
+                return Error.Conflict($"Only a Draft contract can be signed; this one is {contract.Status}.");
+            if (contract.SignedAt is not null)
+                return Error.Conflict("The contract is already signed.");
+
+            // Signing does not activate: the handover does (business rule 3).
+            contract.SignedAt = DateTime.UtcNow;
+            return contract.ContractId;
+        }, ct);
+
+        return signed.IsSuccess ? await GetAsync(signed.Value, ct) : signed.Error;
+    }
+
+    public Task<Result<string>> ActivateAsync(int contractId, CancellationToken ct) =>
+        uow.InTransactionAsync<string>(async () =>
+        {
+            var contract = await uow.Repository<Contract>().Query()
+                .Include(c => c.AccessCodes).FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
+            if (contract is null)
+                return Error.NotFound("Contract not found.");
+            if (contract.Status != ContractStatus.Draft)
+                return Error.Conflict($"Only a Draft contract can be activated; this one is {contract.Status}.");
+            if (contract.SignedAt is null)
+                return Error.Conflict("The customer has not signed the contract yet.");
+
+            // Business rule 1: one Active/Draft contract per unit. The DB has a filtered unique index too.
+            var clash = await uow.Repository<Contract>().Query().AnyAsync(c =>
+                c.StorageUnitId == contract.StorageUnitId && c.ContractId != contract.ContractId
+                && (c.Status == ContractStatus.Active || c.Status == ContractStatus.Draft), ct);
+            if (clash)
+                return Error.Conflict("The unit already has another Active or Draft contract.");
+
+            contract.Status = ContractStatus.Active;
+            return accessCodes.Issue(contract).Code;
+        }, ct);
+
+    public async Task<Result<ContractDto>> TerminateAsync(int contractId, CancellationToken ct)
+    {
+        var done = await uow.InTransactionAsync<int>(async () =>
+        {
+            var contract = await uow.Repository<Contract>().Query()
+                .Include(c => c.AccessCodes).Include(c => c.StorageUnit)
+                .FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
+            if (contract is null)
+                return Error.NotFound("Contract not found.");
+            if (contract.Status is ContractStatus.Draft or ContractStatus.Closed or ContractStatus.Terminated)
+                return Error.Conflict($"A {contract.Status} contract cannot be terminated.");
+
+            contract.Status = ContractStatus.Terminated;
+            foreach (var code in contract.AccessCodes.Where(a => a.IsActive))
+                code.IsActive = false;
+            // Occupied is the only state this contract could have put the unit in.
+            if (contract.StorageUnit.Status == StorageUnitStatus.Occupied)
+                contract.StorageUnit.Status = StorageUnitStatus.Available;
+            return contract.ContractId;
+        }, ct);
+
+        return done.IsSuccess ? await GetAsync(done.Value, ct) : done.Error;
+    }
+
+    public async Task<Result<string>> ExportCsvAsync(ContractStatus? status, CancellationToken ct)
+    {
+        var query = Visible();
+        if (status is not null)
+            query = query.Where(c => c.Status == status);
+
+        var rows = await query.OrderBy(c => c.ContractId).ToDto().ToListAsync(ct);
+        var sb = new System.Text.StringBuilder("ContractNumber,Customer,UnitCode,StartDate,EndDate,MonthlyRent,Status\n");
+        foreach (var r in rows)
+            sb.Append(string.Join(',', Csv(r.ContractNumber), Csv(r.CustomerName), Csv(r.UnitCode),
+                r.StartDate.ToString("yyyy-MM-dd"), r.EndDate.ToString("yyyy-MM-dd"),
+                r.MonthlyRent.ToString(System.Globalization.CultureInfo.InvariantCulture), r.Status)).Append('\n');
+        return sb.ToString();
+    }
+
+    // Quote every text field and neutralise spreadsheet formulas (CSV injection).
+    private static string Csv(string value)
+    {
+        if (value.Length > 0 && "=+-@".Contains(value[0]))
+            value = "'" + value;
+        return '"' + value.Replace("\"", "\"\"") + '"';
+    }
+
+    private IQueryable<Contract> Visible()
+    {
+        var query = uow.Repository<Contract>().Query();
+        if (!currentUser.IsCustomer)
+            return query;
+
+        var customerId = currentUser.UserId;
+        return query.Where(c => c.CustomerId == customerId);
+    }
+}
