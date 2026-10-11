@@ -89,6 +89,7 @@ Also available:
 |---|---|---|---|---|
 | `GET` | `/api/reservations/{id}` | any logged-in user (customer: own) | `200` `ReservationDto` | Khang |
 | `GET` | `/api/contracts/{id}` | Staff, or the owning customer | `200` `ContractDto` | Nhân |
+| `GET` | `/api/contracts?status=&page=&pageSize=` | any logged-in user (customer: own) | `200` `PagedResult<ContractDto>` | Nhân |
 
 ---
 
@@ -194,6 +195,9 @@ the unit is not `Available` · the unit already has an `Active` or `Draft` contr
 ### 8. `POST /api/contracts/{id}/sign` — customer e-signs (Nhân)
 
 No body. `200` `ContractDto` with `signedAt` set and **status still `Draft`**.
+
+`404` when the contract is not the caller's own (same as missing) · `409` when it is not `Draft` or is already signed. Only `StorageCustomer` may call it (`403` otherwise).
+`GET /api/contracts/{id}` returns the same `ContractDto`; a customer asking for someone else's contract gets `404`.
 
 ### 9. `POST /api/handovers` — staff confirms handover
 
