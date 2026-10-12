@@ -9,6 +9,8 @@ using StorEase.Application.Features.MoveOuts;
 using StorEase.Application.Features.Renewals;
 using StorEase.Application.Features.Maintenance;
 using StorEase.Application.Features.Reservations;
+using StorEase.Application.Features.Invoices;
+using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.Staff;
 using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Features.SupportTickets;
@@ -24,6 +26,9 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IFacilityService, FacilityService>();
         services.AddScoped<IStorageUnitService, StorageUnitService>();
+        services.AddScoped<IUnitCatalogService, UnitCatalogService>();
+        services.AddScoped<IPricingService, PricingService>();
+        services.AddScoped<IInvoiceService, InvoiceService>();
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<IHandoverService, HandoverService>();
         services.AddScoped<IContractService, ContractService>();
