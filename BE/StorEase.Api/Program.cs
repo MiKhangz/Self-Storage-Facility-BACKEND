@@ -60,10 +60,11 @@ builder.Services.AddSwaggerGen(options =>
     options.AddSecurityRequirement(new OpenApiSecurityRequirement { [bearer] = [] });
 });
 
-// The frontend is a separate repo served by Vite from another origin.
-const string FrontendDevCors = "FrontendDev";
-builder.Services.AddCors(options => options.AddPolicy(FrontendDevCors, policy => policy
-    .WithOrigins("http://localhost:5173")
+// Owner decision (VS-1341): any origin in every environment. The frontend holds its JWT in memory and sends it
+// in the Authorization header, so no credentialed CORS is needed. To restore: WithOrigins("http://localhost:5173").
+const string AnyOriginCors = "AnyOrigin";
+builder.Services.AddCors(options => options.AddPolicy(AnyOriginCors, policy => policy
+    .AllowAnyOrigin()
     .AllowAnyHeader()
     .AllowAnyMethod()));
 
@@ -85,10 +86,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseCors(FrontendDevCors);
-}
+app.UseCors(AnyOriginCors);
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -19,7 +19,7 @@ Swagger (with a working padlock): `https://localhost:7001/swagger`
 | Timestamps | ISO 8601 **UTC**, ending in `Z`: `"2026-10-11T15:13:30.2045888Z"`. Convert to Asia/Ho_Chi_Minh in the UI |
 | Money | JSON number, VND: `900000.00`. Format with `Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })` |
 | Lists | always `PagedResult<T>` (below); `page` from 1, `pageSize` default 20, max 100 |
-| CORS | `http://localhost:5173` is allowed in Development |
+| CORS | Any origin is allowed in every environment (VS-1341); no credentialed CORS, the JWT goes in the Authorization header |
 
 ### `PagedResult<T>`
 
