@@ -29,3 +29,14 @@ public sealed class UpsertUnitPriceRequestValidator : AbstractValidator<UpsertUn
         RuleFor(x => x.Discount12Month).InclusiveBetween(0, 100);
     }
 }
+
+public sealed class FeeTypeRequestValidator : AbstractValidator<FeeTypeRequest>
+{
+    public FeeTypeRequestValidator()
+    {
+        RuleFor(x => x.Code).NotEmpty().MaximumLength(20).Matches("^[A-Za-z0-9_-]+$");
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.Amount).GreaterThanOrEqualTo(0).LessThanOrEqualTo(9999999999.99m);
+        RuleFor(x => x.Amount).LessThanOrEqualTo(100).When(x => x.IsPercentage).WithMessage("A percentage fee cannot exceed 100.");
+    }
+}

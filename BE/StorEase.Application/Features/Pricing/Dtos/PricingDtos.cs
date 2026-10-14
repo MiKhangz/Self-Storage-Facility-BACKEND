@@ -47,3 +47,5 @@ public sealed record UpsertUnitPriceRequest(
     decimal Discount3Month,
     decimal Discount6Month,
     decimal Discount12Month);
+
+public sealed record FeeTypeRequest(string Code, string Name, decimal Amount, bool IsPercentage);

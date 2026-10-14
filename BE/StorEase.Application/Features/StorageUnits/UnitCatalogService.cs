@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.Reservations.Validators;
 using StorEase.Application.Features.StorageUnits.Dtos;
 using StorEase.Application.Interfaces;
@@ -126,27 +127,11 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
         if (availability.Value.AvailableUnits == 0)
             return Error.Conflict("No unit of this type is available at this facility.");
 
-        var policy = await uow.Repository<PricingPolicy>().Query()
-            .Where(p => p.Status == PricingPolicyStatus.Active && p.EffectiveFrom <= moveInDate
-                && (p.EffectiveTo == null || p.EffectiveTo >= moveInDate))
-            .OrderByDescending(p => p.EffectiveFrom)
-            .FirstOrDefaultAsync(ct);
-        if (policy is null)
-            return Error.NotFound("No active pricing policy applies to the move-in date.");
-
-        var price = await uow.Repository<UnitPrice>().Query()
-            .Where(p => p.PricingPolicyId == policy.PricingPolicyId && p.UnitTypeId == unitTypeId)
-            .Select(p => new { p.BasePricePerMonth, p.Discount3Month, p.Discount6Month, p.Discount12Month })
-            .FirstOrDefaultAsync(ct);
-        if (price is null)
-            return Error.NotFound("No price is configured for this unit type in the active policy.");
-
-        var discount = rentalMonths >= 12 ? price.Discount12Month
-            : rentalMonths >= 6 ? price.Discount6Month
-            : rentalMonths >= 3 ? price.Discount3Month : 0m;
-        var monthlyRent = Money.Round(price.BasePricePerMonth * (1m - discount / 100m));
+        var terms = await RentCalculator.TermsAsync(uow, unitTypeId, moveInDate, rentalMonths, ct);
+        if (!terms.IsSuccess)
+            return terms.Error;
+        var (policy, monthlyRent, deposit) = terms.Value;
         var rentSubtotal = Money.Round(monthlyRent * rentalMonths);
-        var deposit = Money.Round(monthlyRent * policy.DepositMonths);
         var fees = await uow.Repository<FeeType>().Query()
             .Where(f => f.PricingPolicyId == policy.PricingPolicyId)
             .Select(f => new { f.Code, f.Name, f.Amount, f.IsPercentage })

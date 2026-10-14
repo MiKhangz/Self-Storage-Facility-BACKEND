@@ -10,7 +10,7 @@ namespace StorEase.Application.Tests;
 
 public class ReservationServiceTests
 {
-    private static ReservationService As(TestDb t, Application.Interfaces.ICurrentUser user) => new(t.Uow, user);
+    private static ReservationService As(TestDb t, Application.Interfaces.ICurrentUser user) => new(t.Uow, user, new FakeEmailService());
 
     private static async Task<int> Reserve(TestDb t, int unitTypeId = SmallTypeId)
     {
@@ -166,7 +166,7 @@ public class ReservationServiceTests
         var id = await Reserve(t);
 
         var single = await As(t, OtherCustomer).GetAsync(id, default);
-        var list = await As(t, OtherCustomer).ListAsync(null, 1, 20, default);
+        var list = await As(t, OtherCustomer).ListAsync(null, null, null, null, null, 1, 20, default);
 
         single.Error!.Type.Should().Be(ErrorType.NotFound, "404, not 403, so ids cannot be probed");
         list.Value!.TotalCount.Should().Be(0);
@@ -180,8 +180,8 @@ public class ReservationServiceTests
         await Reserve(t);
         await As(t, Staff).AssignUnitAsync(first, new AssignUnitRequest(A101), default);
 
-        var all = await As(t, Staff).ListAsync(null, 1, 20, default);
-        var pending = await As(t, Staff).ListAsync(ReservationStatus.Pending, 1, 20, default);
+        var all = await As(t, Staff).ListAsync(null, null, null, null, null, 1, 20, default);
+        var pending = await As(t, Staff).ListAsync(ReservationStatus.Pending, null, null, null, null, 1, 20, default);
 
         all.Value!.TotalCount.Should().Be(2);
         pending.Value!.Items.Should().ContainSingle().Which.Status.Should().Be(ReservationStatus.Pending);

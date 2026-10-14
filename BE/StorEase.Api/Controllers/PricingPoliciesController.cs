@@ -44,4 +44,25 @@ public sealed class PricingPoliciesController(IPricingService pricing) : ApiCont
         var result = await pricing.UpsertUnitPriceAsync(id, unitTypeId, request, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
+
+    [HttpPost("{id:int}/fee-types")]
+    public async Task<ActionResult<FeeTypeDto>> CreateFeeType(int id, FeeTypeRequest request, CancellationToken ct)
+    {
+        var result = await pricing.CreateFeeTypeAsync(id, request, ct);
+        return result.IsSuccess ? CreatedAtAction(nameof(Get), new { id }, result.Value) : Failure(result.Error);
+    }
+
+    [HttpPut("~/api/fee-types/{feeTypeId:int}")]
+    public async Task<ActionResult<FeeTypeDto>> UpdateFeeType(int feeTypeId, FeeTypeRequest request, CancellationToken ct)
+    {
+        var result = await pricing.UpdateFeeTypeAsync(feeTypeId, request, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    [HttpDelete("~/api/fee-types/{feeTypeId:int}")]
+    public async Task<IActionResult> DeleteFeeType(int feeTypeId, CancellationToken ct)
+    {
+        var result = await pricing.DeleteFeeTypeAsync(feeTypeId, ct);
+        return result.IsSuccess ? NoContent() : Failure(result.Error);
+    }
 }

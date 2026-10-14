@@ -390,6 +390,52 @@ namespace StorEase.Infrastructure.Migrations
                     b.ToTable("Handover", (string)null);
                 });
 
+            modelBuilder.Entity("StorEase.Domain.Entities.HandoverPhoto", b =>
+                {
+                    b.Property<int>("HandoverPhotoId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HandoverPhotoId"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("HandoverId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SizeBytes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StoredName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UploadedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("HandoverPhotoId");
+
+                    b.HasIndex("HandoverId");
+
+                    b.HasIndex("UploadedBy");
+
+                    b.ToTable("HandoverPhoto", (string)null);
+                });
+
             modelBuilder.Entity("StorEase.Domain.Entities.Invoice", b =>
                 {
                     b.Property<int>("InvoiceId")
@@ -417,6 +463,7 @@ namespace StorEase.Infrastructure.Migrations
                         .HasColumnType("date");
 
                     b.Property<decimal>("PaidAmount")
+                        .IsConcurrencyToken()
                         .HasColumnType("decimal(12,2)");
 
                     b.Property<int?>("ReservationId")
@@ -587,6 +634,37 @@ namespace StorEase.Infrastructure.Migrations
                     b.HasIndex("Status");
 
                     b.ToTable("MoveOutRequest", (string)null);
+                });
+
+            modelBuilder.Entity("StorEase.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.Property<int>("NotificationPreferenceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("NotificationPreferenceId"));
+
+                    b.Property<bool>("EmailReminders")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("MarketingEmails")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("SmsReminders")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("NotificationPreferenceId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("NotificationPreference", (string)null);
                 });
 
             modelBuilder.Entity("StorEase.Domain.Entities.OverdueCase", b =>
@@ -1568,6 +1646,25 @@ namespace StorEase.Infrastructure.Migrations
                     b.Navigation("StorageUnit");
                 });
 
+            modelBuilder.Entity("StorEase.Domain.Entities.HandoverPhoto", b =>
+                {
+                    b.HasOne("StorEase.Domain.Entities.Handover", "Handover")
+                        .WithMany()
+                        .HasForeignKey("HandoverId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("StorEase.Domain.Entities.User", "UploadedByUser")
+                        .WithMany()
+                        .HasForeignKey("UploadedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Handover");
+
+                    b.Navigation("UploadedByUser");
+                });
+
             modelBuilder.Entity("StorEase.Domain.Entities.Invoice", b =>
                 {
                     b.HasOne("StorEase.Domain.Entities.Contract", "Contract")
@@ -1645,6 +1742,17 @@ namespace StorEase.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Contract");
+                });
+
+            modelBuilder.Entity("StorEase.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.HasOne("StorEase.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("StorEase.Domain.Entities.OverdueCase", b =>

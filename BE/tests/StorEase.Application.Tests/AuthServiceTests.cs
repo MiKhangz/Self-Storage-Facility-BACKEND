@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using FluentAssertions;
 using StorEase.Application.Common;
+using StorEase.Application.Features.ActivityLogs;
 using StorEase.Application.Features.Auth;
 using StorEase.Application.Features.Auth.Dtos;
 using StorEase.Domain.Entities;
@@ -32,7 +33,8 @@ public class AuthServiceTests
     }
 
     private static Task<Result<LoginResponse>> Login(TestDb t, string email, string password) =>
-        new AuthService(t.Uow, Hasher, Jwt).LoginAsync(new LoginRequest(email, password), default);
+        new AuthService(t.Uow, Hasher, Jwt, new FakeEmailService(), new AppOptions(), new ActivityLogService(t.Uow))
+            .LoginAsync(new LoginRequest(email, password), null, default);
 
     [Fact]
     public async Task Correct_credentials_return_a_token_carrying_the_user_and_role()

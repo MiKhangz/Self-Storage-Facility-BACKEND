@@ -18,3 +18,6 @@ public sealed record ContractDto(
     int PaymentDay,
     DateTime? SignedAt,
     ContractStatus Status);
+
+/// <summary><see cref="PaymentDay"/> is the day of the month rent falls due (1–28, so it exists in every month).</summary>
+public sealed record CreateContractRequest(int ReservationId, int PaymentDay);

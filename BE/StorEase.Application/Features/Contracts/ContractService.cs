@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.AccessCodes;
 using StorEase.Application.Features.Contracts.Dtos;
+using StorEase.Application.Features.Pricing;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
@@ -25,6 +26,49 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
             query = query.Where(c => c.Status == status);
 
         return await query.OrderByDescending(c => c.ContractId).ToDto().ToPagedResultAsync(page, pageSize, ct);
+    }
+
+    public async Task<Result<ContractDto>> CreateAsync(CreateContractRequest request, CancellationToken ct)
+    {
+        var created = await uow.InTransactionAsync<int>(async () =>
+        {
+            var reservation = await uow.Repository<Reservation>().FindAsync(request.ReservationId, ct);
+            if (reservation is null)
+                return Error.NotFound("Reservation not found.");
+            if (reservation.Status != ReservationStatus.Confirmed || reservation.StorageUnitId is not { } unitId)
+                return Error.Conflict($"A contract is drafted for a Confirmed reservation with a unit assigned; this one is {reservation.Status}.");
+
+            // Business rule 1: one Active/Draft contract per unit (also a filtered unique index).
+            if (await uow.Repository<Contract>().Query().AnyAsync(c => c.StorageUnitId == unitId
+                    && (c.Status == ContractStatus.Active || c.Status == ContractStatus.Draft), ct))
+                return Error.Conflict("The unit already has an Active or Draft contract.");
+
+            var terms = await RentCalculator.TermsAsync(uow, reservation.UnitTypeId, reservation.MoveInDate, reservation.RentalMonths, ct);
+            if (!terms.IsSuccess)
+                return terms.Error;
+
+            var number = $"CT{reservation.ReservationCode[2..]}";
+            var drafts = await uow.Repository<Contract>().Query().CountAsync(c => c.ReservationId == reservation.ReservationId, ct);
+            var contract = new Contract
+            {
+                ReservationId = reservation.ReservationId,
+                CustomerId = reservation.CustomerId,
+                StorageUnitId = unitId,
+                // A redraft after a terminated draft keeps the reservation's number with a suffix.
+                ContractNumber = drafts == 0 ? number : $"{number}-{drafts + 1}",
+                StartDate = reservation.MoveInDate,
+                EndDate = reservation.MoveInDate.AddMonths(reservation.RentalMonths).AddDays(-1),
+                MonthlyRent = terms.Value.MonthlyRent,
+                DepositAmount = terms.Value.Deposit,
+                PaymentDay = request.PaymentDay,
+                Status = ContractStatus.Draft,
+            };
+            uow.Repository<Contract>().Add(contract);
+            await uow.SaveChangesAsync(ct);
+            return contract.ContractId;
+        }, ct);
+
+        return created.IsSuccess ? await GetAsync(created.Value, ct) : created.Error;
     }
 
     public async Task<Result<ContractDto>> SignAsync(int contractId, CancellationToken ct)

@@ -12,12 +12,14 @@ if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
 
 # Program.cs refuses to start without a JWT key; generating the spec never signs a token, so a placeholder is enough.
 $env:Jwt__Key = 'openapi-export-only-placeholder-key-not-a-secret'
-$env:ASPNETCORE_ENVIRONMENT = 'Development'
+# Not Development: startup then skips demo seeding, so exporting never touches a database.
+$env:ASPNETCORE_ENVIRONMENT = 'Production'
+$env:Billing__RunInBackground = 'false'
 Push-Location $root
 try {
     dotnet swagger tofile --output docs/openapi.json (Join-Path $out 'StorEase.Api.dll') v1
     if ($LASTEXITCODE -ne 0) { throw 'Swagger export failed.' }
 } finally {
     Pop-Location
-    Remove-Item Env:Jwt__Key, Env:ASPNETCORE_ENVIRONMENT -ErrorAction SilentlyContinue
+    Remove-Item Env:Jwt__Key, Env:ASPNETCORE_ENVIRONMENT, Env:Billing__RunInBackground -ErrorAction SilentlyContinue
 }

@@ -32,6 +32,7 @@ public class HandoverServiceTests
         public Task<Result<ContractDto>> SignAsync(int contractId, CancellationToken ct) => throw new NotSupportedException();
         public Task<Result<ContractDto>> TerminateAsync(int contractId, CancellationToken ct) => throw new NotSupportedException();
         public Task<Result<string>> ExportCsvAsync(ContractStatus? status, CancellationToken ct) => throw new NotSupportedException();
+        public Task<Result<ContractDto>> CreateAsync(CreateContractRequest request, CancellationToken ct) => throw new NotSupportedException();
     }
 
     private static HandoverService RealService(TestDb t)

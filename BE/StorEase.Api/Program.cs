@@ -7,8 +7,10 @@ using Microsoft.OpenApi.Models;
 using StorEase.Api;
 using StorEase.Api.Middleware;
 using StorEase.Application;
+using StorEase.Application.Common;
 using StorEase.Application.Interfaces;
 using StorEase.Infrastructure;
+using StorEase.Infrastructure.Persistence.Seed;
 using StorEase.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,14 +19,34 @@ var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOp
 
 builder.Services
     .AddApplication()
-    .AddInfrastructure(builder.Configuration.GetConnectionString("DefaultConnection"), jwt);
+    .AddInfrastructure(
+        builder.Configuration.GetConnectionString("DefaultConnection"), jwt,
+        Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["Storage:Root"] ?? "App_Data/uploads"));
+
+builder.Services.AddSingleton(builder.Configuration.GetSection("App").Get<AppOptions>() ?? new AppOptions());
+var gateway = builder.Configuration.GetSection("PaymentGateway").Get<PaymentGatewayOptions>() ?? new PaymentGatewayOptions();
+builder.Services.AddSingleton(new PaymentGatewayOptions
+{
+    Secret = gateway.Secret,
+    CheckoutBaseUrl = gateway.CheckoutBaseUrl,
+    // Simulating the gateway would let a customer mark their own invoice paid, so it never exists outside Development.
+    AllowSimulation = builder.Environment.IsDevelopment(),
+});
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
-builder.Services.AddControllers(options => options.Filters.Add<ValidationFilter>())
+builder.Services.AddControllers(options =>
+    {
+        options.Filters.Add<ValidationFilter>();
+        options.Filters.Add<ActivityLogFilter>();
+    })
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
+
+// Off for tools that start the app without wanting side effects (OpenAPI export sets Billing__RunInBackground=false).
+if (builder.Configuration.GetValue("Billing:RunInBackground", true))
+    builder.Services.AddHostedService<BillingWorker>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -68,6 +90,15 @@ builder.Services.AddCors(options => options.AddPolicy(FrontendDevCors, policy =>
     .AllowAnyMethod()));
 
 var app = builder.Build();
+
+// `dotnet run -- --seed-only` (used by scripts/reset-demo.ps1) loads the demo data and exits.
+if (app.Environment.IsDevelopment() || args.Contains("--seed-only"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<DbSeeder>().SeedAsync();
+    if (args.Contains("--seed-only"))
+        return;
+}
 
 // Checked after Build() so `dotnet ef`, which stops at Build(), still works on a machine without a key.
 if (Encoding.UTF8.GetByteCount(jwt.Key) < 32)

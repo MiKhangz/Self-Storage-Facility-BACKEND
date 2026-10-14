@@ -14,6 +14,9 @@ public interface IPricingService
     Task<Result<PricingPolicyDto>> CreatePolicyAsync(CreatePricingPolicyRequest request, CancellationToken ct);
     Task<Result<PricingPolicyDto>> ActivatePolicyAsync(int policyId, CancellationToken ct);
     Task<Result<UnitPriceDto>> UpsertUnitPriceAsync(int policyId, int unitTypeId, UpsertUnitPriceRequest request, CancellationToken ct);
+    Task<Result<FeeTypeDto>> CreateFeeTypeAsync(int policyId, FeeTypeRequest request, CancellationToken ct);
+    Task<Result<FeeTypeDto>> UpdateFeeTypeAsync(int feeTypeId, FeeTypeRequest request, CancellationToken ct);
+    Task<Result<bool>> DeleteFeeTypeAsync(int feeTypeId, CancellationToken ct);
 }
 
 public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : IPricingService
@@ -125,6 +128,66 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
             price.BasePricePerMonth, price.Discount3Month, price.Discount6Month, price.Discount12Month);
     }
 
+    public async Task<Result<FeeTypeDto>> CreateFeeTypeAsync(int policyId, FeeTypeRequest request, CancellationToken ct)
+    {
+        var policy = await uow.Repository<PricingPolicy>().FindAsync(policyId, ct);
+        if (policy is null)
+            return Error.NotFound("Pricing policy not found.");
+        var fee = new FeeType { PricingPolicyId = policyId };
+        var applied = await ApplyFeeAsync(policy, fee, request, ct);
+        if (!applied.IsSuccess)
+            return applied.Error;
+        uow.Repository<FeeType>().Add(fee);
+        await uow.SaveChangesAsync(ct);
+        return ToDto(fee);
+    }
+
+    public async Task<Result<FeeTypeDto>> UpdateFeeTypeAsync(int feeTypeId, FeeTypeRequest request, CancellationToken ct)
+    {
+        var fee = await uow.Repository<FeeType>().Query().Include(f => f.PricingPolicy)
+            .FirstOrDefaultAsync(f => f.FeeTypeId == feeTypeId, ct);
+        if (fee is null)
+            return Error.NotFound("Fee type not found.");
+        var applied = await ApplyFeeAsync(fee.PricingPolicy, fee, request, ct);
+        if (!applied.IsSuccess)
+            return applied.Error;
+        await uow.SaveChangesAsync(ct);
+        return ToDto(fee);
+    }
+
+    public async Task<Result<bool>> DeleteFeeTypeAsync(int feeTypeId, CancellationToken ct)
+    {
+        var fee = await uow.Repository<FeeType>().Query().Include(f => f.PricingPolicy)
+            .FirstOrDefaultAsync(f => f.FeeTypeId == feeTypeId, ct);
+        if (fee is null)
+            return Error.NotFound("Fee type not found.");
+        if (fee.PricingPolicy.Status != PricingPolicyStatus.Draft)
+            return Error.Conflict("Only a Draft pricing policy can be edited.");
+        if (await uow.Repository<InvoiceItem>().Query().AnyAsync(i => i.FeeTypeId == feeTypeId, ct))
+            return Error.Conflict("This fee has already been billed and cannot be deleted.");
+        uow.Repository<FeeType>().Remove(fee);
+        await uow.SaveChangesAsync(ct);
+        return true;
+    }
+
+    private async Task<Result<bool>> ApplyFeeAsync(PricingPolicy policy, FeeType fee, FeeTypeRequest request, CancellationToken ct)
+    {
+        // Fees of an active policy are already quoted to customers, so they change only through a new version.
+        if (policy.Status != PricingPolicyStatus.Draft)
+            return Error.Conflict("Only a Draft pricing policy can be edited.");
+        var code = request.Code.Trim().ToUpperInvariant();
+        if (await uow.Repository<FeeType>().Query().AnyAsync(f =>
+                f.PricingPolicyId == policy.PricingPolicyId && f.Code == code && f.FeeTypeId != fee.FeeTypeId, ct))
+            return Error.Conflict($"Fee code {code} already exists in this policy.");
+        fee.Code = code;
+        fee.Name = request.Name.Trim();
+        fee.Amount = Money.Round(request.Amount);
+        fee.IsPercentage = request.IsPercentage;
+        return true;
+    }
+
+    private static FeeTypeDto ToDto(FeeType f) => new(f.FeeTypeId, f.PricingPolicyId, f.Code, f.Name, f.Amount, f.IsPercentage);
+
     private IQueryable<PricingPolicy> WithPrices() => uow.Repository<PricingPolicy>().Query().AsNoTracking()
         .Include(p => p.UnitPrices).ThenInclude(u => u.UnitType)
         .Include(p => p.FeeTypes);
@@ -137,5 +200,5 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
             .Select(p => new UnitPriceDto(p.UnitPriceId, p.PricingPolicyId, p.UnitTypeId, p.UnitType.Code, p.UnitType.Name,
                 p.BasePricePerMonth, p.Discount3Month, p.Discount6Month, p.Discount12Month)).ToList(),
         policy.FeeTypes.OrderBy(f => f.Code)
-            .Select(f => new FeeTypeDto(f.FeeTypeId, f.PricingPolicyId, f.Code, f.Name, f.Amount, f.IsPercentage)).ToList());
+            .Select(ToDto).ToList());
 }
