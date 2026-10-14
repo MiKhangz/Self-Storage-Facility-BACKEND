@@ -28,7 +28,7 @@ public sealed class InvoicesController(IInvoiceService invoices) : ApiController
 
     [HttpPost("{id:int}/payments/online")]
     [Authorize(Roles = Roles.StorageCustomer)]
-    public async Task<ActionResult<InvoiceDto>> PayOnline(int id, OnlinePaymentRequest request, CancellationToken ct)
+    public async Task<ActionResult<InvoiceDto>> PayOnline(int id, PaymentRequest request, CancellationToken ct)
     {
         var result = await invoices.PayOnlineAsync(id, request, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
@@ -36,7 +36,7 @@ public sealed class InvoicesController(IInvoiceService invoices) : ApiController
 
     [HttpPost("{id:int}/payments/manual")]
     [Authorize(Roles = Roles.FacilityStaff + "," + Roles.FacilityManager)]
-    public async Task<ActionResult<InvoiceDto>> PayManual(int id, ManualPaymentRequest request, CancellationToken ct)
+    public async Task<ActionResult<InvoiceDto>> PayManual(int id, PaymentRequest request, CancellationToken ct)
     {
         var result = await invoices.RecordManualPaymentAsync(id, request, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);

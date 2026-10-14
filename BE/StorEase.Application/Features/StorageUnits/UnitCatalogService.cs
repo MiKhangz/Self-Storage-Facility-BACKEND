@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.Reservations.Validators;
 using StorEase.Application.Features.StorageUnits.Dtos;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
@@ -12,8 +13,8 @@ public interface IUnitCatalogService
 {
     Task<Result<IReadOnlyList<UnitTypeDto>>> ListUnitTypesAsync(CancellationToken ct);
     Task<Result<UnitTypeDto>> GetUnitTypeAsync(int unitTypeId, CancellationToken ct);
-    Task<Result<UnitTypeDto>> CreateUnitTypeAsync(CreateUnitTypeRequest request, CancellationToken ct);
-    Task<Result<UnitTypeDto>> UpdateUnitTypeAsync(int unitTypeId, UpdateUnitTypeRequest request, CancellationToken ct);
+    Task<Result<UnitTypeDto>> CreateUnitTypeAsync(UnitTypeRequest request, CancellationToken ct);
+    Task<Result<UnitTypeDto>> UpdateUnitTypeAsync(int unitTypeId, UnitTypeRequest request, CancellationToken ct);
     Task<Result<bool>> DeleteUnitTypeAsync(int unitTypeId, CancellationToken ct);
     Task<Result<UnitAvailabilityDto>> GetAvailabilityAsync(int facilityId, int unitTypeId, DateOnly moveInDate, CancellationToken ct);
     Task<Result<UnitPriceQuoteDto>> QuoteAsync(int facilityId, int unitTypeId, DateOnly moveInDate, int rentalMonths, CancellationToken ct);
@@ -39,7 +40,7 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
         return dto is null ? Error.NotFound("Unit type not found.") : dto;
     }
 
-    public async Task<Result<UnitTypeDto>> CreateUnitTypeAsync(CreateUnitTypeRequest request, CancellationToken ct)
+    public async Task<Result<UnitTypeDto>> CreateUnitTypeAsync(UnitTypeRequest request, CancellationToken ct)
     {
         var code = request.Code.Trim();
         if (await uow.Repository<UnitType>().Query().AnyAsync(t => t.Code == code, ct))
@@ -60,7 +61,7 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
         return await GetUnitTypeAsync(entity.UnitTypeId, ct);
     }
 
-    public async Task<Result<UnitTypeDto>> UpdateUnitTypeAsync(int unitTypeId, UpdateUnitTypeRequest request, CancellationToken ct)
+    public async Task<Result<UnitTypeDto>> UpdateUnitTypeAsync(int unitTypeId, UnitTypeRequest request, CancellationToken ct)
     {
         var entity = await uow.Repository<UnitType>().FindAsync(unitTypeId, ct);
         if (entity is null)
@@ -117,6 +118,8 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
     public async Task<Result<UnitPriceQuoteDto>> QuoteAsync(
         int facilityId, int unitTypeId, DateOnly moveInDate, int rentalMonths, CancellationToken ct)
     {
+        if (rentalMonths is < 1 or > CreateReservationRequestValidator.MaxRentalMonths)
+            return Error.Validation($"Rental months must be between 1 and {CreateReservationRequestValidator.MaxRentalMonths}.");
         var availability = await GetAvailabilityAsync(facilityId, unitTypeId, moveInDate, ct);
         if (!availability.IsSuccess)
             return availability.Error!;
@@ -141,22 +144,20 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
         var discount = rentalMonths >= 12 ? price.Discount12Month
             : rentalMonths >= 6 ? price.Discount6Month
             : rentalMonths >= 3 ? price.Discount3Month : 0m;
-        var monthlyRent = Money(price.BasePricePerMonth * (1m - discount / 100m));
-        var rentSubtotal = Money(monthlyRent * rentalMonths);
-        var deposit = Money(monthlyRent * policy.DepositMonths);
+        var monthlyRent = Money.Round(price.BasePricePerMonth * (1m - discount / 100m));
+        var rentSubtotal = Money.Round(monthlyRent * rentalMonths);
+        var deposit = Money.Round(monthlyRent * policy.DepositMonths);
         var fees = await uow.Repository<FeeType>().Query()
             .Where(f => f.PricingPolicyId == policy.PricingPolicyId)
             .Select(f => new { f.Code, f.Name, f.Amount, f.IsPercentage })
             .ToListAsync(ct);
         var quoteFees = fees.Select(f => new QuoteFeeDto(f.Code, f.Name,
-            Money(f.IsPercentage ? rentSubtotal * f.Amount / 100m : f.Amount))).ToList();
-        var total = Money(rentSubtotal + deposit + quoteFees.Sum(f => f.Amount));
+            Money.Round(f.IsPercentage ? rentSubtotal * f.Amount / 100m : f.Amount))).ToList();
+        var total = Money.Round(rentSubtotal + deposit + quoteFees.Sum(f => f.Amount));
         return new UnitPriceQuoteDto(facilityId, unitTypeId, moveInDate, rentalMonths,
             policy.PricingPolicyId, policy.Version, monthlyRent, rentSubtotal, deposit, quoteFees, total);
     }
 
     private static Expression<Func<UnitType, UnitTypeDto>> ProjectUnitType() =>
         t => new UnitTypeDto(t.UnitTypeId, t.Code, t.Name, t.AreaM2, t.Width, t.Depth, t.Height, t.IsClimateControlled);
-
-    private static decimal Money(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 }

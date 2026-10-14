@@ -34,16 +34,7 @@ public sealed record UnitPriceQuoteDto(
     IReadOnlyList<QuoteFeeDto> Fees,
     decimal TotalAmount);
 
-public sealed record CreateUnitTypeRequest(
-    string Code,
-    string Name,
-    decimal AreaM2,
-    decimal Width,
-    decimal Depth,
-    decimal Height,
-    bool IsClimateControlled);
-
-public sealed record UpdateUnitTypeRequest(
+public sealed record UnitTypeRequest(
     string Code,
     string Name,
     decimal AreaM2,

@@ -54,7 +54,7 @@ public sealed class TruongCoreFeatureTests
         var service = new PricingService(db.Uow, new FakeCurrentUser(7, Roles.BusinessOperationsManager));
 
         var created = await service.CreatePolicyAsync(new CreatePricingPolicyRequest(
-            new DateOnly(2027, 1, 1), null, 1, 3, 30, 2, 14, 60, 24), default);
+            new DateOnly(2026, 1, 1), null, 1, 3, 30, 2, 14, 60, 24), default);
         created.IsSuccess.Should().BeTrue();
         var price = await service.UpsertUnitPriceAsync(created.Value.PricingPolicyId, 3,
             new UpsertUnitPriceRequest(2_000_000, 5, 10, 15), default);
@@ -79,8 +79,8 @@ public sealed class TruongCoreFeatureTests
         await db.Db.SaveChangesAsync();
         var service = new InvoiceService(db.Uow, new FakeCurrentUser(11, Roles.StorageCustomer));
 
-        var paid = await service.PayOnlineAsync(10, new OnlinePaymentRequest(500_000, "GW-1"), default);
-        var duplicate = await service.PayOnlineAsync(10, new OnlinePaymentRequest(1, "GW-2"), default);
+        var paid = await service.PayOnlineAsync(10, new PaymentRequest(500_000, "GW-1"), default);
+        var duplicate = await service.PayOnlineAsync(10, new PaymentRequest(1, "GW-2"), default);
         var invoice = await db.Db.Invoices.Include(i => i.Payments).SingleAsync(i => i.InvoiceId == 10);
 
         paid.IsSuccess.Should().BeTrue();
@@ -105,12 +105,63 @@ public sealed class TruongCoreFeatureTests
         await db.Db.SaveChangesAsync();
         var service = new InvoiceService(db.Uow, new FakeCurrentUser(9, Roles.BusinessOperationsManager));
 
-        var result = await service.RecordManualPaymentAsync(20, new ManualPaymentRequest(75_001, "CASH-1"), default);
+        var result = await service.RecordManualPaymentAsync(20, new PaymentRequest(75_001, "CASH-1"), default);
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Type.Should().Be(ErrorType.Conflict);
         (await db.Db.Payments.CountAsync()).Should().Be(0);
         (await db.Db.Invoices.Where(i => i.InvoiceId == 20).Select(i => i.PaidAmount).SingleAsync()).Should().Be(25_000m);
+    }
+
+    [Fact]
+    public async Task Future_pricing_policy_cannot_be_activated_before_it_starts()
+    {
+        using var db = new TestDb();
+        SeedRoleAndUser(db, 7);
+        db.Db.UnitTypes.Add(new UnitType { UnitTypeId = 3, Code = "M", Name = "Medium", AreaM2 = 8, Width = 2, Depth = 4, Height = 2 });
+        await db.Db.SaveChangesAsync();
+        var service = new PricingService(db.Uow, new FakeCurrentUser(7, Roles.BusinessOperationsManager));
+        var created = await service.CreatePolicyAsync(new CreatePricingPolicyRequest(
+            VietnamTime.Today.AddDays(30), null, 1, 3, 30, 2, 14, 60, 24), default);
+        await service.UpsertUnitPriceAsync(created.Value.PricingPolicyId, 3, new UpsertUnitPriceRequest(2_000_000, 5, 10, 15), default);
+
+        var result = await service.ActivatePolicyAsync(created.Value.PricingPolicyId, default);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Type.Should().Be(ErrorType.Conflict);
+    }
+
+    [Fact]
+    public async Task Partial_payment_keeps_an_overdue_invoice_overdue()
+    {
+        using var db = new TestDb();
+        SeedRoleAndUser(db, 31);
+        db.Db.Invoices.Add(new Invoice
+        {
+            InvoiceId = 30, CustomerId = 31, InvoiceNumber = "INV-30", IssueDate = new DateOnly(2026, 9, 1),
+            DueDate = new DateOnly(2026, 9, 10), TotalAmount = 100_000, Status = InvoiceStatus.Overdue,
+        });
+        await db.Db.SaveChangesAsync();
+        var service = new InvoiceService(db.Uow, new FakeCurrentUser(31, Roles.StorageCustomer));
+
+        var result = await service.PayOnlineAsync(30, new PaymentRequest(50_000, null), default);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Status.Should().Be(InvoiceStatus.Overdue);
+        result.Value.OutstandingAmount.Should().Be(50_000m);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public async Task Quote_rejects_a_rental_length_below_one_month(int rentalMonths)
+    {
+        using var db = new TestDb();
+
+        var result = await new UnitCatalogService(db.Uow).QuoteAsync(1, 1, new DateOnly(2026, 11, 1), rentalMonths, default);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Type.Should().Be(ErrorType.Validation);
     }
 
     private static void SeedRoleAndUser(TestDb db, int userId)

@@ -43,7 +43,7 @@ public sealed class UnitTypesController(IUnitCatalogService catalog) : ApiContro
 
     [HttpPost]
     [Authorize(Roles = Roles.BusinessOperationsManager)]
-    public async Task<ActionResult<UnitTypeDto>> Create(CreateUnitTypeRequest request, CancellationToken ct)
+    public async Task<ActionResult<UnitTypeDto>> Create(UnitTypeRequest request, CancellationToken ct)
     {
         var result = await catalog.CreateUnitTypeAsync(request, ct);
         return result.IsSuccess ? CreatedAtAction(nameof(Get), new { id = result.Value.UnitTypeId }, result.Value) : Failure(result.Error);
@@ -51,7 +51,7 @@ public sealed class UnitTypesController(IUnitCatalogService catalog) : ApiContro
 
     [HttpPut("{id:int}")]
     [Authorize(Roles = Roles.BusinessOperationsManager)]
-    public async Task<ActionResult<UnitTypeDto>> Update(int id, UpdateUnitTypeRequest request, CancellationToken ct)
+    public async Task<ActionResult<UnitTypeDto>> Update(int id, UnitTypeRequest request, CancellationToken ct)
     {
         var result = await catalog.UpdateUnitTypeAsync(id, request, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);

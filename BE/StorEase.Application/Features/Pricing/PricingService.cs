@@ -20,21 +20,14 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
 {
     public async Task<Result<PagedResult<PricingPolicyDto>>> ListPoliciesAsync(int page, int pageSize, CancellationToken ct)
     {
-        var query = uow.Repository<PricingPolicy>().Query().OrderByDescending(p => p.Version);
-        var total = await query.CountAsync(ct);
-        var policies = await query.Skip((Math.Max(page, 1) - 1) * Math.Clamp(pageSize, 1, PagingExtensions.MaxPageSize))
-            .Take(Math.Clamp(pageSize, 1, PagingExtensions.MaxPageSize)).ToListAsync(ct);
-        var items = new List<PricingPolicyDto>(policies.Count);
-        foreach (var policy in policies)
-            items.Add(await MapPolicyAsync(policy.PricingPolicyId, ct));
-        return new PagedResult<PricingPolicyDto>(items, Math.Max(page, 1), Math.Clamp(pageSize, 1, PagingExtensions.MaxPageSize), total);
+        var paged = await WithPrices().OrderByDescending(p => p.Version).ToPagedResultAsync(page, pageSize, ct);
+        return new PagedResult<PricingPolicyDto>(paged.Items.Select(ToDto).ToList(), paged.Page, paged.PageSize, paged.TotalCount);
     }
 
     public async Task<Result<PricingPolicyDto>> GetPolicyAsync(int policyId, CancellationToken ct)
     {
-        if (!await uow.Repository<PricingPolicy>().Query().AnyAsync(p => p.PricingPolicyId == policyId, ct))
-            return Error.NotFound("Pricing policy not found.");
-        return await MapPolicyAsync(policyId, ct);
+        var policy = await WithPrices().FirstOrDefaultAsync(p => p.PricingPolicyId == policyId, ct);
+        return policy is null ? Error.NotFound("Pricing policy not found.") : ToDto(policy);
     }
 
     public async Task<Result<PricingPolicyDto>> CreatePolicyAsync(CreatePricingPolicyRequest request, CancellationToken ct)
@@ -77,6 +70,9 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
             var policy = await uow.Repository<PricingPolicy>().FindAsync(policyId, ct);
             if (policy is null)
                 return Error.NotFound("Pricing policy not found.");
+            // Activating early would supersede the current policy before this one starts, leaving a gap with no price.
+            if (policy.EffectiveFrom > VietnamTime.Today)
+                return Error.Conflict($"This policy starts on {policy.EffectiveFrom:yyyy-MM-dd}; activate it on or after that date.");
             var futureActive = await uow.Repository<PricingPolicy>().Query().AnyAsync(p =>
                 p.Status == PricingPolicyStatus.Active
                 && p.PricingPolicyId != policyId
@@ -129,17 +125,17 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
             price.BasePricePerMonth, price.Discount3Month, price.Discount6Month, price.Discount12Month);
     }
 
-    private async Task<PricingPolicyDto> MapPolicyAsync(int policyId, CancellationToken ct)
-    {
-        var policy = await uow.Repository<PricingPolicy>().Query().FirstAsync(p => p.PricingPolicyId == policyId, ct);
-        var prices = await uow.Repository<UnitPrice>().Query().Where(p => p.PricingPolicyId == policyId)
-            .OrderBy(p => p.UnitType.Code)
+    private IQueryable<PricingPolicy> WithPrices() => uow.Repository<PricingPolicy>().Query().AsNoTracking()
+        .Include(p => p.UnitPrices).ThenInclude(u => u.UnitType)
+        .Include(p => p.FeeTypes);
+
+    private static PricingPolicyDto ToDto(PricingPolicy policy) => new(
+        policy.PricingPolicyId, policy.Version, policy.EffectiveFrom, policy.EffectiveTo,
+        policy.DepositMonths, policy.GraceDays, policy.NoticeDays, policy.LateFeePercentPerWeek,
+        policy.SuspendAfterDays, policy.ClearOutAfterDays, policy.CancelFreeHours, policy.Status,
+        policy.UnitPrices.OrderBy(p => p.UnitType.Code)
             .Select(p => new UnitPriceDto(p.UnitPriceId, p.PricingPolicyId, p.UnitTypeId, p.UnitType.Code, p.UnitType.Name,
-                p.BasePricePerMonth, p.Discount3Month, p.Discount6Month, p.Discount12Month)).ToListAsync(ct);
-        var fees = await uow.Repository<FeeType>().Query().Where(f => f.PricingPolicyId == policyId)
-            .OrderBy(f => f.Code).Select(f => new FeeTypeDto(f.FeeTypeId, f.PricingPolicyId, f.Code, f.Name, f.Amount, f.IsPercentage)).ToListAsync(ct);
-        return new PricingPolicyDto(policy.PricingPolicyId, policy.Version, policy.EffectiveFrom, policy.EffectiveTo,
-            policy.DepositMonths, policy.GraceDays, policy.NoticeDays, policy.LateFeePercentPerWeek,
-            policy.SuspendAfterDays, policy.ClearOutAfterDays, policy.CancelFreeHours, policy.Status, prices, fees);
-    }
+                p.BasePricePerMonth, p.Discount3Month, p.Discount6Month, p.Discount12Month)).ToList(),
+        policy.FeeTypes.OrderBy(f => f.Code)
+            .Select(f => new FeeTypeDto(f.FeeTypeId, f.PricingPolicyId, f.Code, f.Name, f.Amount, f.IsPercentage)).ToList());
 }

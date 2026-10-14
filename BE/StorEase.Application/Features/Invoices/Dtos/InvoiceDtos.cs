@@ -34,5 +34,4 @@ public sealed record InvoiceDto(
     IReadOnlyList<InvoiceItemDto> Items,
     IReadOnlyList<InvoicePaymentDto> Payments);
 
-public sealed record OnlinePaymentRequest(decimal Amount, string? ReferenceNo);
-public sealed record ManualPaymentRequest(decimal Amount, string? ReferenceNo);
+public sealed record PaymentRequest(decimal Amount, string? ReferenceNo);
