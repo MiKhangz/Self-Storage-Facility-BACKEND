@@ -413,3 +413,10 @@ FodyWeavers.xsd
 # Local secrets - never commit (CLAUDE.md section 9)
 appsettings.Development.json
 .env
+
+# Local AI tooling (Understand-Anything, graphify, headroom, Serena)
+.ua/
+BE/graphify-out/
+.serena/
+BE/.claude/
+BE/CLAUDE.md

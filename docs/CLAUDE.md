@@ -121,6 +121,12 @@ dotnet ef database update      -p StorEase.Infrastructure -s StorEase.Api
 dotnet ef migrations remove    -p StorEase.Infrastructure -s StorEase.Api
 ```
 
+OpenAPI spec — from the repository root (works while the API is running):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/export-openapi.ps1   # writes docs/openapi.json
+```
+
 ---
 
 ## 5. Backend rules
@@ -245,6 +251,9 @@ Workload as assigned, counting Simple = 1, Medium = 2, Complex = 3:
 - **Do not scaffold from the database.** This project is code-first.
 - Never commit `appsettings.Development.json`, connection strings, JWT signing keys or `.env`.
 - Run `dotnet build` and `dotnet test` from `BE/` before declaring a task done.
+- **Keep `docs/openapi.json` current.** Whenever an endpoint changes — a controller, route, `[Authorize]`
+  role, request/response DTO or an enum it exposes — run `scripts/export-openapi.ps1` and commit the
+  regenerated spec in the same change. The frontend generates its API client from this file.
 - Comments explain *why*, not *what*. No commented-out code.
 - Answer in English in code and comments; UI copy is Vietnamese.
 
