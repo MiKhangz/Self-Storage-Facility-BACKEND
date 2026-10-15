@@ -69,13 +69,14 @@ public class AuthService(
             Email = emailAddress,
             PhoneNumber = request.PhoneNumber.Trim(),
             PasswordHash = hasher.Hash(request.Password),
-            Status = UserStatus.Pending,
+            Status = app.AutoVerifyEmail ? UserStatus.Active : UserStatus.Pending,
             CreatedAt = DateTime.UtcNow,
         };
         uow.Repository<User>().Add(user);
         await uow.SaveChangesAsync(ct);
 
-        await SendVerificationAsync(user, ct);
+        if (user.Status == UserStatus.Pending)
+            await SendVerificationAsync(user, ct);
         return new RegisterResponse(user.UserId, user.Email, user.Status.ToString());
     }
 

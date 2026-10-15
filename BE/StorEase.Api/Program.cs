@@ -23,7 +23,13 @@ builder.Services
         builder.Configuration.GetConnectionString("DefaultConnection"), jwt,
         Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["Storage:Root"] ?? "App_Data/uploads"));
 
-builder.Services.AddSingleton(builder.Configuration.GetSection("App").Get<AppOptions>() ?? new AppOptions());
+var appOptions = builder.Configuration.GetSection("App").Get<AppOptions>() ?? new AppOptions();
+builder.Services.AddSingleton(new AppOptions
+{
+    FrontendBaseUrl = appOptions.FrontendBaseUrl,
+    // ponytail: emails only go to the API log (LoggingEmailService), so Development skips verification; drop this once real email is wired.
+    AutoVerifyEmail = builder.Environment.IsDevelopment(),
+});
 var gateway = builder.Configuration.GetSection("PaymentGateway").Get<PaymentGatewayOptions>() ?? new PaymentGatewayOptions();
 builder.Services.AddSingleton(new PaymentGatewayOptions
 {

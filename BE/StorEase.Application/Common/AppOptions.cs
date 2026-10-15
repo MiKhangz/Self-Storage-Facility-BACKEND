@@ -5,6 +5,9 @@ public sealed class AppOptions
 {
     /// <summary>Where links in emails point (verify email, reset password).</summary>
     public string FrontendBaseUrl { get; init; } = "http://localhost:5173";
+
+    /// <summary>New accounts start Active with no verification email. Development only: there is no real email yet.</summary>
+    public bool AutoVerifyEmail { get; init; }
 }
 
 /// <summary>

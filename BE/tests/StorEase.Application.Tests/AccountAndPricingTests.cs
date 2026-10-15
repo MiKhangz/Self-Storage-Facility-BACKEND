@@ -57,6 +57,21 @@ public class AccountAndPricingTests
     }
 
     [Fact]
+    public async Task With_auto_verify_a_new_account_signs_in_at_once_and_no_email_is_sent()
+    {
+        using var t = Create();
+        var email = new FakeEmailService();
+        var auth = new AuthService(t.Uow, new Pbkdf2PasswordHasher(), Jwt, email, new AppOptions { AutoVerifyEmail = true }, new ActivityLogService(t.Uow));
+
+        var registered = await auth.RegisterAsync(new RegisterRequest("Khách mới", "auto@x.vn", "0901234567", "Strong@123"), default);
+        var login = await auth.LoginAsync(new LoginRequest("auto@x.vn", "Strong@123"), null, default);
+
+        registered.Value!.Status.Should().Be(nameof(UserStatus.Active));
+        login.IsSuccess.Should().BeTrue(login.Error?.Message);
+        email.Sent.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Fee_types_are_editable_only_on_a_draft_policy_with_unique_codes()
     {
         using var t = Create();
