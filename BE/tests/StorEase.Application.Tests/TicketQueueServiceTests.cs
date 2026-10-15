@@ -152,7 +152,7 @@ public class TicketQueueServiceTests
 
         // The failed calls above cleared the change tracker, so update by key rather than via the stale instance.
         w.Db.Db.Users.Where(u => u.UserId == w.Staff.UserId)
-            .ExecuteUpdate(s => s.SetProperty(u => u.Status, UserStatus.Suspended));
+            .ExecuteUpdate(s => s.SetProperty(u => u.Status, UserStatus.Disabled));
         (await svc.AssignAsync(t.TicketId, new AssignTicketRequest(w.Staff.UserId, null), default))
             .Error!.Type.Should().Be(ErrorType.Conflict);
         (await svc.AssignAsync(t.TicketId, new AssignTicketRequest(12345, null), default))

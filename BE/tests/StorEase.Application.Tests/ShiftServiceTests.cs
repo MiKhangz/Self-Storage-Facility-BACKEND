@@ -161,7 +161,7 @@ public class ShiftServiceTests
 
         // A failed call clears the change tracker, so update by query rather than through the detached entity.
         await w.Db.Db.Users.Where(u => u.UserId == w.Staff.UserId)
-            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UserStatus.Suspended));
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UserStatus.Disabled));
         (await svc.CreateAsync(Req(w.Staff, w.F1, Day, 8, 16), default)).Error!.Type.Should().Be(ErrorType.Conflict);
 
         (await svc.CreateAsync(new CreateShiftRequest(9999, w.F1.FacilityId, Day, new(8, 0), new(16, 0), ShiftType.Morning), default))

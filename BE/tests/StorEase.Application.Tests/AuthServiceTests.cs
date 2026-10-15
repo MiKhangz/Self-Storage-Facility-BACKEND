@@ -66,7 +66,7 @@ public class AuthServiceTests
     [Fact]
     public async Task An_inactive_account_cannot_sign_in()
     {
-        using var t = WithUser(UserStatus.Suspended);
+        using var t = WithUser(UserStatus.Disabled);
 
         var result = await Login(t, "staff@x.vn", "Demo@123");
 
