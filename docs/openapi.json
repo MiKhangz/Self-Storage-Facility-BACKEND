@@ -5565,7 +5565,8 @@
           },
           "currentPrice": {
             "type": "number",
-            "format": "double"
+            "format": "double",
+            "nullable": true
           },
           "note": {
             "type": "string",
@@ -7896,6 +7897,10 @@
           "areaM2": {
             "type": "number",
             "format": "double"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8473,6 +8478,11 @@
           },
           "isClimateControlled": {
             "type": "boolean"
+          },
+          "monthlyPrice": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8600,7 +8610,8 @@
           },
           "currentPrice": {
             "type": "number",
-            "format": "double"
+            "format": "double",
+            "nullable": true
           },
           "note": {
             "type": "string",
@@ -8635,8 +8646,7 @@
         "enum": [
           "Pending",
           "Active",
-          "Suspended",
-          "Inactive"
+          "Disabled"
         ],
         "type": "string"
       },

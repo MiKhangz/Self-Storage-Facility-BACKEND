@@ -328,7 +328,7 @@ All routes: `SystemAdministrator` only. Customers are never returned or editable
 - `StaffAccountDto`: `userId, fullName, email, phoneNumber, role, status, createdAt, facilities: [{facilityId, facilityName}]`. The password hash is never returned.
 - `role` is one of `FacilityStaff|FacilityManager|BusinessOperationsManager|SystemAdministrator` (`400` otherwise; `StorageCustomer` is refused). `404` if that role row does not exist yet (the `Role` table has no seed).
 - Create: new account is `Active`; duplicate email (case-insensitive) is `409`.
-- Update: only the fields given change; no delete, lock an account with `status` `Suspended` or `Inactive` (not `Pending`). An admin cannot deactivate their own account or change their own role (`409`). A locked account's existing JWT keeps working until it expires.
+- Update: only the fields given change; no delete, lock an account with `status` `Disabled` (not `Pending`). An admin cannot deactivate their own account or change their own role (`409`). A locked account's existing JWT keeps working until it expires.
 - Facilities: replaces the whole list. Unassigned rows are deleted (`StaffFacility` is a link, not history); unknown facility id is `404` and nothing changes.
 
 
@@ -479,7 +479,7 @@ staff, **M** facility manager, **B** business operations, **A** admin, **anon** 
 
 | Method & route | Who | Notes |
 |---|---|---|
-| `POST /api/auth/register` | anon | `201`; account is `Pending` until the emailed link is opened |
+| `POST /api/auth/register` | anon | `201`; account is `Pending` until the emailed link is opened (Development: `Active` at once, no email) |
 | `POST /api/auth/verify-email` | anon | `{ token }` → `204` |
 | `POST /api/auth/resend-verification` | anon | always `204` |
 | `POST /api/auth/forgot-password` | anon | always `204`; link valid 30 min, works once |
