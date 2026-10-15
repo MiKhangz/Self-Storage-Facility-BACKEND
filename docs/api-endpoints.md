@@ -516,6 +516,18 @@ Login of a `Pending` account answers `403` "verify your email".
 Creating a reservation also raises its deposit invoice (`DEP<code>`, due on move-in day); the handover
 answers `409` until it is paid.
 
+### Rental terms (public)
+
+| Method & route | Who | Notes |
+|---|---|---|
+| `GET /api/pricing-policies/current-terms` | anon | Policy in force today: `depositMonths`, `graceDays`, `noticeDays`, `lateFeePercentPerWeek`, `suspendAfterDays`, `clearOutAfterDays`, `cancelFreeHours`, and `discounts[]` per unit type (3/6/12 months, percent). `404` if no policy is in force. The customer site shows these instead of hard-coded text. |
+
+### Staff facility scope
+
+Reservations, contracts, handovers and move-out requests follow the same rule as tickets and maintenance:
+FacilityStaff and FacilityManager see and act only on records of facilities they work at (`StaffFacility` or
+`Facility.ManagerId`); SystemAdministrator and BusinessOperationsManager see all. Out of scope is `404`.
+
 ### Pricing fees (Trường)
 
 | Method & route | Who |

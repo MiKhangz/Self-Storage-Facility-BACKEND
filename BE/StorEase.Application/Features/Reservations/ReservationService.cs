@@ -136,7 +136,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
     {
         var assigned = await uow.InTransactionAsync<int>(async () =>
         {
-            var reservation = await uow.Repository<Reservation>().FindAsync(reservationId, ct);
+            var reservation = await Visible().FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
             if (reservation is null)
                 return Error.NotFound("Reservation not found.");
             if (reservation.Status != ReservationStatus.Pending)
@@ -233,7 +233,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
 
     public async Task<Result<CheckInChecklistDto>> GetCheckInChecklistAsync(int reservationId, CancellationToken ct)
     {
-        var r = await uow.Repository<Reservation>().Query().AsNoTracking()
+        var r = await Visible().AsNoTracking()
             .Include(x => x.Customer).Include(x => x.StorageUnit)
             .FirstOrDefaultAsync(x => x.ReservationId == reservationId, ct);
         if (r is null)
@@ -261,14 +261,17 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             r.Customer.CitizenId, r.StorageUnit?.UnitCode, contract?.ContractId, items, ready);
     }
 
+    /// <summary>Customers see their own; facility staff and managers the facilities they work at; admin and business ops all.</summary>
     private IQueryable<Reservation> Visible()
     {
         var query = uow.Repository<Reservation>().Query();
-        if (!currentUser.IsCustomer)
+        var userId = currentUser.UserId;
+        if (currentUser.IsCustomer)
+            return query.Where(r => r.CustomerId == userId);
+        if (StaffScope.SeesAllFacilities(currentUser.Role))
             return query;
-
-        var customerId = currentUser.UserId;
-        return query.Where(r => r.CustomerId == customerId);
+        var facilityIds = StaffScope.FacilityIdsOf(uow, userId);
+        return query.Where(r => facilityIds.Contains(r.FacilityId));
     }
 
     private IQueryable<ReservationDto> Project(IQueryable<Reservation> source)

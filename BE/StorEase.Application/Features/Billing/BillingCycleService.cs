@@ -74,9 +74,12 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
         foreach (var row in contracts)
         {
             var contract = row.Contract;
-            for (var periodStart = contract.StartDate; periodStart <= contract.EndDate && periodStart <= horizon;
-                 periodStart = periodStart.AddMonths(1))
+            // Months counted from the start date each time: stepping month by month would drift a 31st start to the 28th.
+            for (var k = 0; ; k++)
             {
+                var periodStart = contract.StartDate.AddMonths(k);
+                if (periodStart > contract.EndDate || periodStart > horizon)
+                    break;
                 var due = DueDateOf(contract, periodStart);
                 var number = InvoiceBook.MonthlyNumber(contract.ContractId, periodStart);
                 if (due > horizon || row.Numbers.Contains(number))
@@ -91,7 +94,7 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
                     DueDate = due,
                     Status = InvoiceStatus.Issued,
                 };
-                var periodEnd = periodStart.AddMonths(1).AddDays(-1);
+                var periodEnd = contract.StartDate.AddMonths(k + 1).AddDays(-1);
                 invoice.InvoiceItems.Add(InvoiceBook.Line(
                     $"Tiền thuê {periodStart:dd/MM/yyyy} – {(periodEnd < contract.EndDate ? periodEnd : contract.EndDate):dd/MM/yyyy}",
                     contract.MonthlyRent));

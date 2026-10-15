@@ -2389,6 +2389,25 @@
         }
       }
     },
+    "/api/pricing-policies/current-terms": {
+      "get": {
+        "tags": [
+          "PricingPolicies"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyTermsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pricing-policies/{id}": {
       "get": {
         "tags": [
@@ -6913,6 +6932,55 @@
         ],
         "type": "string"
       },
+      "PolicyTermsDto": {
+        "type": "object",
+        "properties": {
+          "pricingPolicyId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "depositMonths": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "graceDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "noticeDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lateFeePercentPerWeek": {
+            "type": "number",
+            "format": "double"
+          },
+          "suspendAfterDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "clearOutAfterDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cancelFreeHours": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "discounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SizeDiscountDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "PostTicketMessageRequest": {
         "type": "object",
         "properties": {
@@ -7678,6 +7746,28 @@
           "Night"
         ],
         "type": "string"
+      },
+      "SizeDiscountDto": {
+        "type": "object",
+        "properties": {
+          "unitTypeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "discount3Month": {
+            "type": "number",
+            "format": "double"
+          },
+          "discount6Month": {
+            "type": "number",
+            "format": "double"
+          },
+          "discount12Month": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
       },
       "StaffAccountDto": {
         "type": "object",

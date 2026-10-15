@@ -39,7 +39,9 @@ public static class CoreFlowSeed
             new UnitType { UnitTypeId = LargeTypeId, Code = "M10", Name = "10 m²", AreaM2 = 10, Width = 2.5m, Depth = 4, Height = 2.4m },
             NewUnit(A101, "A-101", SmallTypeId),
             NewUnit(A102, "A-102", SmallTypeId),
-            NewUnit(A104, "A-104", LargeTypeId));
+            NewUnit(A104, "A-104", LargeTypeId),
+            // Staff act only on facilities they work at (StaffScope).
+            new StaffFacility { UserId = StaffId, FacilityId = FacilityId, AssignedDate = new DateOnly(2026, 1, 1) });
         t.Db.SaveChanges();
         t.Db.ChangeTracker.Clear();
         return t;

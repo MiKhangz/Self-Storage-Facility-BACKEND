@@ -59,8 +59,10 @@ public class ContractLifecycleTests
     private static void Seed(AppDbContext db, bool signed = true)
     {
         var customer = new User { UserId = 1, FullName = "Khach A" };
-        var unit = new StorageUnit { StorageUnitId = 1, UnitCode = "A-101", Status = StorageUnitStatus.Reserved };
-        var reservation = new Reservation { ReservationId = 1, CustomerId = 1, StorageUnitId = 1, Status = ReservationStatus.Confirmed };
+        var unit = new StorageUnit { StorageUnitId = 1, FacilityId = 1, UnitCode = "A-101", Status = StorageUnitStatus.Reserved };
+        var reservation = new Reservation { ReservationId = 1, FacilityId = 1, CustomerId = 1, StorageUnitId = 1, Status = ReservationStatus.Confirmed };
+        // The acting staff member (user 9) works at facility 1.
+        db.Add(new StaffFacility { UserId = 9, FacilityId = 1 });
         db.AddRange(customer, unit, reservation, new Contract
         {
             ContractId = 1, ContractNumber = "CT1", ReservationId = 1, CustomerId = 1, Customer = customer,

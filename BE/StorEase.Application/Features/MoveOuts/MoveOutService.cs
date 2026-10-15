@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.MoveOuts.Dtos;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
@@ -40,12 +41,10 @@ public class MoveOutService(IUnitOfWork uow, ICurrentUser currentUser) : IMoveOu
                 return Error.Conflict("This contract already has an open move-out request.");
 
             // Business rule 8: the notice period comes from the active pricing policy.
-            var noticeDays = await uow.Repository<PricingPolicy>().Query()
-                .Where(p => p.Status == PricingPolicyStatus.Active)
-                .OrderByDescending(p => p.Version)
-                .Select(p => (int?)p.NoticeDays)
-                .FirstOrDefaultAsync(ct) ?? DefaultNoticeDays;
-            var earliest = DepositSettlement.EarliestMoveOutDate(DateOnly.FromDateTime(DateTime.UtcNow), noticeDays);
+            // Vietnam's date, not UTC's, and the policy in force today (the same one the terms page shows).
+            var today = VietnamTime.Today;
+            var noticeDays = (await RentCalculator.PolicyForAsync(uow, today, ct))?.NoticeDays ?? DefaultNoticeDays;
+            var earliest = DepositSettlement.EarliestMoveOutDate(today, noticeDays);
             if (request.PlannedMoveOutDate < earliest)
                 return Error.Conflict($"Move-out needs {noticeDays} days notice; the earliest date is {earliest:yyyy-MM-dd}.");
 
@@ -88,7 +87,7 @@ public class MoveOutService(IUnitOfWork uow, ICurrentUser currentUser) : IMoveOu
 
     public async Task<Result<MoveOutRequestDto>> ApproveAsync(int id, ApproveMoveOutRequest request, CancellationToken ct)
     {
-        var moveOut = await uow.Repository<MoveOutRequest>().FindAsync(id, ct);
+        var moveOut = await Visible().FirstOrDefaultAsync(m => m.MoveOutRequestId == id, ct);
         if (moveOut is null)
             return Error.NotFound("Move-out request not found.");
         if (moveOut.Status != MoveOutRequestStatus.Requested)
@@ -105,7 +104,7 @@ public class MoveOutService(IUnitOfWork uow, ICurrentUser currentUser) : IMoveOu
     {
         var inspected = await uow.InTransactionAsync<int>(async () =>
         {
-            var moveOut = await uow.Repository<MoveOutRequest>().FindAsync(id, ct);
+            var moveOut = await Visible().FirstOrDefaultAsync(m => m.MoveOutRequestId == id, ct);
             if (moveOut is null)
                 return Error.NotFound("Move-out request not found.");
             if (moveOut.Status != MoveOutRequestStatus.Approved)
@@ -139,7 +138,7 @@ public class MoveOutService(IUnitOfWork uow, ICurrentUser currentUser) : IMoveOu
     public Task<Result<DepositSettlementDto>> SettleAsync(int id, CancellationToken ct) =>
         uow.InTransactionAsync<DepositSettlementDto>(async () =>
         {
-            var moveOut = await uow.Repository<MoveOutRequest>().FindAsync(id, ct);
+            var moveOut = await Visible().FirstOrDefaultAsync(m => m.MoveOutRequestId == id, ct);
             if (moveOut is null)
                 return Error.NotFound("Move-out request not found.");
             if (moveOut.Status != MoveOutRequestStatus.Inspected)
@@ -180,14 +179,17 @@ public class MoveOutService(IUnitOfWork uow, ICurrentUser currentUser) : IMoveOu
                 moveOut.MoveOutRequestId, contract.DepositAmount, damage, outstanding, refund, shortfall, moveOut.Status);
         }, ct);
 
+    /// <summary>Customers see their own; facility staff and managers the facilities they work at; admin and business ops all.</summary>
     private IQueryable<MoveOutRequest> Visible()
     {
         var query = uow.Repository<MoveOutRequest>().Query();
-        if (!currentUser.IsCustomer)
+        var userId = currentUser.UserId;
+        if (currentUser.IsCustomer)
+            return query.Where(m => m.Contract.CustomerId == userId);
+        if (StaffScope.SeesAllFacilities(currentUser.Role))
             return query;
-
-        var customerId = currentUser.UserId;
-        return query.Where(m => m.Contract.CustomerId == customerId);
+        var facilityIds = StaffScope.FacilityIdsOf(uow, userId);
+        return query.Where(m => facilityIds.Contains(m.Contract.StorageUnit.FacilityId));
     }
 
     private IQueryable<MoveOutRequestDto> Project(IQueryable<MoveOutRequest> source)

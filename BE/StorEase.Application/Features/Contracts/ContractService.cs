@@ -33,7 +33,7 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
         var created = await uow.InTransactionAsync<int>(async () =>
         {
             var reservation = await uow.Repository<Reservation>().FindAsync(request.ReservationId, ct);
-            if (reservation is null)
+            if (reservation is null || !await InScopeAsync(reservation.FacilityId, ct))
                 return Error.NotFound("Reservation not found.");
             if (reservation.Status != ReservationStatus.Confirmed || reservation.StorageUnitId is not { } unitId)
                 return Error.Conflict($"A contract is drafted for a Confirmed reservation with a unit assigned; this one is {reservation.Status}.");
@@ -118,7 +118,7 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
     {
         var done = await uow.InTransactionAsync<int>(async () =>
         {
-            var contract = await uow.Repository<Contract>().Query()
+            var contract = await Visible()
                 .Include(c => c.AccessCodes).Include(c => c.StorageUnit)
                 .FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
             if (contract is null)
@@ -161,13 +161,20 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
         return '"' + value.Replace("\"", "\"\"") + '"';
     }
 
+    /// <summary>Customers see their own; facility staff and managers the facilities they work at; admin and business ops all.</summary>
     private IQueryable<Contract> Visible()
     {
         var query = uow.Repository<Contract>().Query();
-        if (!currentUser.IsCustomer)
+        var userId = currentUser.UserId;
+        if (currentUser.IsCustomer)
+            return query.Where(c => c.CustomerId == userId);
+        if (StaffScope.SeesAllFacilities(currentUser.Role))
             return query;
-
-        var customerId = currentUser.UserId;
-        return query.Where(c => c.CustomerId == customerId);
+        var facilityIds = StaffScope.FacilityIdsOf(uow, userId);
+        return query.Where(c => facilityIds.Contains(c.StorageUnit.FacilityId));
     }
+
+    private async Task<bool> InScopeAsync(int facilityId, CancellationToken ct) =>
+        StaffScope.SeesAllFacilities(currentUser.Role)
+        || await StaffScope.FacilityIdsOf(uow, currentUser.UserId).AnyAsync(id => id == facilityId, ct);
 }

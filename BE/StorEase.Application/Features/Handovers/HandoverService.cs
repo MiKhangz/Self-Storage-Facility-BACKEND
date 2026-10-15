@@ -20,7 +20,8 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser, IContrac
         uow.InTransactionAsync<HandoverDto>(async () =>
         {
             var reservation = await uow.Repository<Reservation>().FindAsync(request.ReservationId, ct);
-            if (reservation is null)
+            // Staff hand over only at facilities they work at; elsewhere the reservation does not exist for them.
+            if (reservation is null || !await StaffScope.FacilityIdsOf(uow, currentUser.UserId).AnyAsync(id => id == reservation.FacilityId, ct))
                 return Error.NotFound("Reservation not found.");
             if (reservation.Status != ReservationStatus.Confirmed || reservation.StorageUnitId is null)
                 return Error.Conflict($"The reservation must be Confirmed with a unit assigned; it is {reservation.Status}.");

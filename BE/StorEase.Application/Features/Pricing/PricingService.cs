@@ -11,6 +11,7 @@ public interface IPricingService
 {
     Task<Result<PagedResult<PricingPolicyDto>>> ListPoliciesAsync(int page, int pageSize, CancellationToken ct);
     Task<Result<PricingPolicyDto>> GetPolicyAsync(int policyId, CancellationToken ct);
+    Task<Result<PolicyTermsDto>> GetCurrentTermsAsync(CancellationToken ct);
     Task<Result<PricingPolicyDto>> CreatePolicyAsync(CreatePricingPolicyRequest request, CancellationToken ct);
     Task<Result<PricingPolicyDto>> ActivatePolicyAsync(int policyId, CancellationToken ct);
     Task<Result<UnitPriceDto>> UpsertUnitPriceAsync(int policyId, int unitTypeId, UpsertUnitPriceRequest request, CancellationToken ct);
@@ -31,6 +32,20 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
     {
         var policy = await WithPrices().FirstOrDefaultAsync(p => p.PricingPolicyId == policyId, ct);
         return policy is null ? Error.NotFound("Pricing policy not found.") : ToDto(policy);
+    }
+
+    public async Task<Result<PolicyTermsDto>> GetCurrentTermsAsync(CancellationToken ct)
+    {
+        var policy = await RentCalculator.PolicyForAsync(uow, VietnamTime.Today, ct);
+        if (policy is null)
+            return Error.NotFound("No pricing policy is in force today.");
+        var discounts = await uow.Repository<UnitPrice>().Query()
+            .Where(p => p.PricingPolicyId == policy.PricingPolicyId)
+            .OrderBy(p => p.UnitTypeId)
+            .Select(p => new SizeDiscountDto(p.UnitTypeId, p.Discount3Month, p.Discount6Month, p.Discount12Month))
+            .ToListAsync(ct);
+        return new PolicyTermsDto(policy.PricingPolicyId, policy.Version, policy.DepositMonths, policy.GraceDays, policy.NoticeDays,
+            policy.LateFeePercentPerWeek, policy.SuspendAfterDays, policy.ClearOutAfterDays, policy.CancelFreeHours, discounts);
     }
 
     public async Task<Result<PricingPolicyDto>> CreatePolicyAsync(CreatePricingPolicyRequest request, CancellationToken ct)
