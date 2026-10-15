@@ -29,7 +29,8 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
             .OrderBy(t => t.Code)
             .Select(ProjectUnitType())
             .ToListAsync(ct);
-        return items;
+        var prices = await PolicyPricesAsync(ct);
+        return items.Select(t => t with { MonthlyPrice = prices.GetValueOrDefault(t.UnitTypeId) }).ToList();
     }
 
     public async Task<Result<UnitTypeDto>> GetUnitTypeAsync(int unitTypeId, CancellationToken ct)
@@ -38,7 +39,9 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
             .Where(t => t.UnitTypeId == unitTypeId)
             .Select(ProjectUnitType())
             .FirstOrDefaultAsync(ct);
-        return dto is null ? Error.NotFound("Unit type not found.") : dto;
+        if (dto is null)
+            return Error.NotFound("Unit type not found.");
+        return dto with { MonthlyPrice = (await PolicyPricesAsync(ct)).GetValueOrDefault(unitTypeId) };
     }
 
     public async Task<Result<UnitTypeDto>> CreateUnitTypeAsync(UnitTypeRequest request, CancellationToken ct)
@@ -144,5 +147,16 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
     }
 
     private static Expression<Func<UnitType, UnitTypeDto>> ProjectUnitType() =>
-        t => new UnitTypeDto(t.UnitTypeId, t.Code, t.Name, t.AreaM2, t.Width, t.Depth, t.Height, t.IsClimateControlled);
+        t => new UnitTypeDto(t.UnitTypeId, t.Code, t.Name, t.AreaM2, t.Width, t.Depth, t.Height, t.IsClimateControlled, null);
+
+    /// <summary>Base monthly rent per unit type in the policy in force today; empty when no policy is active.</summary>
+    private async Task<Dictionary<int, decimal?>> PolicyPricesAsync(CancellationToken ct)
+    {
+        var policy = await RentCalculator.PolicyForAsync(uow, VietnamTime.Today, ct);
+        if (policy is null)
+            return [];
+        return await uow.Repository<UnitPrice>().Query()
+            .Where(p => p.PricingPolicyId == policy.PricingPolicyId)
+            .ToDictionaryAsync(p => p.UnitTypeId, p => (decimal?)p.BasePricePerMonth, ct);
+    }
 }

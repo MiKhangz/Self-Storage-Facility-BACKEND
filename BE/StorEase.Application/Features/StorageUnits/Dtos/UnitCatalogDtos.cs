@@ -2,6 +2,8 @@ using StorEase.Domain.Enums;
 
 namespace StorEase.Application.Features.StorageUnits.Dtos;
 
+/// <summary>MonthlyPrice is the active pricing policy's base rent for the size (null when none is set): the price
+/// every unit of this size is rented at, before period discounts.</summary>
 public sealed record UnitTypeDto(
     int UnitTypeId,
     string Code,
@@ -10,7 +12,8 @@ public sealed record UnitTypeDto(
     decimal Width,
     decimal Depth,
     decimal Height,
-    bool IsClimateControlled);
+    bool IsClimateControlled,
+    decimal? MonthlyPrice);
 
 public sealed record UnitAvailabilityDto(
     int FacilityId,

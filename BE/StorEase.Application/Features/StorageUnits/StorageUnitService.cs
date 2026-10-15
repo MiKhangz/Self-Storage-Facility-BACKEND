@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.StorageUnits.Dtos;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
@@ -60,7 +61,7 @@ public class StorageUnitService(IUnitOfWork uow, ICurrentUser currentUser) : ISt
             UnitTypeId = request.UnitTypeId,
             UnitCode = request.UnitCode.Trim().ToUpperInvariant(),
             Zone = Clean(request.Zone),
-            CurrentPrice = Money.Round(request.CurrentPrice),
+            CurrentPrice = request.CurrentPrice is { } price ? Money.Round(price) : await PolicyPriceAsync(request.UnitTypeId, ct),
             Note = Clean(request.Note),
             Status = StorageUnitStatus.Available,
         };
@@ -83,11 +84,14 @@ public class StorageUnitService(IUnitOfWork uow, ICurrentUser currentUser) : ISt
         if (problem is not null)
             return problem;
 
+        if (request.CurrentPrice is { } price)
+            unit.CurrentPrice = Money.Round(price);
+        else if (unit.UnitTypeId != request.UnitTypeId)
+            unit.CurrentPrice = await PolicyPriceAsync(request.UnitTypeId, ct);
         unit.FloorId = request.FloorId;
         unit.UnitTypeId = request.UnitTypeId;
         unit.UnitCode = request.UnitCode.Trim().ToUpperInvariant();
         unit.Zone = Clean(request.Zone);
-        unit.CurrentPrice = Money.Round(request.CurrentPrice);
         unit.Note = Clean(request.Note);
         await uow.SaveChangesAsync(ct);
         return await GetAsync(storageUnitId, ct);
@@ -128,7 +132,21 @@ public class StorageUnitService(IUnitOfWork uow, ICurrentUser currentUser) : ISt
     private static IQueryable<StorageUnitListItemDto> Project(IQueryable<StorageUnit> query) =>
         query.Select(u => new StorageUnitListItemDto(
             u.StorageUnitId, u.UnitCode, u.FacilityId, u.FloorId, u.Floor.Name, u.Zone, u.Status,
-            u.CurrentPrice, u.UnitTypeId, u.UnitType.Code, u.UnitType.Name, u.UnitType.AreaM2));
+            u.CurrentPrice, u.UnitTypeId, u.UnitType.Code, u.UnitType.Name, u.UnitType.AreaM2, u.Note));
+
+    /// <summary>
+    /// The active policy's monthly base price for a unit type, or 0 when none is set. Display only: quotes, deposits and
+    /// contracts read the policy through RentCalculator, never the unit's own price.
+    /// </summary>
+    private async Task<decimal> PolicyPriceAsync(int unitTypeId, CancellationToken ct)
+    {
+        var policy = await RentCalculator.PolicyForAsync(uow, VietnamTime.Today, ct);
+        if (policy is null)
+            return 0m;
+        return await uow.Repository<UnitPrice>().Query()
+            .Where(p => p.PricingPolicyId == policy.PricingPolicyId && p.UnitTypeId == unitTypeId)
+            .Select(p => p.BasePricePerMonth).FirstOrDefaultAsync(ct);
+    }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
