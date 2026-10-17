@@ -17,7 +17,7 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.Property(x => x.InvoiceNumber).HasMaxLength(20).IsUnicode(false);
         builder.HasIndex(x => x.DueDate);
         builder.Property(x => x.TotalAmount).HasColumnType("decimal(12,2)");
-        builder.Property(x => x.PaidAmount).HasColumnType("decimal(12,2)");
+        builder.Property(x => x.PaidAmount).HasColumnType("decimal(12,2)").IsConcurrencyToken();
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
         builder.HasIndex(x => x.Status);
         builder.HasIndex(x => x.InvoiceNumber).IsUnique();

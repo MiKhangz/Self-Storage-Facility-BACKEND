@@ -328,7 +328,7 @@ All routes: `SystemAdministrator` only. Customers are never returned or editable
 - `StaffAccountDto`: `userId, fullName, email, phoneNumber, role, status, createdAt, facilities: [{facilityId, facilityName}]`. The password hash is never returned.
 - `role` is one of `FacilityStaff|FacilityManager|BusinessOperationsManager|SystemAdministrator` (`400` otherwise; `StorageCustomer` is refused). `404` if that role row does not exist yet (the `Role` table has no seed).
 - Create: new account is `Active`; duplicate email (case-insensitive) is `409`.
-- Update: only the fields given change; no delete, lock an account with `status` `Suspended` or `Inactive` (not `Pending`). An admin cannot deactivate their own account or change their own role (`409`). A locked account's existing JWT keeps working until it expires.
+- Update: only the fields given change; no delete, lock an account with `status` `Disabled` (not `Pending`). An admin cannot deactivate their own account or change their own role (`409`). A locked account's existing JWT keeps working until it expires.
 - Facilities: replaces the whole list. Unassigned rows are deleted (`StaffFacility` is a link, not history); unknown facility id is `404` and nothing changes.
 
 
@@ -467,3 +467,109 @@ Rules:
 - Create: `409` unless the contract is `Active` and has no renewal in `Requested`. Another customer's contract is `404`.
 - `newEndDate = contract.endDate + extendMonths`. `newMonthlyRent` = active pricing policy's base price for the unit type less the discount tier reached (≥3 / ≥6 / ≥12 months, percent); if there is no active policy it is the current rent. The contract's own rent and end date are not changed by the request.
 - **Not built:** approve/reject (Facility Manager) and applying an approved renewal to the contract; they are not in BE-54/55, so a renewal stays `Requested`.
+
+---
+
+## Added 14 Oct — accounts, facility setup, billing, reports
+
+Full request/response shapes are in `docs/openapi.json` (Swagger). Roles: **C** customer, **S** facility
+staff, **M** facility manager, **B** business operations, **A** admin, **anon** no token.
+
+### Accounts (Khang)
+
+| Method & route | Who | Notes |
+|---|---|---|
+| `POST /api/auth/register` | anon | `201`; account is `Pending` until the emailed link is opened (Development: `Active` at once, no email) |
+| `POST /api/auth/verify-email` | anon | `{ token }` → `204` |
+| `POST /api/auth/resend-verification` | anon | always `204` |
+| `POST /api/auth/forgot-password` | anon | always `204`; link valid 30 min, works once |
+| `POST /api/auth/reset-password` | anon | `{ token, newPassword }` → `204` |
+| `GET/PUT /api/users/me` | any | own profile |
+| `POST /api/users/me/password` | any | `{ currentPassword, newPassword }` |
+| `GET/PUT /api/users/me/notification-settings` | any | `emailReminders`, `smsReminders`, `marketingEmails` |
+
+Login of a `Pending` account answers `403` "verify your email".
+
+### Facilities, floors, units (Khang)
+
+| Method & route | Who |
+|---|---|
+| `GET /api/facilities?search=&district=` · `GET /api/facilities/{id}` | anon |
+| `POST /api/facilities` · `PUT /api/facilities/{id}` · `POST /api/facilities/{id}/deactivate|activate` | A |
+| `GET /api/facilities/{id}/unit-board` | S, M, B, A |
+| `GET/POST /api/facilities/{id}/floors` · `PUT/DELETE /api/floors/{id}` | M (own facility), A |
+| `GET /api/storage-units/{id}` · `POST /api/storage-units` · `PUT /api/storage-units/{id}` · `POST .../{id}/retire|restore` | M, A |
+
+### Reservations, contract draft, handover (Khang)
+
+| Method & route | Who | Notes |
+|---|---|---|
+| `GET /api/reservations?status=&search=&facilityId=&moveInFrom=&moveInTo=` | any | customer sees own |
+| `POST /api/reservations/{id}/cancel` | C (own), S | releases the unit; deposit refundable within `cancelFreeHours` or when staff cancel |
+| `POST /api/reservations/{id}/no-show` | S | after move-in date; deposit forfeited |
+| `GET /api/reservations/{id}/check-in` | S | handover checklist |
+| `POST /api/contracts` | S | `{ reservationId, paymentDay }` (1–28) → Draft contract at the policy rent |
+| `GET /api/handovers/{id}` | any (customer own) | with photos |
+| `POST /api/handovers/{id}/photos` | S | multipart field `file`, JPEG/PNG/WebP ≤ 5 MB |
+| `GET /api/handovers/{id}/photos/{photoId}` | any (customer own) | the image |
+
+Creating a reservation also raises its deposit invoice (`DEP<code>`, due on move-in day); the handover
+answers `409` until it is paid.
+
+### Rental terms (public)
+
+| Method & route | Who | Notes |
+|---|---|---|
+| `GET /api/pricing-policies/current-terms` | anon | Policy in force today: `depositMonths`, `graceDays`, `noticeDays`, `lateFeePercentPerWeek`, `suspendAfterDays`, `clearOutAfterDays`, `cancelFreeHours`, and `discounts[]` per unit type (3/6/12 months, percent). `404` if no policy is in force. The customer site shows these instead of hard-coded text. |
+
+### Staff facility scope
+
+Reservations, contracts, handovers and move-out requests follow the same rule as tickets and maintenance:
+FacilityStaff and FacilityManager see and act only on records of facilities they work at (`StaffFacility` or
+`Facility.ManagerId`); SystemAdministrator and BusinessOperationsManager see all. Out of scope is `404`.
+
+### Pricing fees (Trường)
+
+| Method & route | Who |
+|---|---|
+| `POST /api/pricing-policies/{id}/fee-types` · `PUT/DELETE /api/fee-types/{id}` | B (Draft policies only) |
+
+### Payments (Trường)
+
+| Method & route | Who | Notes |
+|---|---|---|
+| `POST /api/invoices/{id}/payments/online` | C | returns `{ paymentId, paymentCode, amount, status: "Pending", checkoutUrl }`; nothing credited yet |
+| `POST /api/payments/gateway-callback` | anon | `{ paymentCode, status, amount, referenceNo, signature }`, HMAC-SHA256 of `code|status|amount(0.00)|ref` with `PaymentGateway:Secret` |
+| `POST /api/payments/{paymentCode}/simulate-success` | C | **Development only** — stands in for the gateway |
+| `POST /api/invoices/{id}/payments/manual` | S, M | cash at the counter |
+| `GET /api/payments?invoiceId=&status=` | any | customer sees own |
+| `POST /api/payments/{id}/refund` | B | `{ reason }` |
+| `POST /api/invoices/{id}/adjustments` | B | `{ description, amount }` (negative = credit) |
+
+### Billing, overdue, reminders (Trường)
+
+A background job runs hourly (idempotent per day): issues each month's rent invoice 7 days before it is due
+(`INV<yyyyMM>C<contractId>`), marks unpaid invoices `Overdue`, opens an overdue case after `graceDays`, adds a
+late-fee line of `lateFeePercentPerWeek` per full week past grace, locks out at `suspendAfterDays` (access
+codes suspended, contract `Suspended`), flags `ClearOut` at `clearOutAfterDays`, and emails reminders 3 days
+before due and weekly once overdue (honouring `emailReminders`). Paying in full resolves the case and
+restores access.
+
+| Method & route | Who |
+|---|---|
+| `POST /api/billing/run?date=2026-10-14` | B, A — run the job now |
+| `GET /api/overdue-cases?stage=&openOnly=true` · `GET /api/overdue-cases/{id}` | S, M, B, A |
+| `POST /api/overdue-cases/{id}/lockout` · `POST /api/overdue-cases/{id}/restore-access` | M, B |
+| `GET /api/invoices/{id}/reminders` | S, M, B, A |
+| `POST /api/invoices/{id}/reminders` | S, M, B — send one now |
+
+### Reports and audit
+
+| Method & route | Who |
+|---|---|
+| `GET /api/reports/dashboard?facilityId=` | M (own facilities), B, A |
+| `GET /api/reports/occupancy?facilityId=` | M, B, A |
+| `GET /api/reports/revenue?from=&to=&facilityId=` | M, B, A — defaults to the last 12 months |
+| `GET /api/activity-logs?userId=&action=&from=&to=` | A — every write by a signed-in user, plus logins |
+
+Reset the local demo database: `powershell -ExecutionPolicy Bypass -File scripts/reset-demo.ps1`.

@@ -101,7 +101,7 @@ Every status column is `varchar(20)` in the database, backed by a C# enum conver
 
 | Column | Values |
 |---|---|
-| `User.Status` | `Pending`, `Active`, `Suspended`, `Inactive` |
+| `User.Status` | `Pending`, `Active`, `Disabled` |
 | `Facility.Status` | `Active`, `Inactive` |
 | `PricingPolicy.Status` | `Draft`, `Active`, `Superseded` |
 | `Handover.Status` | `Scheduled`, `InProgress`, `Completed`, `Cancelled` |

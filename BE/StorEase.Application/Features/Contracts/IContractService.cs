@@ -12,6 +12,12 @@ public interface IContractService
 
     Task<Result<PagedResult<ContractDto>>> ListAsync(ContractStatus? status, int page, int pageSize, CancellationToken ct);
 
+    /// <summary>
+    /// Staff draft the contract for a Confirmed reservation with its unit assigned. Rent and deposit come from the
+    /// pricing policy in force on the move-in date and are fixed from then on (business rule 4).
+    /// </summary>
+    Task<Result<ContractDto>> CreateAsync(CreateContractRequest request, CancellationToken ct);
+
     /// <summary>Records the calling customer's e-signature on their own Draft contract.</summary>
     Task<Result<ContractDto>> SignAsync(int contractId, CancellationToken ct);
 

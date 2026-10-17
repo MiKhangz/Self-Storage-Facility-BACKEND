@@ -13,6 +13,16 @@ namespace StorEase.Api.Controllers;
 public class ContractsController(IContractService contracts, IAccessCodeService accessCodes) : ApiControllerBase
 {
     /// <summary>Staff see every contract; a customer sees only their own.</summary>
+    [HttpPost]
+    [Authorize(Roles = Roles.Staff)]
+    public async Task<ActionResult<ContractDto>> Create(CreateContractRequest request, CancellationToken ct)
+    {
+        var result = await contracts.CreateAsync(request, ct);
+        return result.IsSuccess
+            ? CreatedAtAction(nameof(Get), new { id = result.Value.ContractId }, result.Value)
+            : Failure(result.Error);
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<ActionResult<PagedResult<ContractDto>>> List(

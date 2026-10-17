@@ -46,8 +46,9 @@ public class ContractServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
         var customer = new User { UserId = 1, FullName = "Khach A" };
         var other = new User { UserId = 2, FullName = "Khach B" };
-        var unit = new StorageUnit { StorageUnitId = 1, UnitCode = "A-101" };
-        db.AddRange(customer, other, unit,
+        var unit = new StorageUnit { StorageUnitId = 1, FacilityId = 1, UnitCode = "A-101" };
+        // Staff user 9 works at facility 1; user 10 works nowhere.
+        db.AddRange(customer, other, unit, new StaffFacility { UserId = 9, FacilityId = 1 },
             new Contract { ContractId = 1, ContractNumber = "CT1", CustomerId = 1, Customer = customer, StorageUnitId = 1, StorageUnit = unit, Status = ContractStatus.Draft },
             new Contract { ContractId = 2, ContractNumber = "CT2", CustomerId = 1, Customer = customer, StorageUnitId = 1, StorageUnit = unit, Status = ContractStatus.Active, SignedAt = DateTime.UtcNow },
             new Contract { ContractId = 3, ContractNumber = "CT3", CustomerId = 2, Customer = other, StorageUnitId = 1, StorageUnit = unit, Status = ContractStatus.Draft });
@@ -110,13 +111,18 @@ public class ContractServiceTests
     }
 
     [Fact]
-    public async Task Staff_can_read_any_contract()
+    public async Task Staff_read_any_contract_at_their_facility_and_none_elsewhere()
     {
         var (service, _) = Create(9, Roles.FacilityStaff);
+        var (outsider, _) = Create(10, Roles.FacilityStaff);
+        var (admin, _) = Create(11, Roles.SystemAdministrator);
 
         var result = await service.GetAsync(3, default);
 
         result.Value!.CustomerName.Should().Be("Khach B");
         result.Value.UnitCode.Should().Be("A-101");
+        (await outsider.GetAsync(3, default)).Error!.Type.Should().Be(ErrorType.NotFound);
+        (await outsider.ListAsync(null, 1, 20, default)).Value!.TotalCount.Should().Be(0);
+        (await admin.ListAsync(null, 1, 20, default)).Value!.TotalCount.Should().Be(3);
     }
 }

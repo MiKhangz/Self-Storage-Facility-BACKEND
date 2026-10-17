@@ -416,3 +416,10 @@ appsettings.Development.json
 
 # Office lock files
 ~$*
+
+# Local AI tooling (Understand-Anything, graphify, headroom, Serena)
+.ua/
+BE/graphify-out/
+.serena/
+BE/.claude/
+BE/CLAUDE.md

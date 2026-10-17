@@ -9,6 +9,8 @@ public static class VietnamTime
 {
     private static readonly TimeSpan Offset = TimeSpan.FromHours(7);
 
+    public static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow + Offset);
+
     public static DateTime ToUtc(DateTime value) => value.Kind switch
     {
         DateTimeKind.Utc => value,

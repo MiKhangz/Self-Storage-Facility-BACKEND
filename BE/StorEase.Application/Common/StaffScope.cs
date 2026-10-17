@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 
@@ -27,4 +28,13 @@ public static class StaffScope
     /// </summary>
     public static bool SeesAllFacilities(string role) =>
         role is Roles.SystemAdministrator or Roles.BusinessOperationsManager;
+
+    /// <summary>
+    /// Whether the caller may change the facility's setup (floors, units): administrators anywhere, a facility
+    /// manager only where <see cref="FacilityIdsOf"/> includes it.
+    /// </summary>
+    public static async Task<bool> CanManageAsync(IUnitOfWork uow, ICurrentUser user, int facilityId, CancellationToken ct) =>
+        user.Role == Roles.SystemAdministrator
+        || (user.Role == Roles.FacilityManager
+            && await FacilityIdsOf(uow, user.UserId).AnyAsync(id => id == facilityId, ct));
 }

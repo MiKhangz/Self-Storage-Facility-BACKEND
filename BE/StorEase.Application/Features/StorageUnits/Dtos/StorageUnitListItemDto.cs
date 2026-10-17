@@ -14,4 +14,5 @@ public sealed record StorageUnitListItemDto(
     int UnitTypeId,
     string UnitTypeCode,
     string UnitTypeName,
-    decimal AreaM2);
+    decimal AreaM2,
+    string? Note);

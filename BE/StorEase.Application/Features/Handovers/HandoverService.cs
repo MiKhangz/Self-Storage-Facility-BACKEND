@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.Contracts;
 using StorEase.Application.Features.Handovers.Dtos;
@@ -19,10 +20,17 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser, IContrac
         uow.InTransactionAsync<HandoverDto>(async () =>
         {
             var reservation = await uow.Repository<Reservation>().FindAsync(request.ReservationId, ct);
-            if (reservation is null)
+            // Staff hand over only at facilities they work at; elsewhere the reservation does not exist for them.
+            if (reservation is null || !await StaffScope.FacilityIdsOf(uow, currentUser.UserId).AnyAsync(id => id == reservation.FacilityId, ct))
                 return Error.NotFound("Reservation not found.");
             if (reservation.Status != ReservationStatus.Confirmed || reservation.StorageUnitId is null)
                 return Error.Conflict($"The reservation must be Confirmed with a unit assigned; it is {reservation.Status}.");
+
+            // The deposit comes before the keys (DEMO_PLAN step order); no deposit invoice means none was due.
+            var depositOpen = await uow.Repository<Invoice>().Query().AnyAsync(i => i.ReservationId == reservation.ReservationId
+                && i.ContractId == null && i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.WrittenOff, ct);
+            if (depositOpen)
+                return Error.Conflict("The deposit has not been paid yet.");
 
             var contract = await uow.Repository<Contract>().FindAsync(request.ContractId, ct);
             if (contract is null)

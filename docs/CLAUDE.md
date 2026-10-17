@@ -121,6 +121,12 @@ dotnet ef database update      -p StorEase.Infrastructure -s StorEase.Api
 dotnet ef migrations remove    -p StorEase.Infrastructure -s StorEase.Api
 ```
 
+OpenAPI spec — from the repository root (works while the API is running):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/export-openapi.ps1   # writes docs/openapi.json
+```
+
 ---
 
 ## 5. Backend rules
@@ -245,6 +251,9 @@ Workload as assigned, counting Simple = 1, Medium = 2, Complex = 3:
 - **Do not scaffold from the database.** This project is code-first.
 - Never commit `appsettings.Development.json`, connection strings, JWT signing keys or `.env`.
 - Run `dotnet build` and `dotnet test` from `BE/` before declaring a task done.
+- **Keep `docs/openapi.json` current.** Whenever an endpoint changes — a controller, route, `[Authorize]`
+  role, request/response DTO or an enum it exposes — run `scripts/export-openapi.ps1` and commit the
+  regenerated spec in the same change. The frontend generates its API client from this file.
 - Comments explain *why*, not *what*. No commented-out code.
 - Answer in English in code and comments; UI copy is Vietnamese.
 
@@ -267,7 +276,8 @@ Workload as assigned, counting Simple = 1, Medium = 2, Complex = 3:
 
 ## 11. Database schema
 
-30 tables, 59 foreign keys. SQL Server types. `FK → Table.Column` marks a foreign key;
+32 tables, 62 foreign keys (the 30 of the ERD plus `HandoverPhoto` and `NotificationPreference`, added
+14 Oct for BE-29 and BE-53). SQL Server types. `FK → Table.Column` marks a foreign key;
 *(nullable)* means the relationship is optional (zero-or-one on that side).
 
 ### Accounts & staff
@@ -342,6 +352,18 @@ Workload as assigned, counting Simple = 1, Medium = 2, Complex = 3:
 | `IpAddress` | `varchar(45)` |  |
 | `Result` | `varchar(20)` |  |
 | `CreatedAt` | `datetime2` |  |
+
+
+**`NotificationPreference`** — one row per user who changed the defaults (BE-53)
+
+| Column | Type | Key |
+|---|---|---|
+| `NotificationPreferenceId` | `int` | PK |
+| `UserId` | `int` | FK → `User.UserId`, unique |
+| `EmailReminders` | `bit` |  |
+| `SmsReminders` | `bit` |  |
+| `MarketingEmails` | `bit` |  |
+| `UpdatedAt` | `datetime2` |  |
 
 
 ### Facilities & units
@@ -488,6 +510,20 @@ Workload as assigned, counting Simple = 1, Medium = 2, Complex = 3:
 | `CardNumber` | `varchar(30)` |  |
 | `ConditionNote` | `nvarchar(300)` |  |
 | `Status` | `varchar(20)` |  |
+
+
+**`HandoverPhoto`** — condition photos taken at handover (BE-29); the file itself lives under `Storage:Root`
+
+| Column | Type | Key |
+|---|---|---|
+| `HandoverPhotoId` | `int` | PK |
+| `HandoverId` | `int` | FK → `Handover.HandoverId` |
+| `UploadedBy` | `int` | FK → `User.UserId` |
+| `FileName` | `nvarchar(200)` |  |
+| `ContentType` | `varchar(100)` |  |
+| `StoredName` | `varchar(100)` |  |
+| `SizeBytes` | `int` |  |
+| `UploadedAt` | `datetime2` |  |
 
 
 ### Contract & access
@@ -753,6 +789,9 @@ Read this as "one `Parent` has many `Child`". Relationships marked *optional* ha
 | `User` | `SupportTicket` | `SupportTicket.AssignedTo` | *optional* |
 | `SupportTicket` | `TicketMessage` | `TicketMessage.TicketId` |  |
 | `User` | `TicketMessage` | `TicketMessage.SenderId` |  |
+| `Handover` | `HandoverPhoto` | `HandoverPhoto.HandoverId` |  |
+| `User` | `HandoverPhoto` | `HandoverPhoto.UploadedBy` |  |
+| `User` | `NotificationPreference` | `NotificationPreference.UserId` | one-to-zero-or-one |
 
 ---
 

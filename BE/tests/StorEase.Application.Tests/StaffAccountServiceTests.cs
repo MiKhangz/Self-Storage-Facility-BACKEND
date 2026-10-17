@@ -114,12 +114,12 @@ public class StaffAccountServiceTests
         var created = (await w.AsAdmin().CreateAsync(World.Create(), default)).Value!;
 
         var r = await w.AsAdmin().UpdateAsync(created.UserId,
-            new UpdateStaffAccountRequest("Renamed", null, Roles.FacilityManager, UserStatus.Suspended), default);
+            new UpdateStaffAccountRequest("Renamed", null, Roles.FacilityManager, UserStatus.Disabled), default);
 
         r.IsSuccess.Should().BeTrue();
         r.Value.FullName.Should().Be("Renamed");
         r.Value.Role.Should().Be(Roles.FacilityManager);
-        r.Value.Status.Should().Be(UserStatus.Suspended);
+        r.Value.Status.Should().Be(UserStatus.Disabled);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class StaffAccountServiceTests
         var w = new World();
 
         var lockSelf = await w.AsAdmin().UpdateAsync(w.Admin.UserId,
-            new UpdateStaffAccountRequest(null, null, null, UserStatus.Inactive), default);
+            new UpdateStaffAccountRequest(null, null, null, UserStatus.Disabled), default);
         var demoteSelf = await w.AsAdmin().UpdateAsync(w.Admin.UserId,
             new UpdateStaffAccountRequest(null, null, Roles.FacilityStaff, null), default);
 
@@ -201,10 +201,10 @@ public class StaffAccountServiceTests
         var w = new World();
         var a = (await w.AsAdmin().CreateAsync(World.Create("a@x.vn"), default)).Value!;
         await w.AsAdmin().CreateAsync(World.Create("b@x.vn", Roles.FacilityManager), default);
-        await w.AsAdmin().UpdateAsync(a.UserId, new UpdateStaffAccountRequest(null, null, null, UserStatus.Inactive), default);
+        await w.AsAdmin().UpdateAsync(a.UserId, new UpdateStaffAccountRequest(null, null, null, UserStatus.Disabled), default);
 
         var byRole = await w.AsAdmin().ListAsync(Roles.FacilityManager, null, 1, 20, default);
-        var byStatus = await w.AsAdmin().ListAsync(null, UserStatus.Inactive, 1, 20, default);
+        var byStatus = await w.AsAdmin().ListAsync(null, UserStatus.Disabled, 1, 20, default);
 
         byRole.Value.Items.Select(i => i.Email).Should().Equal("b@x.vn");
         byStatus.Value.Items.Select(i => i.Email).Should().Equal("a@x.vn");
