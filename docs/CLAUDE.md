@@ -51,8 +51,8 @@ This repository is the **backend only**. The frontend lives in its own repositor
 | Auth | **JWT bearer**, `role` claim; the frontend holds the token in memory |
 | Testing | xUnit + FluentAssertions |
 
-The frontend consumes this API from a different origin, so **CORS must allow the Vite dev server
-at `http://localhost:5173`** in development.
+The frontend consumes this API from a different origin, so **CORS allows any origin in every environment**
+(owner decision VS-1341; before: only the Vite dev server at `http://localhost:5173`).
 
 ---
 

@@ -414,6 +414,9 @@ FodyWeavers.xsd
 appsettings.Development.json
 .env
 
+# Office lock files
+~$*
+
 # Local AI tooling (Understand-Anything, graphify, headroom, Serena)
 .ua/
 BE/graphify-out/
