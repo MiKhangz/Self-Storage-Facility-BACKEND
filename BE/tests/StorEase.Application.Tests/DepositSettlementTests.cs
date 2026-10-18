@@ -1,5 +1,5 @@
 using FluentAssertions;
-using StorEase.Application.Features.MoveOuts;
+using StorEase.Application.Features.Handovers;
 
 namespace StorEase.Application.Tests;
 
@@ -30,6 +30,6 @@ public class DepositSettlementTests
     [Fact]
     public void Earliest_move_out_date_is_today_plus_notice_days()
     {
-        DepositSettlement.EarliestMoveOutDate(new DateOnly(2026, 10, 12), 30).Should().Be(new DateOnly(2026, 11, 11));
+        DepositSettlement.EarliestHandoverDate(new DateOnly(2026, 10, 12), 30).Should().Be(new DateOnly(2026, 11, 11));
     }
 }

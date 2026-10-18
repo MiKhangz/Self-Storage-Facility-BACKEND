@@ -4,12 +4,12 @@ using StorEase.Domain.Entities;
 
 namespace StorEase.Infrastructure.Persistence.Configurations;
 
-public class MoveOutRequestConfiguration : IEntityTypeConfiguration<MoveOutRequest>
+public class HandoverConfiguration : IEntityTypeConfiguration<Handover>
 {
-    public void Configure(EntityTypeBuilder<MoveOutRequest> builder)
+    public void Configure(EntityTypeBuilder<Handover> builder)
     {
-        builder.ToTable("MoveOutRequest");
-        builder.HasKey(x => x.MoveOutRequestId);
+        builder.ToTable("Handover");
+        builder.HasKey(x => x.HandoverId);
 
         builder.HasOne(x => x.Contract).WithMany().HasForeignKey(x => x.ContractId);
         builder.Property(x => x.Reason).HasMaxLength(200);

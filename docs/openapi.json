@@ -1374,6 +1374,246 @@
         }
       }
     },
+    "/api/handovers": {
+      "post": {
+        "tags": [
+          "Handovers"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHandoverRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHandoverRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHandoverRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoverDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Handovers"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/HandoverStatus"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoverDtoPagedResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/handovers/{id}": {
+      "get": {
+        "tags": [
+          "Handovers"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoverDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/handovers/{id}/approve": {
+      "post": {
+        "tags": [
+          "Handovers"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveHandoverRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveHandoverRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveHandoverRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoverDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/handovers/{id}/inspection": {
+      "post": {
+        "tags": [
+          "Handovers"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHandoverInspectionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHandoverInspectionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHandoverInspectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoverDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/handovers/{id}/settle-deposit": {
+      "post": {
+        "tags": [
+          "Handovers"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositSettlementDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/invoices": {
       "get": {
         "tags": [
@@ -1820,246 +2060,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MaintenanceOrderDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/move-out-requests": {
-      "post": {
-        "tags": [
-          "MoveOutRequests"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateMoveOutRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateMoveOutRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateMoveOutRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MoveOutRequestDto"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "MoveOutRequests"
-        ],
-        "parameters": [
-          {
-            "name": "status",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/MoveOutRequestStatus"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MoveOutRequestDtoPagedResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/move-out-requests/{id}": {
-      "get": {
-        "tags": [
-          "MoveOutRequests"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MoveOutRequestDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/move-out-requests/{id}/approve": {
-      "post": {
-        "tags": [
-          "MoveOutRequests"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApproveMoveOutRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApproveMoveOutRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApproveMoveOutRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MoveOutRequestDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/move-out-requests/{id}/inspection": {
-      "post": {
-        "tags": [
-          "MoveOutRequests"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateReturnInspectionRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateReturnInspectionRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateReturnInspectionRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MoveOutRequestDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/move-out-requests/{id}/settle-deposit": {
-      "post": {
-        "tags": [
-          "MoveOutRequests"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DepositSettlementDto"
                 }
               }
             }
@@ -5027,7 +5027,7 @@
         ],
         "type": "string"
       },
-      "ApproveMoveOutRequest": {
+      "ApproveHandoverRequest": {
         "type": "object",
         "properties": {
           "inspectionSlot": {
@@ -5518,7 +5518,7 @@
         "enum": [
           "Draft",
           "Active",
-          "PendingMoveOut",
+          "PendingHandover",
           "Closed",
           "Overdue",
           "Suspended",
@@ -5566,6 +5566,52 @@
         },
         "additionalProperties": false
       },
+      "CreateHandoverInspectionRequest": {
+        "type": "object",
+        "properties": {
+          "conditionResult": {
+            "$ref": "#/components/schemas/ConditionResult"
+          },
+          "cleaningFee": {
+            "type": "number",
+            "format": "double"
+          },
+          "repairCharge": {
+            "type": "number",
+            "format": "double"
+          },
+          "otherDeduction": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateHandoverRequest": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "plannedHandoverDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "refundMethod": {
+            "$ref": "#/components/schemas/RefundMethod"
+          },
+          "refundAccount": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateMaintenanceOrderRequest": {
         "type": "object",
         "properties": {
@@ -5591,31 +5637,6 @@
           "assignedTo": {
             "type": "integer",
             "format": "int32",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "CreateMoveOutRequest": {
-        "type": "object",
-        "properties": {
-          "contractId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "plannedMoveOutDate": {
-            "type": "string",
-            "format": "date"
-          },
-          "reason": {
-            "type": "string",
-            "nullable": true
-          },
-          "refundMethod": {
-            "$ref": "#/components/schemas/RefundMethod"
-          },
-          "refundAccount": {
-            "type": "string",
             "nullable": true
           }
         },
@@ -5696,27 +5717,6 @@
           "rentalMonths": {
             "type": "integer",
             "format": "int32"
-          }
-        },
-        "additionalProperties": false
-      },
-      "CreateReturnInspectionRequest": {
-        "type": "object",
-        "properties": {
-          "conditionResult": {
-            "$ref": "#/components/schemas/ConditionResult"
-          },
-          "cleaningFee": {
-            "type": "number",
-            "format": "double"
-          },
-          "repairCharge": {
-            "type": "number",
-            "format": "double"
-          },
-          "otherDeduction": {
-            "type": "number",
-            "format": "double"
           }
         },
         "additionalProperties": false
@@ -5928,7 +5928,7 @@
       "DepositSettlementDto": {
         "type": "object",
         "properties": {
-          "moveOutRequestId": {
+          "handoverId": {
             "type": "integer",
             "format": "int32"
           },
@@ -5953,7 +5953,7 @@
             "format": "double"
           },
           "status": {
-            "$ref": "#/components/schemas/MoveOutRequestStatus"
+            "$ref": "#/components/schemas/HandoverStatus"
           }
         },
         "additionalProperties": false
@@ -6299,6 +6299,154 @@
         },
         "additionalProperties": false
       },
+      "HandoverDto": {
+        "type": "object",
+        "properties": {
+          "handoverId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contractId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contractNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "storageUnitId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unitCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "plannedHandoverDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "inspectionSlot": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "refundMethod": {
+            "$ref": "#/components/schemas/RefundMethod"
+          },
+          "refundAccount": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/HandoverStatus"
+          },
+          "inspection": {
+            "$ref": "#/components/schemas/HandoverInspectionDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HandoverDtoPagedResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HandoverDto"
+            },
+            "nullable": true
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "HandoverInspectionDto": {
+        "type": "object",
+        "properties": {
+          "handoverInspectionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inspectedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "conditionResult": {
+            "$ref": "#/components/schemas/ConditionResult"
+          },
+          "cleaningFee": {
+            "type": "number",
+            "format": "double"
+          },
+          "repairCharge": {
+            "type": "number",
+            "format": "double"
+          },
+          "otherDeduction": {
+            "type": "number",
+            "format": "double"
+          },
+          "refundAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "status": {
+            "$ref": "#/components/schemas/HandoverInspectionStatus"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HandoverInspectionStatus": {
+        "enum": [
+          "Draft",
+          "Completed",
+          "Disputed"
+        ],
+        "type": "string"
+      },
+      "HandoverStatus": {
+        "enum": [
+          "Requested",
+          "Approved",
+          "Inspected",
+          "Completed",
+          "Cancelled"
+        ],
+        "type": "string"
+      },
       "InvoiceAdjustmentRequest": {
         "type": "object",
         "properties": {
@@ -6611,110 +6759,6 @@
           "Scheduled",
           "InProgress",
           "Done",
-          "Cancelled"
-        ],
-        "type": "string"
-      },
-      "MoveOutRequestDto": {
-        "type": "object",
-        "properties": {
-          "moveOutRequestId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "contractId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "contractNumber": {
-            "type": "string",
-            "nullable": true
-          },
-          "customerId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "customerName": {
-            "type": "string",
-            "nullable": true
-          },
-          "storageUnitId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "unitCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "requestedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "plannedMoveOutDate": {
-            "type": "string",
-            "format": "date"
-          },
-          "reason": {
-            "type": "string",
-            "nullable": true
-          },
-          "inspectionSlot": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "refundMethod": {
-            "$ref": "#/components/schemas/RefundMethod"
-          },
-          "refundAccount": {
-            "type": "string",
-            "nullable": true
-          },
-          "status": {
-            "$ref": "#/components/schemas/MoveOutRequestStatus"
-          },
-          "inspection": {
-            "$ref": "#/components/schemas/ReturnInspectionDto"
-          }
-        },
-        "additionalProperties": false
-      },
-      "MoveOutRequestDtoPagedResult": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MoveOutRequestDto"
-            },
-            "nullable": true
-          },
-          "page": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "pageSize": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalPages": {
-            "type": "integer",
-            "format": "int32",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "MoveOutRequestStatus": {
-        "enum": [
-          "Requested",
-          "Approved",
-          "Inspected",
-          "Completed",
           "Cancelled"
         ],
         "type": "string"
@@ -7620,50 +7664,6 @@
           }
         },
         "additionalProperties": false
-      },
-      "ReturnInspectionDto": {
-        "type": "object",
-        "properties": {
-          "returnInspectionId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "inspectedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "conditionResult": {
-            "$ref": "#/components/schemas/ConditionResult"
-          },
-          "cleaningFee": {
-            "type": "number",
-            "format": "double"
-          },
-          "repairCharge": {
-            "type": "number",
-            "format": "double"
-          },
-          "otherDeduction": {
-            "type": "number",
-            "format": "double"
-          },
-          "refundAmount": {
-            "type": "number",
-            "format": "double"
-          },
-          "status": {
-            "$ref": "#/components/schemas/ReturnInspectionStatus"
-          }
-        },
-        "additionalProperties": false
-      },
-      "ReturnInspectionStatus": {
-        "enum": [
-          "Draft",
-          "Completed",
-          "Disputed"
-        ],
-        "type": "string"
       },
       "RevenueMethodDto": {
         "type": "object",

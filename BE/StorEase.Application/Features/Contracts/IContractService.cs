@@ -28,7 +28,7 @@ public interface IContractService
     /// </summary>
     Task<Result<string>> ActivateAsync(int contractId, CancellationToken ct);
 
-    /// <summary>Ends an Active/Overdue/Suspended/PendingMoveOut contract: revokes its codes and frees the unit.</summary>
+    /// <summary>Ends an Active/Overdue/Suspended/PendingHandover contract: revokes its codes and frees the unit.</summary>
     Task<Result<ContractDto>> TerminateAsync(int contractId, CancellationToken ct);
 
     /// <summary>The list as CSV, with the same visibility rules as <see cref="ListAsync"/>.</summary>

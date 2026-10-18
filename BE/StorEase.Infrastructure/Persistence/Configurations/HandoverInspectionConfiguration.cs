@@ -4,14 +4,14 @@ using StorEase.Domain.Entities;
 
 namespace StorEase.Infrastructure.Persistence.Configurations;
 
-public class ReturnInspectionConfiguration : IEntityTypeConfiguration<ReturnInspection>
+public class HandoverInspectionConfiguration : IEntityTypeConfiguration<HandoverInspection>
 {
-    public void Configure(EntityTypeBuilder<ReturnInspection> builder)
+    public void Configure(EntityTypeBuilder<HandoverInspection> builder)
     {
-        builder.ToTable("ReturnInspection");
-        builder.HasKey(x => x.ReturnInspectionId);
+        builder.ToTable("HandoverInspection");
+        builder.HasKey(x => x.HandoverInspectionId);
 
-        builder.HasOne(x => x.MoveOutRequest).WithMany().HasForeignKey(x => x.MoveOutRequestId);
+        builder.HasOne(x => x.Handover).WithMany().HasForeignKey(x => x.HandoverId);
         builder.HasOne(x => x.StorageUnit).WithMany().HasForeignKey(x => x.StorageUnitId);
         builder.HasOne(x => x.Staff).WithMany().HasForeignKey(x => x.StaffId);
         builder.Property(x => x.ConditionResult).HasConversion<string>().HasMaxLength(20).IsUnicode(false);

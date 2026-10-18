@@ -1,28 +1,28 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.Pricing;
-using StorEase.Application.Features.MoveOuts.Dtos;
+using StorEase.Application.Features.Handovers.Dtos;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
 
-namespace StorEase.Application.Features.MoveOuts;
+namespace StorEase.Application.Features.Handovers;
 
-public interface IMoveOutService
+public interface IHandoverService
 {
-    Task<Result<MoveOutRequestDto>> RequestAsync(CreateMoveOutRequest request, CancellationToken ct);
-    Task<Result<MoveOutRequestDto>> GetAsync(int id, CancellationToken ct);
-    Task<Result<PagedResult<MoveOutRequestDto>>> ListAsync(MoveOutRequestStatus? status, int page, int pageSize, CancellationToken ct);
-    Task<Result<MoveOutRequestDto>> ApproveAsync(int id, ApproveMoveOutRequest request, CancellationToken ct);
-    Task<Result<MoveOutRequestDto>> InspectAsync(int id, CreateReturnInspectionRequest request, CancellationToken ct);
+    Task<Result<HandoverDto>> RequestAsync(CreateHandoverRequest request, CancellationToken ct);
+    Task<Result<HandoverDto>> GetAsync(int id, CancellationToken ct);
+    Task<Result<PagedResult<HandoverDto>>> ListAsync(HandoverStatus? status, int page, int pageSize, CancellationToken ct);
+    Task<Result<HandoverDto>> ApproveAsync(int id, ApproveHandoverRequest request, CancellationToken ct);
+    Task<Result<HandoverDto>> InspectAsync(int id, CreateHandoverInspectionRequest request, CancellationToken ct);
     Task<Result<DepositSettlementDto>> SettleAsync(int id, CancellationToken ct);
 }
 
-public class MoveOutService(IUnitOfWork uow, ICurrentUser currentUser) : IMoveOutService
+public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser) : IHandoverService
 {
     private const int DefaultNoticeDays = 30;
 
-    public async Task<Result<MoveOutRequestDto>> RequestAsync(CreateMoveOutRequest request, CancellationToken ct)
+    public async Task<Result<HandoverDto>> RequestAsync(CreateHandoverRequest request, CancellationToken ct)
     {
         var created = await uow.InTransactionAsync<int>(async () =>
         {
@@ -33,87 +33,87 @@ public class MoveOutService(IUnitOfWork uow, ICurrentUser currentUser) : IMoveOu
             if (contract.Status != ContractStatus.Active)
                 return Error.Conflict($"Only an Active contract can be moved out of; this one is {contract.Status}.");
 
-            var open = await uow.Repository<MoveOutRequest>().Query().AnyAsync(m =>
+            var open = await uow.Repository<Handover>().Query().AnyAsync(m =>
                 m.ContractId == contract.ContractId &&
-                (m.Status == MoveOutRequestStatus.Requested || m.Status == MoveOutRequestStatus.Approved ||
-                 m.Status == MoveOutRequestStatus.Inspected), ct);
+                (m.Status == HandoverStatus.Requested || m.Status == HandoverStatus.Approved ||
+                 m.Status == HandoverStatus.Inspected), ct);
             if (open)
-                return Error.Conflict("This contract already has an open move-out request.");
+                return Error.Conflict("This contract already has an open handover request.");
 
             // Business rule 8: the notice period comes from the active pricing policy.
             // Vietnam's date, not UTC's, and the policy in force today (the same one the terms page shows).
             var today = VietnamTime.Today;
             var noticeDays = (await RentCalculator.PolicyForAsync(uow, today, ct))?.NoticeDays ?? DefaultNoticeDays;
-            var earliest = DepositSettlement.EarliestMoveOutDate(today, noticeDays);
-            if (request.PlannedMoveOutDate < earliest)
-                return Error.Conflict($"Move-out needs {noticeDays} days notice; the earliest date is {earliest:yyyy-MM-dd}.");
+            var earliest = DepositSettlement.EarliestHandoverDate(today, noticeDays);
+            if (request.PlannedHandoverDate < earliest)
+                return Error.Conflict($"handover needs {noticeDays} days notice; the earliest date is {earliest:yyyy-MM-dd}.");
 
-            var moveOut = new MoveOutRequest
+            var handover = new Handover
             {
                 ContractId = contract.ContractId,
                 RequestedAt = DateTime.UtcNow,
-                PlannedMoveOutDate = request.PlannedMoveOutDate,
+                PlannedHandoverDate = request.PlannedHandoverDate,
                 Reason = request.Reason,
                 RefundMethod = request.RefundMethod,
                 RefundAccount = request.RefundAccount,
-                Status = MoveOutRequestStatus.Requested,
+                Status = HandoverStatus.Requested,
             };
-            uow.Repository<MoveOutRequest>().Add(moveOut);
-            contract.Status = ContractStatus.PendingMoveOut;
+            uow.Repository<Handover>().Add(handover);
+            contract.Status = ContractStatus.PendingHandover;
             await uow.SaveChangesAsync(ct);
-            return moveOut.MoveOutRequestId;
+            return handover.HandoverId;
         }, ct);
 
         return created.IsSuccess ? await GetAsync(created.Value, ct) : created.Error;
     }
 
-    public async Task<Result<MoveOutRequestDto>> GetAsync(int id, CancellationToken ct)
+    public async Task<Result<HandoverDto>> GetAsync(int id, CancellationToken ct)
     {
-        var dto = await Project(Visible().Where(m => m.MoveOutRequestId == id)).FirstOrDefaultAsync(ct);
-        return dto is null ? Error.NotFound("Move-out request not found.") : dto;
+        var dto = await Project(Visible().Where(m => m.HandoverId == id)).FirstOrDefaultAsync(ct);
+        return dto is null ? Error.NotFound("Handover request not found.") : dto;
     }
 
     /// <summary>The staff queue is <c>status=Approved</c>: nearest planned date first.</summary>
-    public async Task<Result<PagedResult<MoveOutRequestDto>>> ListAsync(
-        MoveOutRequestStatus? status, int page, int pageSize, CancellationToken ct)
+    public async Task<Result<PagedResult<HandoverDto>>> ListAsync(
+        HandoverStatus? status, int page, int pageSize, CancellationToken ct)
     {
         var query = Visible();
         if (status is not null)
             query = query.Where(m => m.Status == status);
 
-        return await Project(query.OrderBy(m => m.PlannedMoveOutDate).ThenBy(m => m.MoveOutRequestId))
+        return await Project(query.OrderBy(m => m.PlannedHandoverDate).ThenBy(m => m.HandoverId))
             .ToPagedResultAsync(page, pageSize, ct);
     }
 
-    public async Task<Result<MoveOutRequestDto>> ApproveAsync(int id, ApproveMoveOutRequest request, CancellationToken ct)
+    public async Task<Result<HandoverDto>> ApproveAsync(int id, ApproveHandoverRequest request, CancellationToken ct)
     {
-        var moveOut = await Visible().FirstOrDefaultAsync(m => m.MoveOutRequestId == id, ct);
-        if (moveOut is null)
-            return Error.NotFound("Move-out request not found.");
-        if (moveOut.Status != MoveOutRequestStatus.Requested)
-            return Error.Conflict($"Only a Requested move-out can be approved; this one is {moveOut.Status}.");
+        var handover = await Visible().FirstOrDefaultAsync(m => m.HandoverId == id, ct);
+        if (handover is null)
+            return Error.NotFound("Handover request not found.");
+        if (handover.Status != HandoverStatus.Requested)
+            return Error.Conflict($"Only a Requested handover can be approved; this one is {handover.Status}.");
 
-        moveOut.InspectionSlot = request.InspectionSlot;
-        moveOut.Status = MoveOutRequestStatus.Approved;
+        handover.InspectionSlot = request.InspectionSlot;
+        handover.Status = HandoverStatus.Approved;
         await uow.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
     }
 
-    public async Task<Result<MoveOutRequestDto>> InspectAsync(
-        int id, CreateReturnInspectionRequest request, CancellationToken ct)
+    public async Task<Result<HandoverDto>> InspectAsync(
+        int id, CreateHandoverInspectionRequest request, CancellationToken ct)
     {
         var inspected = await uow.InTransactionAsync<int>(async () =>
         {
-            var moveOut = await Visible().FirstOrDefaultAsync(m => m.MoveOutRequestId == id, ct);
-            if (moveOut is null)
-                return Error.NotFound("Move-out request not found.");
-            if (moveOut.Status != MoveOutRequestStatus.Approved)
-                return Error.Conflict($"Only an Approved move-out can be inspected; this one is {moveOut.Status}.");
+            var handover = await Visible().FirstOrDefaultAsync(m => m.HandoverId == id, ct);
+            if (handover is null)
+                return Error.NotFound("Handover request not found.");
+            if (handover.Status != HandoverStatus.Approved)
+                return Error.Conflict($"Only an Approved handover can be inspected; this one is {handover.Status}.");
 
-            var contract = (await uow.Repository<Contract>().FindAsync(moveOut.ContractId, ct))!;
-            uow.Repository<ReturnInspection>().Add(new ReturnInspection
+            var contract = (await uow.Repository<Contract>().FindAsync(handover.ContractId, ct))!;
+            uow.Repository<HandoverInspection>().Add(new HandoverInspection
             {
-                MoveOutRequestId = moveOut.MoveOutRequestId,
+                HandoverId = handover.HandoverId,
                 StorageUnitId = contract.StorageUnitId,
                 StaffId = currentUser.UserId,
                 InspectedAt = DateTime.UtcNow,
@@ -122,10 +122,10 @@ public class MoveOutService(IUnitOfWork uow, ICurrentUser currentUser) : IMoveOu
                 RepairCharge = request.RepairCharge,
                 OtherDeduction = request.OtherDeduction,
                 RefundAmount = 0m, // set by settlement; the deposit is not refundable before then
-                Status = ReturnInspectionStatus.Completed,
+                Status = HandoverInspectionStatus.Completed,
             });
-            moveOut.Status = MoveOutRequestStatus.Inspected;
-            return moveOut.MoveOutRequestId;
+            handover.Status = HandoverStatus.Inspected;
+            return handover.HandoverId;
         }, ct);
 
         return inspected.IsSuccess ? await GetAsync(inspected.Value, ct) : inspected.Error;
@@ -138,20 +138,20 @@ public class MoveOutService(IUnitOfWork uow, ICurrentUser currentUser) : IMoveOu
     public Task<Result<DepositSettlementDto>> SettleAsync(int id, CancellationToken ct) =>
         uow.InTransactionAsync<DepositSettlementDto>(async () =>
         {
-            var moveOut = await Visible().FirstOrDefaultAsync(m => m.MoveOutRequestId == id, ct);
-            if (moveOut is null)
-                return Error.NotFound("Move-out request not found.");
-            if (moveOut.Status != MoveOutRequestStatus.Inspected)
-                return Error.Conflict($"A deposit is settled only after the return inspection; this move-out is {moveOut.Status}.");
+            var handover = await Visible().FirstOrDefaultAsync(m => m.HandoverId == id, ct);
+            if (handover is null)
+                return Error.NotFound("Handover request not found.");
+            if (handover.Status != HandoverStatus.Inspected)
+                return Error.Conflict($"A deposit is settled only after the handover inspection; this handover is {handover.Status}.");
 
-            var inspection = await uow.Repository<ReturnInspection>().Query()
-                .Where(i => i.MoveOutRequestId == id)
-                .OrderByDescending(i => i.ReturnInspectionId)
+            var inspection = await uow.Repository<HandoverInspection>().Query()
+                .Where(i => i.HandoverId == id)
+                .OrderByDescending(i => i.HandoverInspectionId)
                 .FirstAsync(ct);
-            if (inspection.Status != ReturnInspectionStatus.Completed)
-                return Error.Conflict($"The return inspection is {inspection.Status}; resolve it before settling.");
+            if (inspection.Status != HandoverInspectionStatus.Completed)
+                return Error.Conflict($"The handover inspection is {inspection.Status}; resolve it before settling.");
 
-            var contract = (await uow.Repository<Contract>().FindAsync(moveOut.ContractId, ct))!;
+            var contract = (await uow.Repository<Contract>().FindAsync(handover.ContractId, ct))!;
             var outstanding = await uow.Repository<Invoice>().Query()
                 .Where(i => i.ContractId == contract.ContractId &&
                             (i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.Overdue))
@@ -161,7 +161,7 @@ public class MoveOutService(IUnitOfWork uow, ICurrentUser currentUser) : IMoveOu
             var (refund, shortfall) = DepositSettlement.Calculate(contract.DepositAmount, damage, outstanding);
 
             inspection.RefundAmount = refund;
-            moveOut.Status = MoveOutRequestStatus.Completed;
+            handover.Status = HandoverStatus.Completed;
             contract.Status = ContractStatus.Closed;
 
             var codes = await uow.Repository<AccessCode>().Query()
@@ -176,13 +176,13 @@ public class MoveOutService(IUnitOfWork uow, ICurrentUser currentUser) : IMoveOu
                 : StorageUnitStatus.Available;
 
             return new DepositSettlementDto(
-                moveOut.MoveOutRequestId, contract.DepositAmount, damage, outstanding, refund, shortfall, moveOut.Status);
+                handover.HandoverId, contract.DepositAmount, damage, outstanding, refund, shortfall, handover.Status);
         }, ct);
 
     /// <summary>Customers see their own; facility staff and managers the facilities they work at; admin and business ops all.</summary>
-    private IQueryable<MoveOutRequest> Visible()
+    private IQueryable<Handover> Visible()
     {
-        var query = uow.Repository<MoveOutRequest>().Query();
+        var query = uow.Repository<Handover>().Query();
         var userId = currentUser.UserId;
         if (currentUser.IsCustomer)
             return query.Where(m => m.Contract.CustomerId == userId);
@@ -192,11 +192,11 @@ public class MoveOutService(IUnitOfWork uow, ICurrentUser currentUser) : IMoveOu
         return query.Where(m => facilityIds.Contains(m.Contract.StorageUnit.FacilityId));
     }
 
-    private IQueryable<MoveOutRequestDto> Project(IQueryable<MoveOutRequest> source)
+    private IQueryable<HandoverDto> Project(IQueryable<Handover> source)
     {
-        var inspections = uow.Repository<ReturnInspection>().Query();
-        return source.Select(m => new MoveOutRequestDto(
-            m.MoveOutRequestId,
+        var inspections = uow.Repository<HandoverInspection>().Query();
+        return source.Select(m => new HandoverDto(
+            m.HandoverId,
             m.ContractId,
             m.Contract.ContractNumber,
             m.Contract.CustomerId,
@@ -204,16 +204,16 @@ public class MoveOutService(IUnitOfWork uow, ICurrentUser currentUser) : IMoveOu
             m.Contract.StorageUnitId,
             m.Contract.StorageUnit.UnitCode,
             m.RequestedAt,
-            m.PlannedMoveOutDate,
+            m.PlannedHandoverDate,
             m.Reason,
             m.InspectionSlot,
             m.RefundMethod,
             m.RefundAccount,
             m.Status,
-            inspections.Where(i => i.MoveOutRequestId == m.MoveOutRequestId)
-                .OrderByDescending(i => i.ReturnInspectionId)
-                .Select(i => new ReturnInspectionDto(
-                    i.ReturnInspectionId, i.InspectedAt, i.ConditionResult, i.CleaningFee, i.RepairCharge,
+            inspections.Where(i => i.HandoverId == m.HandoverId)
+                .OrderByDescending(i => i.HandoverInspectionId)
+                .Select(i => new HandoverInspectionDto(
+                    i.HandoverInspectionId, i.InspectedAt, i.ConditionResult, i.CleaningFee, i.RepairCharge,
                     i.OtherDeduction, i.RefundAmount, i.Status))
                 .FirstOrDefault()));
     }
