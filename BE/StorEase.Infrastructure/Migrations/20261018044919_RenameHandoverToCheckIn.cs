@@ -43,6 +43,7 @@ namespace StorEase.Infrastructure.Migrations
             mb.RenameColumn(name: $"{from}Id", table: photoFrom, newName: $"{to}Id");
             mb.RenameColumn(name: $"{photoFrom}Id", table: photoFrom, newName: $"{photoTo}Id");
             mb.RenameColumn(name: $"{from}Id", table: from, newName: $"{to}Id");
+            mb.RenameColumn(name: $"{from}Time", table: from, newName: $"{to}Time");
             mb.RenameTable(name: photoFrom, newName: photoTo);
             mb.RenameTable(name: from, newName: to);
         }
