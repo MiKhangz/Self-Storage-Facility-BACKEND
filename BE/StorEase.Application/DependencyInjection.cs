@@ -18,6 +18,7 @@ using StorEase.Application.Features.Reports;
 using StorEase.Application.Features.Staff;
 using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Features.SupportTickets;
+using StorEase.Application.Features.UnitVisits;
 using StorEase.Application.Features.Users;
 
 namespace StorEase.Application;
@@ -55,6 +56,7 @@ public static class DependencyInjection
         services.AddScoped<IBillingCycleService, BillingCycleService>();
         services.AddScoped<IOverdueService, OverdueService>();
         services.AddScoped<IReportService, ReportService>();
+        services.AddScoped<IUnitVisitService, UnitVisitService>();
         return services;
     }
 }

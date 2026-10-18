@@ -1441,6 +1441,46 @@ namespace StorEase.Infrastructure.Migrations
                     b.ToTable("UnitType", (string)null);
                 });
 
+            modelBuilder.Entity("StorEase.Domain.Entities.UnitVisit", b =>
+                {
+                    b.Property<int>("UnitVisitId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UnitVisitId"));
+
+                    b.Property<DateTime>("CheckInAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CheckOutAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ContractId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("RecordedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StorageUnitId")
+                        .HasColumnType("int");
+
+                    b.HasKey("UnitVisitId");
+
+                    b.HasIndex("CheckInAt");
+
+                    b.HasIndex("ContractId");
+
+                    b.HasIndex("RecordedBy");
+
+                    b.HasIndex("StorageUnitId");
+
+                    b.ToTable("UnitVisit", (string)null);
+                });
+
             modelBuilder.Entity("StorEase.Domain.Entities.User", b =>
                 {
                     b.Property<int>("UserId")
@@ -2062,6 +2102,33 @@ namespace StorEase.Infrastructure.Migrations
                     b.Navigation("PricingPolicy");
 
                     b.Navigation("UnitType");
+                });
+
+            modelBuilder.Entity("StorEase.Domain.Entities.UnitVisit", b =>
+                {
+                    b.HasOne("StorEase.Domain.Entities.Contract", "Contract")
+                        .WithMany()
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("StorEase.Domain.Entities.User", "RecordedByUser")
+                        .WithMany()
+                        .HasForeignKey("RecordedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("StorEase.Domain.Entities.StorageUnit", "StorageUnit")
+                        .WithMany()
+                        .HasForeignKey("StorageUnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Contract");
+
+                    b.Navigation("RecordedByUser");
+
+                    b.Navigation("StorageUnit");
                 });
 
             modelBuilder.Entity("StorEase.Domain.Entities.User", b =>
