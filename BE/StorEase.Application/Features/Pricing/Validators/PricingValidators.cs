@@ -13,6 +13,7 @@ public sealed class CreatePricingPolicyRequestValidator : AbstractValidator<Crea
         RuleFor(x => x.GraceDays).InclusiveBetween(0, 90);
         RuleFor(x => x.NoticeDays).InclusiveBetween(0, 365);
         RuleFor(x => x.LateFeePercentPerWeek).InclusiveBetween(0, 100);
+        RuleFor(x => x.EarlyTerminationPercent).InclusiveBetween(0, 100);
         RuleFor(x => x.SuspendAfterDays).InclusiveBetween(0, 365);
         RuleFor(x => x.ClearOutAfterDays).InclusiveBetween(0, 365);
         RuleFor(x => x.CancelFreeHours).InclusiveBetween(0, 720);

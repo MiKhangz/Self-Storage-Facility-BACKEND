@@ -847,6 +847,9 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<int>("DepositMonths")
                         .HasColumnType("int");
 
+                    b.Property<decimal>("EarlyTerminationPercent")
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<DateOnly>("EffectiveFrom")
                         .HasColumnType("date");
 

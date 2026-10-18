@@ -5670,6 +5670,10 @@
             "type": "number",
             "format": "double"
           },
+          "earlyTerminationPercent": {
+            "type": "number",
+            "format": "double"
+          },
           "suspendAfterDays": {
             "type": "integer",
             "format": "int32"
@@ -5937,6 +5941,10 @@
             "format": "double"
           },
           "damageDeductions": {
+            "type": "number",
+            "format": "double"
+          },
+          "earlyTerminationPenalty": {
             "type": "number",
             "format": "double"
           },
@@ -7092,11 +7100,11 @@
             "type": "integer",
             "format": "int32"
           },
-          "noticeDays": {
-            "type": "integer",
-            "format": "int32"
-          },
           "lateFeePercentPerWeek": {
+            "type": "number",
+            "format": "double"
+          },
+          "earlyTerminationPercent": {
             "type": "number",
             "format": "double"
           },
@@ -7171,6 +7179,10 @@
             "format": "int32"
           },
           "lateFeePercentPerWeek": {
+            "type": "number",
+            "format": "double"
+          },
+          "earlyTerminationPercent": {
             "type": "number",
             "format": "double"
           },

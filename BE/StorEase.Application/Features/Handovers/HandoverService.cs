@@ -20,8 +20,6 @@ public interface IHandoverService
 
 public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser) : IHandoverService
 {
-    private const int DefaultNoticeDays = 30;
-
     public async Task<Result<HandoverDto>> RequestAsync(CreateHandoverRequest request, CancellationToken ct)
     {
         var created = await uow.InTransactionAsync<int>(async () =>
@@ -31,7 +29,7 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser) : IHando
             if (contract is null || contract.CustomerId != currentUser.UserId)
                 return Error.NotFound("Contract not found.");
             if (contract.Status != ContractStatus.Active)
-                return Error.Conflict($"Only an Active contract can be moved out of; this one is {contract.Status}.");
+                return Error.Conflict($"Only an Active contract can be handed back; this one is {contract.Status}.");
 
             var open = await uow.Repository<Handover>().Query().AnyAsync(m =>
                 m.ContractId == contract.ContractId &&
@@ -40,13 +38,9 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser) : IHando
             if (open)
                 return Error.Conflict("This contract already has an open handover request.");
 
-            // Business rule 8: the notice period comes from the active pricing policy.
-            // Vietnam's date, not UTC's, and the policy in force today (the same one the terms page shows).
-            var today = VietnamTime.Today;
-            var noticeDays = (await RentCalculator.PolicyForAsync(uow, today, ct))?.NoticeDays ?? DefaultNoticeDays;
-            var earliest = DepositSettlement.EarliestHandoverDate(today, noticeDays);
-            if (request.PlannedHandoverDate < earliest)
-                return Error.Conflict($"handover needs {noticeDays} days notice; the earliest date is {earliest:yyyy-MM-dd}.");
+            // Rule 8 (SR-04): no notice period; an early return is allowed and costs a penalty at settlement.
+            if (request.PlannedHandoverDate < VietnamTime.Today)
+                return Error.Validation("The handover date cannot be in the past.");
 
             var handover = new Handover
             {
@@ -152,13 +146,19 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser) : IHando
                 return Error.Conflict($"The handover inspection is {inspection.Status}; resolve it before settling.");
 
             var contract = (await uow.Repository<Contract>().FindAsync(handover.ContractId, ct))!;
-            var outstanding = await uow.Repository<Invoice>().Query()
+            var outstanding = (await uow.Repository<Invoice>().Query()
                 .Where(i => i.ContractId == contract.ContractId &&
                             (i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.Overdue))
-                .SumAsync(i => i.TotalAmount - i.PaidAmount, ct);
+                .Select(i => i.TotalAmount - i.PaidAmount)
+                .ToListAsync(ct)).Sum(); // a contract has a handful of invoices; summing here keeps SQLite (tests) working
 
             var damage = inspection.CleaningFee + inspection.RepairCharge + inspection.OtherDeduction;
-            var (refund, shortfall) = DepositSettlement.Calculate(contract.DepositAmount, damage, outstanding);
+            // The rate is the one the customer agreed to: the policy in force on the move-in date, like the rent (rule 4).
+            var policy = await RentCalculator.PolicyForAsync(uow, contract.StartDate, ct);
+            var penalty = DepositSettlement.EarlyTerminationPenalty(
+                contract.DepositAmount, policy?.EarlyTerminationPercent ?? 0m, handover.PlannedHandoverDate, contract.EndDate);
+            inspection.OtherDeduction += penalty;
+            var (refund, shortfall) = DepositSettlement.Calculate(contract.DepositAmount, damage + penalty, outstanding);
 
             inspection.RefundAmount = refund;
             handover.Status = HandoverStatus.Completed;
@@ -176,7 +176,7 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser) : IHando
                 : StorageUnitStatus.Available;
 
             return new DepositSettlementDto(
-                handover.HandoverId, contract.DepositAmount, damage, outstanding, refund, shortfall, handover.Status);
+                handover.HandoverId, contract.DepositAmount, damage, penalty, outstanding, refund, shortfall, handover.Status);
         }, ct);
 
     /// <summary>Customers see their own; facility staff and managers the facilities they work at; admin and business ops all.</summary>

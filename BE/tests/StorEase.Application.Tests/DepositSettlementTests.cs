@@ -27,9 +27,13 @@ public class DepositSettlementTests
         DepositSettlement.Calculate(900_000m, 0m, 0m).Refund.Should().Be(900_000m);
     }
 
-    [Fact]
-    public void Earliest_move_out_date_is_today_plus_notice_days()
+    [Theory]
+    [InlineData("2026-12-31", 0)]       // on the end date: no penalty
+    [InlineData("2027-01-05", 0)]       // after it: no penalty
+    [InlineData("2026-12-30", 200_000)] // one day early: 20% of the 1,000,000 deposit
+    public void Early_termination_penalty_applies_only_before_the_end_date(string returnDate, int expected)
     {
-        DepositSettlement.EarliestHandoverDate(new DateOnly(2026, 10, 12), 30).Should().Be(new DateOnly(2026, 11, 11));
+        DepositSettlement.EarlyTerminationPenalty(1_000_000m, 20m, DateOnly.Parse(returnDate), new DateOnly(2026, 12, 31))
+            .Should().Be(expected);
     }
 }

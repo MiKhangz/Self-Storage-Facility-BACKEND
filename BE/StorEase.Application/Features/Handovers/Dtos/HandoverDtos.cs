@@ -22,6 +22,7 @@ public sealed record HandoverDto(
     HandoverInspectionDto? Inspection);
 
 /// <summary>Breakdown of the deposit settlement; <c>Shortfall</c> is what the customer still owes when deductions exceed the deposit.</summary>
+/// <summary>EarlyTerminationPenalty is also added to the inspection's OtherDeduction; DamageDeductions excludes it.</summary>
 public sealed record DepositSettlementDto(
-    int HandoverId, decimal DepositAmount, decimal DamageDeductions, decimal OutstandingInvoices,
+    int HandoverId, decimal DepositAmount, decimal DamageDeductions, decimal EarlyTerminationPenalty, decimal OutstandingInvoices,
     decimal RefundAmount, decimal Shortfall, HandoverStatus Status);
