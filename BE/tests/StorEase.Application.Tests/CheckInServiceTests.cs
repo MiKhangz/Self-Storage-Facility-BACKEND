@@ -121,4 +121,27 @@ public class CheckInServiceTests
 
         result.Error!.Type.Should().Be(ErrorType.NotFound);
     }
+
+    [Fact]
+    public async Task Cancelling_a_check_in_frees_the_unit_and_lets_staff_assign_one_again()
+    {
+        using var t = Create();
+        var (reservationId, contractId) = SeedReadyForCheckIn(t, signed: true);
+        var created = await RealService(t).CreateAsync(Request(reservationId, contractId), default);
+        t.Db.ChangeTracker.Clear();
+
+        var cancelled = await RealService(t).CancelAsync(created.Value!.CheckInId, default);
+        var again = await RealService(t).CancelAsync(created.Value.CheckInId, default);
+        t.Db.ChangeTracker.Clear();
+        var reassigned = await new StorEase.Application.Features.Reservations.ReservationService(t.Uow, Staff, new FakeEmailService())
+            .AssignUnitAsync(reservationId, new StorEase.Application.Features.Reservations.Dtos.AssignUnitRequest(A102), default);
+
+        cancelled.IsSuccess.Should().BeTrue(cancelled.Error?.Message);
+        again.Error!.Type.Should().Be(ErrorType.Conflict);
+        t.Db.Contracts.Single(c => c.ContractId == contractId).Status.Should().Be(ContractStatus.Terminated);
+        t.Db.AccessCodes.Where(a => a.ContractId == contractId).Should().OnlyContain(a => !a.IsActive);
+        t.Db.StorageUnits.Single(u => u.StorageUnitId == A101).Status.Should().Be(StorageUnitStatus.Available);
+        reassigned.IsSuccess.Should().BeTrue(reassigned.Error?.Message);
+        reassigned.Value!.UnitCode.Should().Be("A-102");
+    }
 }

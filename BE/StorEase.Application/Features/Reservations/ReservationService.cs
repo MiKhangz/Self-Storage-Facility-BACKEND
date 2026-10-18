@@ -139,8 +139,11 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             var reservation = await Visible().FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
             if (reservation is null)
                 return Error.NotFound("Reservation not found.");
-            if (reservation.Status != ReservationStatus.Pending)
-                return Error.Conflict($"Only a Pending reservation can be assigned a unit; this one is {reservation.Status}.");
+            // A Confirmed reservation without a unit is one whose check-in was cancelled (SR-02); it is assigned again.
+            var awaitingUnit = reservation.Status == ReservationStatus.Pending
+                || (reservation.Status == ReservationStatus.Confirmed && reservation.StorageUnitId is null);
+            if (!awaitingUnit)
+                return Error.Conflict($"Only a reservation waiting for a unit can be assigned one; this one is {reservation.Status}.");
 
             var unit = await uow.Repository<StorageUnit>().FindAsync(request.StorageUnitId, ct);
             if (unit is null)

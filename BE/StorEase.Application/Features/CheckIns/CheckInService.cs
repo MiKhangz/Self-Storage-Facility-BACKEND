@@ -11,11 +11,49 @@ namespace StorEase.Application.Features.CheckIns;
 public interface ICheckInService
 {
     Task<Result<CheckInDto>> CreateAsync(CreateCheckInRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// SR-02: undo a check-in. The contract is terminated and its codes revoked, the unit goes back to Available and
+    /// the reservation to Confirmed without a unit, so staff assign a unit again and redraft the contract.
+    /// </summary>
+    Task<Result<bool>> CancelAsync(int checkInId, CancellationToken ct);
 }
 
 /// <summary>Business rule 3: check-in, not signing, activates the contract and occupies the unit.</summary>
 public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IContractService contracts) : ICheckInService
 {
+    public Task<Result<bool>> CancelAsync(int checkInId, CancellationToken ct) =>
+        uow.InTransactionAsync<bool>(async () =>
+        {
+            var facilityIds = StaffScope.FacilityIdsOf(uow, currentUser.UserId);
+            var checkIn = await uow.Repository<CheckIn>().Query()
+                .Include(c => c.Reservation).Include(c => c.StorageUnit)
+                .FirstOrDefaultAsync(c => c.CheckInId == checkInId && facilityIds.Contains(c.Reservation.FacilityId), ct);
+            if (checkIn is null)
+                return Error.NotFound("Check-in not found.");
+            if (checkIn.Status == CheckInStatus.Cancelled)
+                return Error.Conflict("The check-in is already cancelled.");
+
+            var contract = checkIn.ContractId is { } contractId
+                ? await uow.Repository<Contract>().Query().Include(c => c.AccessCodes).FirstOrDefaultAsync(c => c.ContractId == contractId, ct)
+                : null;
+            // Once the rental has moved on (overdue, being handed back, closed) undoing the check-in would rewrite history.
+            if (contract is not null && contract.Status != ContractStatus.Active)
+                return Error.Conflict($"The contract is {contract.Status}; only the check-in of an Active contract can be cancelled.");
+
+            checkIn.Status = CheckInStatus.Cancelled;
+            if (contract is not null)
+            {
+                contract.Status = ContractStatus.Terminated;
+                foreach (var code in contract.AccessCodes.Where(a => a.IsActive))
+                    code.IsActive = false;
+            }
+            checkIn.StorageUnit.Status = StorageUnitStatus.Available;
+            checkIn.Reservation.Status = ReservationStatus.Confirmed;
+            checkIn.Reservation.StorageUnitId = null;
+            return true;
+        }, ct);
+
     public Task<Result<CheckInDto>> CreateAsync(CreateCheckInRequest request, CancellationToken ct) =>
         uow.InTransactionAsync<CheckInDto>(async () =>
         {

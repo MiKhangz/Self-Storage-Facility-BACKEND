@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using StorEase.Application.Common;
 using StorEase.Application.Features.CheckIns;
 using StorEase.Application.Features.CheckIns.Dtos;
+using StorEase.Domain.Enums;
 
 namespace StorEase.Api.Controllers;
 
@@ -18,6 +19,24 @@ public class CheckInsController(ICheckInService checkIns, ICheckInEvidenceServic
         return result.IsSuccess
             ? CreatedAtAction(nameof(Get), new { id = result.Value.CheckInId }, result.Value)
             : Failure(result.Error);
+    }
+
+    [HttpGet]
+    [Authorize(Roles = Roles.Staff)]
+    public async Task<ActionResult<PagedResult<CheckInDetailDto>>> List(
+        [FromQuery] CheckInStatus? status, int page = 1, int pageSize = 20, CancellationToken ct = default)
+    {
+        var result = await evidence.ListAsync(status, page, pageSize, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>Undo a check-in: contract terminated, unit Available, reservation back to Confirmed waiting for a unit.</summary>
+    [HttpPost("{id:int}/cancel")]
+    [Authorize(Roles = Roles.Staff)]
+    public async Task<IActionResult> Cancel(int id, CancellationToken ct)
+    {
+        var result = await checkIns.CancelAsync(id, ct);
+        return result.IsSuccess ? NoContent() : Failure(result.Error);
     }
 
     [HttpGet("{id:int}")]
