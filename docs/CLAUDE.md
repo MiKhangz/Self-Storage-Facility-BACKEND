@@ -10,8 +10,9 @@ Guidance for Claude Code working in the **backend** repository of this project.
 
 Customers rent storage units online: they search a facility, reserve a unit, pay a deposit, sign a
 contract, receive the keys and an access code at check-in, are billed monthly, can renew, and finally
-move out with a return inspection and deposit refund. Staff run the facility side: assigning units,
-performing handover, chasing overdue invoices, handling support tickets and maintenance.
+hand the unit back (handover) with a handover inspection and deposit refund. Staff run the facility side:
+assigning units, performing check-in, recording unit visits, chasing overdue invoices, handling support
+tickets and maintenance.
 
 Reference design: `https://mystorage.vn/vi/` for the customer side. **The brand in this project is
 "StorEase"** — an invented name. Never use MyStorage branding, logos or copy anywhere.
@@ -20,8 +21,8 @@ Reference design: `https://mystorage.vn/vi/` for the customer side. **The brand 
 
 | Actor | Does |
 |---|---|
-| **Storage Customer** | Searches, reserves, pays, signs, accesses the unit, renews, moves out, raises tickets |
-| **Facility Staff** | Assigns units, runs check-in/handover, records payments, inspects on return, works tickets |
+| **Storage Customer** | Searches, reserves, pays, signs, accesses the unit, renews, hands the unit back, raises tickets |
+| **Facility Staff** | Assigns units, runs check-in, records unit visits and payments, inspects at handover, works tickets |
 | **Facility Manager** | Approves assignments and renewals, manages units and staff shifts, sees reports |
 | **Business Operations Manager** | Sets pricing policies and fees, approves refunds, reads revenue reports |
 | **System Administrator** | Manages facilities, staff accounts, roles, and reads the audit log |
@@ -31,10 +32,10 @@ Reference design: `https://mystorage.vn/vi/` for the customer side. **The brand 
 1. Account & access management
 2. Facility and storage unit management
 3. Booking and reservation
-4. Check-in and handover
+4. Check-in and unit visits
 5. Contract, access code and renewal
 6. Billing, payment and overdue handling
-7. Move-out, return inspection and support
+7. Handover, handover inspection and support
 
 ---
 
@@ -70,10 +71,10 @@ D:\Self-Storage-Facility-BACKEND\
     │   ├── Common/                     # Result<T>, PagedResult<T>, exceptions
     │   ├── Interfaces/                 # IUnitOfWork, IRepository<T>, IJwtService, IEmailService…
     │   └── Features/                   # one folder per feature, each with Dtos/ and Validators/
-    │       └── Auth, Users, Facilities, StorageUnits, Reservations, Handovers,
+    │       └── Auth, Users, Facilities, StorageUnits, Reservations, CheckIns,
     │           Contracts, AccessCodes, Renewals, Pricing, Invoices, Payments,
-    │           OverdueCases, MoveOuts, SupportTickets, Maintenance, Staff,
-    │           Reports, ActivityLogs
+    │           OverdueCases, Handovers, UnitVisits, SupportTickets, Maintenance,
+    │           Staff, Reports, ActivityLogs
     ├── StorEase.Infrastructure/        # → Application, Domain | EF Core SqlServer, Tools, Jwt
     │   ├── Persistence/
     │   │   ├── AppDbContext.cs
@@ -163,7 +164,7 @@ powershell -ExecutionPolicy Bypass -File scripts/export-openapi.ps1   # writes d
 
 ### API conventions
 
-- Routes: `/api/{resource}` in kebab-plural — `/api/storage-units`, `/api/move-out-requests`.
+- Routes: `/api/{resource}` in kebab-plural — `/api/storage-units`, `/api/check-ins`, `/api/unit-visits`.
 - `GET /api/contracts?page=1&pageSize=20&status=Active` returns `PagedResult<T>`.
 - Status codes: `200` read, `201` + `Location` create, `204` update/delete, `400` validation,
   `401` no token, `403` wrong role, `404` missing, `409` business-rule conflict.
@@ -181,19 +182,22 @@ powershell -ExecutionPolicy Bypass -File scripts/export-openapi.ps1   # writes d
 
 1. **A unit can carry only one active contract at a time.** Before creating a contract or holding a
    unit, check for an existing contract on that unit whose status is `Active` or `Draft`.
-2. **Reservation does not occupy a unit.** Reserving sets the unit to `Reserved`; only a completed
-   handover sets it to `Occupied`.
-3. **Handover activates the contract**, not signing. Order is: reservation → contract drafted →
-   customer e-signs → staff completes handover → contract becomes `Active` → access code issued.
+2. **Reservation does not occupy a unit.** Assigning a unit sets it to `Reserved`; only a completed
+   check-in sets it to `Occupied`.
+3. **Check-in activates the contract**, not signing. Order is: reservation → contract drafted →
+   customer e-signs → staff completes check-in → contract becomes `Active` → access code issued.
 4. **Only one pricing policy is active at a time.** Activating a new version ends the previous one.
    A contract keeps the rent agreed at signing; a later policy change does not alter it.
 5. **Invoices are raised per billing cycle for every `Active` contract**, by a scheduled job, not
-   on demand.
+   on demand (`BillingWorker` → `BillingCycleService`: issued 7 days before the `PaymentDay` due date,
+   idempotent per day).
 6. **An overdue case escalates by stage** — reminder → late fee → lockout. Lockout revokes the
    contract's access codes; it does not terminate the contract.
-7. **Deposit is refunded only after return inspection**, minus damage and any outstanding invoice.
-8. **Move-out requires notice.** Validate the planned move-out date against the contract's notice
-   period before accepting the request.
+7. **Deposit is refunded only after the handover inspection**, minus damage and any outstanding invoice.
+8. **Early return is allowed.** No notice period: a handover may be requested for any date from today. A
+   penalty of `DepositAmount × EarlyTerminationPercent / 100` applies when the return date (the planned
+   handover date) falls before the contract's `EndDate`, at the rate of the policy in force on the move-in
+   date. It is added to `HandoverInspection.OtherDeduction` and shown as its own settlement line.
 9. **Access codes expire.** Issuing a new one revokes the previous active code for that contract.
 10. **Never delete a facility, unit or user that has history.** Deactivate instead.
 
@@ -223,8 +227,8 @@ frontend for that feature.
 
 | Student ID | Name | Short | Role | Area |
 |---|---|---|---|---|
-| SE171577 | Huỳnh Minh Khang | **Khang** | BE · **Leader** | Accounts & auth, facilities, floors, units, unit status board, reservations, **handover**, staff management, activity log |
-| SE172497 | Huỳnh Hữu Trí Nhân | **Nhân** | BE | Contracts, access codes, renewal, move-out & return, lockout, support & maintenance |
+| SE171577 | Huỳnh Minh Khang | **Khang** | BE · **Leader** | Accounts & auth, facilities, floors, units, unit status board, reservations, **check-in**, staff management, activity log |
+| SE172497 | Huỳnh Hữu Trí Nhân | **Nhân** | BE | Contracts, access codes, renewal, handover & inspection, lockout, support & maintenance |
 | SE184087 | Võ Đan Trường | **Trường** | BE | Pricing policies & fees, quotes, invoices, payments, overdue & reminders, deposit settlement, reports |
 | SE172640 | Phạm Lê Thành Đạt | **Đạt** | FE | All customer-side screens (U01–U16), plus reports and staff admin |
 | SE185085 | Bùi Đức Thiện | **Thiện** | FE | The rest of the admin side (A01–A21) |
@@ -265,10 +269,15 @@ Workload as assigned, counting Simple = 1, Medium = 2, Complex = 3:
 |---|---|
 | **Reservation** | A customer's intent to rent, holding a unit until move-in day |
 | **Contract** | The rental agreement; the hub of the whole system |
-| **Handover** | The physical check-in where staff gives the customer the unit and lock |
+| **Check-in** | The start of the rental: staff gives the customer the unit, lock and card; the contract becomes `Active` |
+| **Unit visit** | The customer entering and leaving their unit during the rental, recorded by staff |
+| **Handover** | The end of the rental: the customer gives the unit back and cancels the subscription |
 | **Access code** | Time-limited gate/unit code tied to an active contract |
 | **Overdue case** | An escalation record attached to an unpaid invoice |
-| **Return inspection** | Condition check at move-out that decides the deposit refund |
+| **Handover inspection** | Condition check when the unit is handed back; decides the deposit refund |
+
+> "Check-in" is used for two things on purpose: the start of a rental (`CheckIn`) and a customer visiting
+> their unit (`UnitVisit.CheckInAt`). It matches how the team and the instructor speak; do not "fix" it.
 | **Unit type** | Size class of a unit (area, dimensions) — the thing that is priced |
 | **Pricing policy** | A dated, versioned set of unit prices and fees |
 
@@ -276,8 +285,8 @@ Workload as assigned, counting Simple = 1, Medium = 2, Complex = 3:
 
 ## 11. Database schema
 
-32 tables, 62 foreign keys (the 30 of the ERD plus `HandoverPhoto` and `NotificationPreference`, added
-14 Oct for BE-29 and BE-53). SQL Server types. `FK → Table.Column` marks a foreign key;
+33 tables, 65 foreign keys (the 30 of the ERD plus `CheckInPhoto` and `NotificationPreference`, added
+14 Oct for BE-29 and BE-53, and `UnitVisit`, added 18 Oct for SR-05). SQL Server types. `FK → Table.Column` marks a foreign key;
 *(nullable)* means the relationship is optional (zero-or-one on that side).
 
 ### Accounts & staff
@@ -446,8 +455,9 @@ Workload as assigned, counting Simple = 1, Medium = 2, Complex = 3:
 | `EffectiveTo` | `date` |  |
 | `DepositMonths` | `int` |  |
 | `GraceDays` | `int` |  |
-| `NoticeDays` | `int` |  |
+| `NoticeDays` | `int` | *(no longer enforced since SR-04)* |
 | `LateFeePercentPerWeek` | `decimal(5,2)` |  |
+| `EarlyTerminationPercent` | `decimal(5,2)` | *(percent of the deposit; rule 8)* |
 | `SuspendAfterDays` | `int` |  |
 | `ClearOutAfterDays` | `int` |  |
 | `CancelFreeHours` | `int` |  |
@@ -477,7 +487,7 @@ Workload as assigned, counting Simple = 1, Medium = 2, Complex = 3:
 | `IsPercentage` | `bit` |  |
 
 
-### Booking & handover
+### Booking & check-in
 
 **`Reservation`**
 
@@ -496,28 +506,28 @@ Workload as assigned, counting Simple = 1, Medium = 2, Complex = 3:
 | `Status` | `varchar(20)` |  |
 | `CreatedAt` | `datetime2` |  |
 
-**`Handover`**
+**`CheckIn`**
 
 | Column | Type | Key |
 |---|---|---|
-| `HandoverId` | `int` | PK |
+| `CheckInId` | `int` | PK |
 | `ReservationId` | `int` | FK → `Reservation.ReservationId` |
 | `ContractId` | `int` | FK → `Contract.ContractId` *(nullable)* |
 | `StorageUnitId` | `int` | FK → `StorageUnit.StorageUnitId` |
 | `StaffId` | `int` | FK → `User.UserId` |
-| `HandoverTime` | `datetime2` |  |
+| `CheckInTime` | `datetime2` |  |
 | `LockSerial` | `varchar(30)` |  |
 | `CardNumber` | `varchar(30)` |  |
 | `ConditionNote` | `nvarchar(300)` |  |
 | `Status` | `varchar(20)` |  |
 
 
-**`HandoverPhoto`** — condition photos taken at handover (BE-29); the file itself lives under `Storage:Root`
+**`CheckInPhoto`** — condition photos taken at check-in (BE-29); the file itself lives under `Storage:Root`
 
 | Column | Type | Key |
 |---|---|---|
-| `HandoverPhotoId` | `int` | PK |
-| `HandoverId` | `int` | FK → `Handover.HandoverId` |
+| `CheckInPhotoId` | `int` | PK |
+| `CheckInId` | `int` | FK → `CheckIn.CheckInId` |
 | `UploadedBy` | `int` | FK → `User.UserId` |
 | `FileName` | `nvarchar(200)` |  |
 | `ContentType` | `varchar(100)` |  |
@@ -582,28 +592,42 @@ Workload as assigned, counting Simple = 1, Medium = 2, Complex = 3:
 | `Status` | `varchar(20)` |  |
 
 
-### Move-out & return
+### Unit visits
 
-**`MoveOutRequest`**
+**`UnitVisit`** — a customer entering and leaving their unit, recorded by staff (SR-05)
 
 | Column | Type | Key |
 |---|---|---|
-| `MoveOutRequestId` | `int` | PK |
+| `UnitVisitId` | `int` | PK |
+| `ContractId` | `int` | FK → `Contract.ContractId` |
+| `StorageUnitId` | `int` | FK → `StorageUnit.StorageUnitId` |
+| `RecordedBy` | `int` | FK → `User.UserId` |
+| `CheckInAt` | `datetime2` |  |
+| `CheckOutAt` | `datetime2` | *(null while inside)* |
+| `Note` | `nvarchar(200)` |  |
+
+### Handover & inspection
+
+**`Handover`** — the customer giving the unit back
+
+| Column | Type | Key |
+|---|---|---|
+| `HandoverId` | `int` | PK |
 | `ContractId` | `int` | FK → `Contract.ContractId` |
 | `RequestedAt` | `datetime2` |  |
-| `PlannedMoveOutDate` | `date` |  |
+| `PlannedHandoverDate` | `date` |  |
 | `Reason` | `nvarchar(200)` |  |
 | `InspectionSlot` | `datetime2` |  |
 | `RefundMethod` | `varchar(20)` |  |
 | `RefundAccount` | `varchar(50)` |  |
 | `Status` | `varchar(20)` |  |
 
-**`ReturnInspection`**
+**`HandoverInspection`**
 
 | Column | Type | Key |
 |---|---|---|
-| `ReturnInspectionId` | `int` | PK |
-| `MoveOutRequestId` | `int` | FK → `MoveOutRequest.MoveOutRequestId` |
+| `HandoverInspectionId` | `int` | PK |
+| `HandoverId` | `int` | FK → `Handover.HandoverId` |
 | `StorageUnitId` | `int` | FK → `StorageUnit.StorageUnitId` |
 | `StaffId` | `int` | FK → `User.UserId` |
 | `InspectedAt` | `datetime2` |  |
@@ -756,10 +780,10 @@ Read this as "one `Parent` has many `Child`". Relationships marked *optional* ha
 | `UnitType` | `Reservation` | `Reservation.UnitTypeId` |  |
 | `StorageUnit` | `Reservation` | `Reservation.StorageUnitId` | *optional* |
 | `User` | `Reservation` | `Reservation.CreatedBy` | *optional* |
-| `Reservation` | `Handover` | `Handover.ReservationId` |  |
-| `Contract` | `Handover` | `Handover.ContractId` | *optional* |
-| `StorageUnit` | `Handover` | `Handover.StorageUnitId` |  |
-| `User` | `Handover` | `Handover.StaffId` |  |
+| `Reservation` | `CheckIn` | `CheckIn.ReservationId` |  |
+| `Contract` | `CheckIn` | `CheckIn.ContractId` | *optional* |
+| `StorageUnit` | `CheckIn` | `CheckIn.StorageUnitId` |  |
+| `User` | `CheckIn` | `CheckIn.StaffId` |  |
 | `Reservation` | `Contract` | `Contract.ReservationId` |  |
 | `User` | `Contract` | `Contract.CustomerId` |  |
 | `StorageUnit` | `Contract` | `Contract.StorageUnitId` |  |
@@ -768,10 +792,13 @@ Read this as "one `Parent` has many `Child`". Relationships marked *optional* ha
 | `StorageUnit` | `AccessLog` | `AccessLog.StorageUnitId` |  |
 | `Contract` | `Renewal` | `Renewal.ContractId` |  |
 | `User` | `Renewal` | `Renewal.ApprovedBy` | *optional* |
-| `Contract` | `MoveOutRequest` | `MoveOutRequest.ContractId` |  |
-| `MoveOutRequest` | `ReturnInspection` | `ReturnInspection.MoveOutRequestId` |  |
-| `StorageUnit` | `ReturnInspection` | `ReturnInspection.StorageUnitId` |  |
-| `User` | `ReturnInspection` | `ReturnInspection.StaffId` |  |
+| `Contract` | `Handover` | `Handover.ContractId` |  |
+| `Handover` | `HandoverInspection` | `HandoverInspection.HandoverId` |  |
+| `StorageUnit` | `HandoverInspection` | `HandoverInspection.StorageUnitId` |  |
+| `User` | `HandoverInspection` | `HandoverInspection.StaffId` |  |
+| `Contract` | `UnitVisit` | `UnitVisit.ContractId` |  |
+| `StorageUnit` | `UnitVisit` | `UnitVisit.StorageUnitId` |  |
+| `User` | `UnitVisit` | `UnitVisit.RecordedBy` |  |
 | `Contract` | `Invoice` | `Invoice.ContractId` | *optional* |
 | `Reservation` | `Invoice` | `Invoice.ReservationId` | *optional* |
 | `User` | `Invoice` | `Invoice.CustomerId` |  |
@@ -789,8 +816,8 @@ Read this as "one `Parent` has many `Child`". Relationships marked *optional* ha
 | `User` | `SupportTicket` | `SupportTicket.AssignedTo` | *optional* |
 | `SupportTicket` | `TicketMessage` | `TicketMessage.TicketId` |  |
 | `User` | `TicketMessage` | `TicketMessage.SenderId` |  |
-| `Handover` | `HandoverPhoto` | `HandoverPhoto.HandoverId` |  |
-| `User` | `HandoverPhoto` | `HandoverPhoto.UploadedBy` |  |
+| `CheckIn` | `CheckInPhoto` | `CheckInPhoto.CheckInId` |  |
+| `User` | `CheckInPhoto` | `CheckInPhoto.UploadedBy` |  |
 | `User` | `NotificationPreference` | `NotificationPreference.UserId` | one-to-zero-or-one |
 
 ---
