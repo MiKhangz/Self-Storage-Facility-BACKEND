@@ -1,28 +1,28 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StorEase.Application.Common;
-using StorEase.Application.Features.Handovers;
-using StorEase.Application.Features.Handovers.Dtos;
+using StorEase.Application.Features.CheckIns;
+using StorEase.Application.Features.CheckIns.Dtos;
 
 namespace StorEase.Api.Controllers;
 
-[Route("api/handovers")]
-public class HandoversController(IHandoverService handovers, IHandoverEvidenceService evidence) : ApiControllerBase
+[Route("api/check-ins")]
+public class CheckInsController(ICheckInService checkIns, ICheckInEvidenceService evidence) : ApiControllerBase
 {
     [HttpPost]
     [Authorize(Roles = Roles.Staff)]
-    [ProducesResponseType<HandoverDto>(StatusCodes.Status201Created)]
-    public async Task<ActionResult<HandoverDto>> Create(CreateHandoverRequest request, CancellationToken ct)
+    [ProducesResponseType<CheckInDto>(StatusCodes.Status201Created)]
+    public async Task<ActionResult<CheckInDto>> Create(CreateCheckInRequest request, CancellationToken ct)
     {
-        var result = await handovers.CreateAsync(request, ct);
+        var result = await checkIns.CreateAsync(request, ct);
         return result.IsSuccess
-            ? CreatedAtAction(nameof(Get), new { id = result.Value.HandoverId }, result.Value)
+            ? CreatedAtAction(nameof(Get), new { id = result.Value.CheckInId }, result.Value)
             : Failure(result.Error);
     }
 
     [HttpGet("{id:int}")]
     [Authorize]
-    public async Task<ActionResult<HandoverDetailDto>> Get(int id, CancellationToken ct)
+    public async Task<ActionResult<CheckInDetailDto>> Get(int id, CancellationToken ct)
     {
         var result = await evidence.GetAsync(id, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
@@ -32,14 +32,14 @@ public class HandoversController(IHandoverService handovers, IHandoverEvidenceSe
     [HttpPost("{id:int}/photos")]
     [Authorize(Roles = Roles.Staff)]
     [Consumes("multipart/form-data")]
-    [RequestSizeLimit(HandoverEvidenceService.MaxBytes + 64 * 1024)]
-    [ProducesResponseType<HandoverPhotoDto>(StatusCodes.Status201Created)]
-    public async Task<ActionResult<HandoverPhotoDto>> AddPhoto(int id, IFormFile file, CancellationToken ct)
+    [RequestSizeLimit(CheckInEvidenceService.MaxBytes + 64 * 1024)]
+    [ProducesResponseType<CheckInPhotoDto>(StatusCodes.Status201Created)]
+    public async Task<ActionResult<CheckInPhotoDto>> AddPhoto(int id, IFormFile file, CancellationToken ct)
     {
         await using var stream = file.OpenReadStream();
         var result = await evidence.AddPhotoAsync(id, stream, file.FileName, file.ContentType, file.Length, ct);
         return result.IsSuccess
-            ? CreatedAtAction(nameof(Photo), new { id, photoId = result.Value.HandoverPhotoId }, result.Value)
+            ? CreatedAtAction(nameof(Photo), new { id, photoId = result.Value.CheckInPhotoId }, result.Value)
             : Failure(result.Error);
     }
 

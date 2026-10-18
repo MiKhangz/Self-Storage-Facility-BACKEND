@@ -16,7 +16,7 @@ public interface IAccessCodeService
     Task<Result<AccessCodeSummaryDto>> GetActiveAsync(int contractId, CancellationToken ct);
 
     /// <summary>
-    /// For services already inside a transaction (handover): revokes the contract's active codes and adds a new one.
+    /// For services already inside a transaction (check-in): revokes the contract's active codes and adds a new one.
     /// Does not save. <paramref name="contract"/> must have <c>AccessCodes</c> loaded. Returns the plaintext once.
     /// </summary>
     (AccessCode Entity, string Code) Issue(Contract contract);

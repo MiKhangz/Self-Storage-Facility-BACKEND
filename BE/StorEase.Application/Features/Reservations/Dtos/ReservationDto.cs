@@ -36,7 +36,7 @@ public sealed record ReservationCancellationDto(ReservationDto Reservation, deci
 
 public sealed record CheckInItemDto(string Key, string Label, bool Done, string? Detail);
 
-/// <summary>What staff confirm at the counter before handover. Handover is allowed when <see cref="ReadyForHandover"/>.</summary>
+/// <summary>What staff confirm at the counter before check-in. CheckIn is allowed when <see cref="ReadyForCheckIn"/>.</summary>
 public sealed record CheckInChecklistDto(
     int ReservationId,
     string ReservationCode,
@@ -46,4 +46,4 @@ public sealed record CheckInChecklistDto(
     string? UnitCode,
     int? ContractId,
     IReadOnlyList<CheckInItemDto> Items,
-    bool ReadyForHandover);
+    bool ReadyForCheckIn);

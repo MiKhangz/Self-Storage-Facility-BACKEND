@@ -124,7 +124,7 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
                 markedOverdue++;
             }
             var daysOverdue = today.DayNumber - invoice.DueDate.DayNumber;
-            // A deposit has no contract to escalate; the unpaid deposit simply blocks the handover.
+            // A deposit has no contract to escalate; the unpaid deposit simply blocks the check-in.
             if (invoice.ContractId is not { } contractId || daysOverdue <= policy.GraceDays)
                 continue;
 

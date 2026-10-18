@@ -255,7 +255,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             new("signed", "Khách đã ký hợp đồng", contract?.SignedAt is not null, contract?.SignedAt?.ToString("u")),
             new("moveIn", "Đến ngày dọn vào", r.MoveInDate <= VietnamTime.Today, r.MoveInDate.ToString("yyyy-MM-dd")),
         };
-        // The move-in date is informative only: an early handover is the facility's call.
+        // The move-in date is informative only: an early check-in is the facility's call.
         var ready = r.Status == ReservationStatus.Confirmed && items.Where(i => i.Key != "moveIn").All(i => i.Done);
         return new CheckInChecklistDto(r.ReservationId, r.ReservationCode, r.Customer.FullName, r.Customer.PhoneNumber,
             r.Customer.CitizenId, r.StorageUnit?.UnitCode, contract?.ContractId, items, ready);

@@ -52,7 +52,7 @@ public static class CoreFlowSeed
     public static ICurrentUser Staff => new FakeCurrentUser(StaffId, Roles.FacilityStaff);
 
     /// <summary>A Confirmed reservation holding unit A-101 (Reserved) and its Draft contract.</summary>
-    public static (int ReservationId, int ContractId) SeedReadyForHandover(TestDb t, bool signed)
+    public static (int ReservationId, int ContractId) SeedReadyForCheckIn(TestDb t, bool signed)
     {
         var reservation = new Reservation
         {

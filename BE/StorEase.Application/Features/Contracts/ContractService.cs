@@ -83,7 +83,7 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
             if (contract.SignedAt is not null)
                 return Error.Conflict("The contract is already signed.");
 
-            // Signing does not activate: the handover does (business rule 3).
+            // Signing does not activate: the check-in does (business rule 3).
             contract.SignedAt = DateTime.UtcNow;
             return contract.ContractId;
         }, ct);

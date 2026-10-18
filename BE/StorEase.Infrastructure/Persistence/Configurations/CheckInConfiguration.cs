@@ -4,12 +4,12 @@ using StorEase.Domain.Entities;
 
 namespace StorEase.Infrastructure.Persistence.Configurations;
 
-public class HandoverConfiguration : IEntityTypeConfiguration<Handover>
+public class CheckInConfiguration : IEntityTypeConfiguration<CheckIn>
 {
-    public void Configure(EntityTypeBuilder<Handover> builder)
+    public void Configure(EntityTypeBuilder<CheckIn> builder)
     {
-        builder.ToTable("Handover");
-        builder.HasKey(x => x.HandoverId);
+        builder.ToTable("CheckIn");
+        builder.HasKey(x => x.CheckInId);
 
         builder.HasOne(x => x.Reservation).WithMany().HasForeignKey(x => x.ReservationId);
         builder.HasOne(x => x.Contract).WithMany().HasForeignKey(x => x.ContractId);
