@@ -48,6 +48,18 @@ public class ContractsController(IContractService contracts, IAccessCodeService 
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
+    /// <summary>
+    /// The customer signed the paper contract at the desk (e.g. a walk-in with no password yet). Same rules as
+    /// <see cref="Sign"/>; facility staff and managers at their own facilities only. The activity log records who.
+    /// </summary>
+    [HttpPost("{id:int}/sign-at-desk")]
+    [Authorize(Roles = Roles.Staff)]
+    public async Task<ActionResult<ContractDto>> SignAtDesk(int id, CancellationToken ct)
+    {
+        var result = await contracts.SignAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
     [HttpGet("export")]
     [Authorize(Roles = Roles.Staff)]
     public async Task<IActionResult> Export(ContractStatus? status, CancellationToken ct)

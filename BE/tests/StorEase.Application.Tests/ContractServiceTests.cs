@@ -125,4 +125,18 @@ public class ContractServiceTests
         (await outsider.ListAsync(null, 1, 20, default)).Value!.TotalCount.Should().Be(0);
         (await admin.ListAsync(null, 1, 20, default)).Value!.TotalCount.Should().Be(3);
     }
+
+    [Fact]
+    public async Task Staff_record_a_paper_signature_only_at_their_facility()
+    {
+        var (staff, db) = Create(9, Roles.FacilityStaff);
+        var (outsider, _) = Create(10, Roles.FacilityStaff);
+
+        var signed = await staff.SignAsync(3, default);
+        var elsewhere = await outsider.SignAsync(1, default);
+
+        signed.Value!.SignedAt.Should().NotBeNull();
+        signed.Value.Status.Should().Be(ContractStatus.Draft, "signing never activates; check-in does");
+        elsewhere.Error!.Type.Should().Be(ErrorType.NotFound);
+    }
 }
