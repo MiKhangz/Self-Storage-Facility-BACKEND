@@ -8,8 +8,22 @@ using StorEase.Domain.Enums;
 namespace StorEase.Api.Controllers;
 
 [Route("api/reservations")]
-public class ReservationsController(IReservationService reservations) : ApiControllerBase
+public class ReservationsController(IReservationService reservations, IWalkInService walkIns) : ApiControllerBase
 {
+    /// <summary>
+    /// A booking made at the desk for an existing or a new customer: Confirmed with the chosen unit at once, the
+    /// deposit recorded as paid in cash. Staff at their own facilities only.
+    /// </summary>
+    [HttpPost("walk-in")]
+    [Authorize(Roles = Roles.Staff)]
+    public async Task<ActionResult<ReservationDto>> WalkIn(WalkInReservationRequest request, CancellationToken ct)
+    {
+        var result = await walkIns.BookAsync(request, ct);
+        return result.IsSuccess
+            ? CreatedAtAction(nameof(Get), new { id = result.Value.ReservationId }, result.Value)
+            : Failure(result.Error);
+    }
+
     [HttpPost]
     [Authorize(Roles = Roles.StorageCustomer)]
     public async Task<ActionResult<ReservationDto>> Create(CreateReservationRequest request, CancellationToken ct)

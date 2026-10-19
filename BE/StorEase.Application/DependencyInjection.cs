@@ -57,6 +57,7 @@ public static class DependencyInjection
         services.AddScoped<IOverdueService, OverdueService>();
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IUnitVisitService, UnitVisitService>();
+        services.AddScoped<IWalkInService, WalkInService>();
         return services;
     }
 }

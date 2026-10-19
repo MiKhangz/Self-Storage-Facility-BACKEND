@@ -72,22 +72,8 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             uow.Repository<Reservation>().Add(reservation);
             await uow.SaveChangesAsync(ct);
 
-            if (terms.IsSuccess && terms.Value.Deposit > 0)
-            {
-                var deposit = new Invoice
-                {
-                    ReservationId = reservation.ReservationId,
-                    CustomerId = reservation.CustomerId,
-                    InvoiceNumber = InvoiceBook.DepositNumber(reservation),
-                    IssueDate = VietnamTime.Today,
-                    // The deposit has to be settled before the keys are handed over.
-                    DueDate = reservation.MoveInDate,
-                    Status = InvoiceStatus.Issued,
-                };
-                deposit.InvoiceItems.Add(InvoiceBook.Line(InvoiceBook.DepositDescription, terms.Value.Deposit));
-                InvoiceBook.Retotal(deposit, VietnamTime.Today);
-                uow.Repository<Invoice>().Add(deposit);
-            }
+            if (terms.IsSuccess)
+                AddDepositInvoice(uow, reservation, terms.Value.Deposit);
             return reservation.ReservationId;
         }, ct);
         if (!created.IsSuccess)
@@ -313,6 +299,27 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             await email.SendAsync(to, subject, $"Xin chào {reservation.CustomerName},\n\n{body}\n\nMã đặt kho: {reservation.ReservationCode}", ct);
     }
 
+    /// <summary>The deposit invoice raised with every reservation (online or walk-in); none when the deposit is zero.</summary>
+    internal static Invoice? AddDepositInvoice(IUnitOfWork uow, Reservation reservation, decimal amount)
+    {
+        if (amount <= 0)
+            return null;
+        var deposit = new Invoice
+        {
+            ReservationId = reservation.ReservationId,
+            CustomerId = reservation.CustomerId,
+            InvoiceNumber = InvoiceBook.DepositNumber(reservation),
+            IssueDate = VietnamTime.Today,
+            // The deposit has to be settled before the keys are handed over.
+            DueDate = reservation.MoveInDate,
+            Status = InvoiceStatus.Issued,
+        };
+        deposit.InvoiceItems.Add(InvoiceBook.Line(InvoiceBook.DepositDescription, amount));
+        InvoiceBook.Retotal(deposit, VietnamTime.Today);
+        uow.Repository<Invoice>().Add(deposit);
+        return deposit;
+    }
+
     // ponytail: random suffix, ~1-in-a-million clash per day; the unique index turns a clash into a 500. Switch to a sequence if volume grows.
-    private static string NewReservationCode() => $"RS{DateTime.UtcNow:yyMMdd}{Random.Shared.Next(1_000_000):D6}";
+    internal static string NewReservationCode() => $"RS{DateTime.UtcNow:yyMMdd}{Random.Shared.Next(1_000_000):D6}";
 }
