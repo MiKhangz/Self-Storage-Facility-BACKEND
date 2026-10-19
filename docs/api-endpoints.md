@@ -7,6 +7,24 @@ Swagger (with a working padlock): `https://localhost:7001/swagger`
 
 ---
 
+## Renamed 18 Oct 2026 (sprint review, SR-01..SR-05)
+
+The start of a rental is now a **check-in** and **handover** means giving the unit back.
+
+| Before | Now |
+|---|---|
+| `/api/handovers` (keys handed over), `HandoverDto`, `HandoverStatus` | `/api/check-ins`, `CheckInDto`, `CheckInStatus`; plus `GET /api/check-ins`, `POST /api/check-ins/{id}/cancel` |
+| `/api/move-out-requests`, `MoveOutRequestDto`, `plannedMoveOutDate` | `/api/handovers`, `HandoverDto`, `plannedHandoverDate` (sub-routes unchanged) |
+| `ReturnInspection` | `HandoverInspection` |
+| Contract status `PendingMoveOut` | `PendingHandover` |
+| Notice period before moving out | none; an early return keeps `EarlyTerminationPercent` of the deposit (`DepositSettlementDto.earlyTerminationPenalty`) |
+| *(none)* | `POST /api/unit-visits/check-in`, `POST /api/unit-visits/{id}/check-out`, `GET /api/unit-visits?contractId=` |
+
+`POST /api/check-ins/{id}/cancel` (Staff): check-in `Cancelled`, contract `Terminated`, codes off, unit `Available`,
+reservation back to `Confirmed` without a unit; `assign-unit` accepts such a reservation again.
+Unit visits: staff of the contract's facility; `409` unless the contract is `Active`, while a visit is still open,
+or on checking out a closed visit. The full lifecycle is in `docs/rental-lifecycle.md`.
+
 ## Conventions
 
 | Topic | Rule |
@@ -62,8 +80,8 @@ Swagger (with a working padlock): `https://localhost:7001/swagger`
 |---|---|
 | `StorageUnitStatus` | `Available`, `Reserved`, `Occupied`, `Maintenance`, `Retired` |
 | `ReservationStatus` | `Pending`, `Confirmed`, `CheckedIn`, `Rejected`, `Cancelled`, `Expired` |
-| `ContractStatus` | `Draft`, `Active`, `PendingMoveOut`, `Closed`, `Overdue`, `Suspended`, `Terminated` |
-| `HandoverStatus` | `Scheduled`, `InProgress`, `Completed`, `Cancelled` |
+| `ContractStatus` | `Draft`, `Active`, `PendingHandover`, `Closed`, `Overdue`, `Suspended`, `Terminated` |
+| `CheckInStatus` | `Scheduled`, `InProgress`, `Completed`, `Cancelled` |
 
 Unit board colours: `Available` green, `Reserved` amber, `Occupied` red.
 
@@ -81,7 +99,7 @@ Unit board colours: `Available` green, `Reserved` amber, `Occupied` red.
 | 6 | `POST` | `/api/reservations/{id}/assign-unit` | Staff | `200` `ReservationDto` | Khang |
 | 7 | `POST` | `/api/contracts` | Staff | `201` + `Location`, `ContractDto` | Nhân |
 | 8 | `POST` | `/api/contracts/{id}/sign` | `StorageCustomer` (own) | `200` `ContractDto` | Nhân |
-| 9 | `POST` | `/api/handovers` | Staff | `201` `HandoverDto` | Khang |
+| 9 | `POST` | `/api/check-ins` | Staff | `201` `CheckInDto` | Khang |
 
 Also available:
 
@@ -157,7 +175,7 @@ Staff see every reservation; a customer sees only their own. `status` optional. 
 ```
 
 `contractId` is the reservation's latest contract, `null` until staff drafts one. The customer's
-"my contract" page and Thiện's handover screen use it to find the contract.
+"my contract" page and Thiện's check-in screen use it to find the contract.
 
 ### 6. `POST /api/reservations/{id}/assign-unit` — staff assigns a unit
 
@@ -199,7 +217,7 @@ No body. `200` `ContractDto` with `signedAt` set and **status still `Draft`**.
 `404` when the contract is not the caller's own (same as missing) · `409` when it is not `Draft` or is already signed. Only `StorageCustomer` may call it (`403` otherwise).
 `GET /api/contracts/{id}` returns the same `ContractDto`; a customer asking for someone else's contract gets `404`.
 
-### 9. `POST /api/handovers` — staff confirms handover
+### 9. `POST /api/check-ins` — staff confirms check-in
 
 ```jsonc
 // request
@@ -210,9 +228,9 @@ No body. `200` `ContractDto` with `signedAt` set and **status still `Draft`**.
 Validation: ids `> 0`, `lockSerial` and `cardNumber` required (max 30), `conditionNote` optional (max 300).
 
 ```jsonc
-// 201 HandoverDto
-{ "handoverId": 1, "reservationId": 1, "contractId": 1, "storageUnitId": 3, "unitCode": "A-103",
-  "handoverTime": "2026-10-11T15:13:30.2045888Z", "lockSerial": "LK-00291", "cardNumber": "CARD-5512",
+// 201 CheckInDto
+{ "checkInId": 1, "reservationId": 1, "contractId": 1, "storageUnitId": 3, "unitCode": "A-103",
+  "checkInTime": "2026-10-11T15:13:30.2045888Z", "lockSerial": "LK-00291", "cardNumber": "CARD-5512",
   "conditionNote": "Clean, no damage", "status": "Completed", "accessCode": "349122" }
 ```
 
@@ -231,7 +249,7 @@ Activation is live: the contract becomes `Active`, the unit `Occupied`, and a 6-
 | `POST` | `/api/contracts/{id}/terminate` | `FacilityManager` | `200` `ContractDto` with `status: "Terminated"` |
 | `POST` | `/api/contracts/{id}/access-codes` | Staff | `201` `{ accessCodeId, contractId, code, issuedAt, expiresAt }` |
 
-`terminate`: allowed from `Active`, `Overdue`, `Suspended`, `PendingMoveOut`; the unit goes back to `Available` and every active access code is revoked. `409` for `Draft`, `Closed`, `Terminated`.
+`terminate`: allowed from `Active`, `Overdue`, `Suspended`, `PendingHandover`; the unit goes back to `Available` and every active access code is revoked. `409` for `Draft`, `Closed`, `Terminated`.
 `access-codes`: re-issues a code for an `Active` contract and revokes the previous one (`409` otherwise). `code` is plaintext and shown once.
 
 ### Access codes and logs (Nhân, BE-34..38)
@@ -273,7 +291,7 @@ Activation is live: the contract becomes `Active`, the unit `Occupied`, and a 6-
 | POST | `/api/support-tickets/{id}/messages` | any signed-in | `201`, body = message. |
 
 `POST /api/support-tickets` body: `{categoryId, subject (≤200), description (≤1000), storageUnitId?, facilityId?, priority?}`.
-Give `storageUnitId` (needs your own Active/Overdue/Suspended/PendingMoveOut contract on it; the facility comes from the unit) or `facilityId`. `priority` defaults to the category's `defaultPriority` (`Low|Normal|High|Urgent`).
+Give `storageUnitId` (needs your own Active/Overdue/Suspended/PendingHandover contract on it; the facility comes from the unit) or `facilityId`. `priority` defaults to the category's `defaultPriority` (`Low|Normal|High|Urgent`).
 The description is stored as the first message (no description column). Status starts `New`; `ticketCode` = `TK{yyMMdd}{6 digits}`.
 
 `POST .../messages` body: `{body (≤1000), isInternalNote, nextStatus?}`. `isInternalNote` and `nextStatus` (`InProgress|WaitingForCustomer`) are staff-only (`403` for customers).
@@ -397,23 +415,23 @@ order on an empty database. Read real ids from endpoints 2 and 3, never hard-cod
 
 ---
 
-## Move-out and deposit settlement (Nhân, BE-46..50)
+## Handover and deposit settlement (Nhân, BE-46..50)
 
-Not part of the frozen demo set. Enum `MoveOutRequestStatus`: `Requested`, `Approved`, `Inspected`, `Completed`, `Cancelled`.
+Not part of the frozen demo set. Enum `HandoverStatus`: `Requested`, `Approved`, `Inspected`, `Completed`, `Cancelled`.
 `ConditionResult`: `Good`, `MinorDamage`, `MajorDamage`. `RefundMethod`: `BankTransfer`, `Cash`.
 
 | Method | Route | Who | Success |
 |---|---|---|---|
-| `POST` | `/api/move-out-requests` | `StorageCustomer` (own contract) | `201` + `Location`, `MoveOutRequestDto` |
-| `GET` | `/api/move-out-requests?status=Approved&page=1&pageSize=20` | any logged-in user (customer: own) | `200` `PagedResult<MoveOutRequestDto>`, nearest `plannedMoveOutDate` first. Staff queue = `status=Approved` |
-| `GET` | `/api/move-out-requests/{id}` | any logged-in user (customer: own) | `200` `MoveOutRequestDto` (carries `inspection` once inspected) |
-| `POST` | `/api/move-out-requests/{id}/approve` | Staff | `200` `MoveOutRequestDto` |
-| `POST` | `/api/move-out-requests/{id}/inspection` | Staff | `200` `MoveOutRequestDto` |
-| `POST` | `/api/move-out-requests/{id}/settle-deposit` | `BusinessOperationsManager` | `200` `DepositSettlementDto` |
+| `POST` | `/api/handovers` | `StorageCustomer` (own contract) | `201` + `Location`, `HandoverDto` |
+| `GET` | `/api/handovers?status=Approved&page=1&pageSize=20` | any logged-in user (customer: own) | `200` `PagedResult<HandoverDto>`, nearest `plannedHandoverDate` first. Staff queue = `status=Approved` |
+| `GET` | `/api/handovers/{id}` | any logged-in user (customer: own) | `200` `HandoverDto` (carries `inspection` once inspected) |
+| `POST` | `/api/handovers/{id}/approve` | Staff | `200` `HandoverDto` |
+| `POST` | `/api/handovers/{id}/inspection` | Staff | `200` `HandoverDto` |
+| `POST` | `/api/handovers/{id}/settle-deposit` | `BusinessOperationsManager` | `200` `DepositSettlementDto` |
 
 ```jsonc
-// POST /api/move-out-requests
-{ "contractId": 1, "plannedMoveOutDate": "2026-11-20", "reason": "Relocating",
+// POST /api/handovers
+{ "contractId": 1, "plannedHandoverDate": "2026-11-20", "reason": "Relocating",
   "refundMethod": "BankTransfer", "refundAccount": "VCB 0123456789" }   // reason, refund* optional; account required for BankTransfer
 
 // POST …/approve
@@ -422,24 +440,25 @@ Not part of the frozen demo set. Enum `MoveOutRequestStatus`: `Requested`, `Appr
 // POST …/inspection
 { "conditionResult": "MinorDamage", "cleaningFee": 100000, "repairCharge": 200000, "otherDeduction": 0 }
 
-// MoveOutRequestDto
-{ "moveOutRequestId": 1, "contractId": 1, "contractNumber": "CT…", "customerId": 1, "customerName": "…",
-  "storageUnitId": 3, "unitCode": "A-103", "requestedAt": "…Z", "plannedMoveOutDate": "2026-11-20",
+// HandoverDto
+{ "handoverId": 1, "contractId": 1, "contractNumber": "CT…", "customerId": 1, "customerName": "…",
+  "storageUnitId": 3, "unitCode": "A-103", "requestedAt": "…Z", "plannedHandoverDate": "2026-11-20",
   "reason": null, "inspectionSlot": null, "refundMethod": null, "refundAccount": null,
   "status": "Requested",
   "inspection": null /* or { returnInspectionId, inspectedAt, conditionResult, cleaningFee, repairCharge,
                               otherDeduction, refundAmount, status } — refundAmount stays 0 until settled */ }
 
 // DepositSettlementDto
-{ "moveOutRequestId": 1, "depositAmount": 900000, "damageDeductions": 300000, "outstandingInvoices": 0,
+{ "handoverId": 1, "depositAmount": 900000, "damageDeductions": 300000, "earlyTerminationPenalty": 0, "outstandingInvoices": 0,
   "refundAmount": 600000, "shortfall": 0, "status": "Completed" }
 ```
 
 Rules:
-- Create: `409` unless the contract is `Active`, has no open request, and `plannedMoveOutDate` ≥ today + `NoticeDays` of the active pricing policy (30 if none). Contract becomes `PendingMoveOut`. Another customer's contract is `404`.
+- Create: `409` unless the contract is `Active` and has no open request; `400` if `plannedHandoverDate` is in the past. No notice period (SR-04). Contract becomes `PendingHandover`.
+- Settle: when `plannedHandoverDate` is before the contract `EndDate`, `earlyTerminationPenalty` = deposit × `EarlyTerminationPercent` / 100 (policy in force on the move-in date) is deducted and added to the inspection's `otherDeduction`. Another customer's contract is `404`.
 - Approve: only `Requested`. Inspection: only `Approved`; request becomes `Inspected`.
 - Settle: only `Inspected`. `refundAmount = max(0, deposit − cleaning − repair − other − unpaid Issued/Overdue invoices)`; any excess is `shortfall`. Request → `Completed`, contract → `Closed`, access codes revoked, unit → `Available` (`Maintenance` after `MajorDamage`). **No money is paid out**: the payment gateway is not connected, so the refund is only recorded.
-- Damage notes and photos are not stored: `ReturnInspection` has no column for them.
+- Damage notes and photos are not stored: `HandoverInspection` has no column for them.
 
 ---
 
@@ -500,20 +519,20 @@ Login of a `Pending` account answers `403` "verify your email".
 | `GET/POST /api/facilities/{id}/floors` · `PUT/DELETE /api/floors/{id}` | M (own facility), A |
 | `GET /api/storage-units/{id}` · `POST /api/storage-units` · `PUT /api/storage-units/{id}` · `POST .../{id}/retire|restore` | M, A |
 
-### Reservations, contract draft, handover (Khang)
+### Reservations, contract draft, check-in (Khang)
 
 | Method & route | Who | Notes |
 |---|---|---|
 | `GET /api/reservations?status=&search=&facilityId=&moveInFrom=&moveInTo=` | any | customer sees own |
 | `POST /api/reservations/{id}/cancel` | C (own), S | releases the unit; deposit refundable within `cancelFreeHours` or when staff cancel |
 | `POST /api/reservations/{id}/no-show` | S | after move-in date; deposit forfeited |
-| `GET /api/reservations/{id}/check-in` | S | handover checklist |
+| `GET /api/reservations/{id}/check-in` | S | check-in checklist |
 | `POST /api/contracts` | S | `{ reservationId, paymentDay }` (1–28) → Draft contract at the policy rent |
-| `GET /api/handovers/{id}` | any (customer own) | with photos |
-| `POST /api/handovers/{id}/photos` | S | multipart field `file`, JPEG/PNG/WebP ≤ 5 MB |
-| `GET /api/handovers/{id}/photos/{photoId}` | any (customer own) | the image |
+| `GET /api/check-ins/{id}` | any (customer own) | with photos |
+| `POST /api/check-ins/{id}/photos` | S | multipart field `file`, JPEG/PNG/WebP ≤ 5 MB |
+| `GET /api/check-ins/{id}/photos/{photoId}` | any (customer own) | the image |
 
-Creating a reservation also raises its deposit invoice (`DEP<code>`, due on move-in day); the handover
+Creating a reservation also raises its deposit invoice (`DEP<code>`, due on move-in day); the check-in
 answers `409` until it is paid.
 
 ### Rental terms (public)
@@ -524,7 +543,7 @@ answers `409` until it is paid.
 
 ### Staff facility scope
 
-Reservations, contracts, handovers and move-out requests follow the same rule as tickets and maintenance:
+Reservations, contracts, check-ins, handovers and unit visits follow the same rule as tickets and maintenance:
 FacilityStaff and FacilityManager see and act only on records of facilities they work at (`StaffFacility` or
 `Facility.ManagerId`); SystemAdministrator and BusinessOperationsManager see all. Out of scope is `404`.
 

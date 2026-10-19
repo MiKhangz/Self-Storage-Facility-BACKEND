@@ -6,8 +6,8 @@ using StorEase.Application.Features.Auth;
 using StorEase.Application.Features.Billing;
 using StorEase.Application.Features.Contracts;
 using StorEase.Application.Features.Facilities;
+using StorEase.Application.Features.CheckIns;
 using StorEase.Application.Features.Handovers;
-using StorEase.Application.Features.MoveOuts;
 using StorEase.Application.Features.Renewals;
 using StorEase.Application.Features.Maintenance;
 using StorEase.Application.Features.Reservations;
@@ -18,6 +18,7 @@ using StorEase.Application.Features.Reports;
 using StorEase.Application.Features.Staff;
 using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Features.SupportTickets;
+using StorEase.Application.Features.UnitVisits;
 using StorEase.Application.Features.Users;
 
 namespace StorEase.Application;
@@ -35,11 +36,11 @@ public static class DependencyInjection
         services.AddScoped<IPricingService, PricingService>();
         services.AddScoped<IInvoiceService, InvoiceService>();
         services.AddScoped<IReservationService, ReservationService>();
-        services.AddScoped<IHandoverService, HandoverService>();
+        services.AddScoped<ICheckInService, CheckInService>();
         services.AddScoped<IContractService, ContractService>();
         services.AddScoped<IAccessCodeService, AccessCodeService>();
         services.AddScoped<IAccessLogService, AccessLogService>();
-        services.AddScoped<IMoveOutService, MoveOutService>();
+        services.AddScoped<IHandoverService, HandoverService>();
         services.AddScoped<IRenewalService, RenewalService>();
         services.AddScoped<ITicketQueueService, TicketQueueService>();
         services.AddScoped<ISupportTicketService, SupportTicketService>();
@@ -50,11 +51,12 @@ public static class DependencyInjection
         services.AddScoped<IActivityLogService, ActivityLogService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IFloorService, FloorService>();
-        services.AddScoped<IHandoverEvidenceService, HandoverEvidenceService>();
+        services.AddScoped<ICheckInEvidenceService, CheckInEvidenceService>();
         services.AddScoped<IReminderService, ReminderService>();
         services.AddScoped<IBillingCycleService, BillingCycleService>();
         services.AddScoped<IOverdueService, OverdueService>();
         services.AddScoped<IReportService, ReportService>();
+        services.AddScoped<IUnitVisitService, UnitVisitService>();
         return services;
     }
 }

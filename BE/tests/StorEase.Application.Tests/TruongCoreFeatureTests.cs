@@ -54,7 +54,7 @@ public sealed class TruongCoreFeatureTests
         var service = new PricingService(db.Uow, new FakeCurrentUser(7, Roles.BusinessOperationsManager));
 
         var created = await service.CreatePolicyAsync(new CreatePricingPolicyRequest(
-            new DateOnly(2026, 1, 1), null, 1, 3, 30, 2, 14, 60, 24), default);
+            new DateOnly(2026, 1, 1), null, 1, 3, 30, 2, 0, 14, 60, 24), default);
         created.IsSuccess.Should().BeTrue();
         var price = await service.UpsertUnitPriceAsync(created.Value.PricingPolicyId, 3,
             new UpsertUnitPriceRequest(2_000_000, 5, 10, 15), default);
@@ -183,7 +183,7 @@ public sealed class TruongCoreFeatureTests
         await db.Db.SaveChangesAsync();
         var service = new PricingService(db.Uow, new FakeCurrentUser(7, Roles.BusinessOperationsManager));
         var created = await service.CreatePolicyAsync(new CreatePricingPolicyRequest(
-            VietnamTime.Today.AddDays(30), null, 1, 3, 30, 2, 14, 60, 24), default);
+            VietnamTime.Today.AddDays(30), null, 1, 3, 30, 2, 0, 14, 60, 24), default);
         await service.UpsertUnitPriceAsync(created.Value.PricingPolicyId, 3, new UpsertUnitPriceRequest(2_000_000, 5, 10, 15), default);
 
         var result = await service.ActivatePolicyAsync(created.Value.PricingPolicyId, default);

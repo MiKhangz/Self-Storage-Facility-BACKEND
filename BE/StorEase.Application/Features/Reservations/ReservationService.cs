@@ -139,8 +139,11 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             var reservation = await Visible().FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
             if (reservation is null)
                 return Error.NotFound("Reservation not found.");
-            if (reservation.Status != ReservationStatus.Pending)
-                return Error.Conflict($"Only a Pending reservation can be assigned a unit; this one is {reservation.Status}.");
+            // A Confirmed reservation without a unit is one whose check-in was cancelled (SR-02); it is assigned again.
+            var awaitingUnit = reservation.Status == ReservationStatus.Pending
+                || (reservation.Status == ReservationStatus.Confirmed && reservation.StorageUnitId is null);
+            if (!awaitingUnit)
+                return Error.Conflict($"Only a reservation waiting for a unit can be assigned one; this one is {reservation.Status}.");
 
             var unit = await uow.Repository<StorageUnit>().FindAsync(request.StorageUnitId, ct);
             if (unit is null)
@@ -255,7 +258,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             new("signed", "Khách đã ký hợp đồng", contract?.SignedAt is not null, contract?.SignedAt?.ToString("u")),
             new("moveIn", "Đến ngày dọn vào", r.MoveInDate <= VietnamTime.Today, r.MoveInDate.ToString("yyyy-MM-dd")),
         };
-        // The move-in date is informative only: an early handover is the facility's call.
+        // The move-in date is informative only: an early check-in is the facility's call.
         var ready = r.Status == ReservationStatus.Confirmed && items.Where(i => i.Key != "moveIn").All(i => i.Done);
         return new CheckInChecklistDto(r.ReservationId, r.ReservationCode, r.Customer.FullName, r.Customer.PhoneNumber,
             r.Customer.CitizenId, r.StorageUnit?.UnitCode, contract?.ContractId, items, ready);

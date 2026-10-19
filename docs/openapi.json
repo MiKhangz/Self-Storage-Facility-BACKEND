@@ -460,6 +460,223 @@
         }
       }
     },
+    "/api/check-ins": {
+      "post": {
+        "tags": [
+          "CheckIns"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCheckInRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCheckInRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCheckInRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckInDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "CheckIns"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/CheckInStatus"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckInDetailDtoPagedResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/check-ins/{id}/cancel": {
+      "post": {
+        "tags": [
+          "CheckIns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/check-ins/{id}": {
+      "get": {
+        "tags": [
+          "CheckIns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckInDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/check-ins/{id}/photos": {
+      "post": {
+        "tags": [
+          "CheckIns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              },
+              "encoding": {
+                "file": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckInPhotoDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/check-ins/{id}/photos/{photoId}": {
+      "get": {
+        "tags": [
+          "CheckIns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "photoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/contracts": {
       "post": {
         "tags": [
@@ -1182,12 +1399,56 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HandoverDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Handovers"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/HandoverStatus"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoverDtoPagedResult"
                 }
               }
             }
@@ -1217,7 +1478,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HandoverDetailDto"
+                  "$ref": "#/components/schemas/HandoverDto"
                 }
               }
             }
@@ -1225,7 +1486,7 @@
         }
       }
     },
-    "/api/handovers/{id}/photos": {
+    "/api/handovers/{id}/approve": {
       "post": {
         "tags": [
           "Handovers"
@@ -1243,31 +1504,30 @@
         ],
         "requestBody": {
           "content": {
-            "multipart/form-data": {
+            "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              },
-              "encoding": {
-                "file": {
-                  "style": "form"
-                }
+                "$ref": "#/components/schemas/ApproveHandoverRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveHandoverRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveHandoverRequest"
               }
             }
           }
         },
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HandoverPhotoDto"
+                  "$ref": "#/components/schemas/HandoverDto"
                 }
               }
             }
@@ -1275,8 +1535,8 @@
         }
       }
     },
-    "/api/handovers/{id}/photos/{photoId}": {
-      "get": {
+    "/api/handovers/{id}/inspection": {
+      "post": {
         "tags": [
           "Handovers"
         ],
@@ -1289,9 +1549,49 @@
               "type": "integer",
               "format": "int32"
             }
-          },
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHandoverInspectionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHandoverInspectionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHandoverInspectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoverDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/handovers/{id}/settle-deposit": {
+      "post": {
+        "tags": [
+          "Handovers"
+        ],
+        "parameters": [
           {
-            "name": "photoId",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -1302,7 +1602,14 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositSettlementDto"
+                }
+              }
+            }
           }
         }
       }
@@ -1753,246 +2060,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MaintenanceOrderDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/move-out-requests": {
-      "post": {
-        "tags": [
-          "MoveOutRequests"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateMoveOutRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateMoveOutRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateMoveOutRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MoveOutRequestDto"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "MoveOutRequests"
-        ],
-        "parameters": [
-          {
-            "name": "status",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/MoveOutRequestStatus"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MoveOutRequestDtoPagedResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/move-out-requests/{id}": {
-      "get": {
-        "tags": [
-          "MoveOutRequests"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MoveOutRequestDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/move-out-requests/{id}/approve": {
-      "post": {
-        "tags": [
-          "MoveOutRequests"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApproveMoveOutRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApproveMoveOutRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApproveMoveOutRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MoveOutRequestDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/move-out-requests/{id}/inspection": {
-      "post": {
-        "tags": [
-          "MoveOutRequests"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateReturnInspectionRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateReturnInspectionRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateReturnInspectionRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MoveOutRequestDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/move-out-requests/{id}/settle-deposit": {
-      "post": {
-        "tags": [
-          "MoveOutRequests"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DepositSettlementDto"
                 }
               }
             }
@@ -4742,6 +4809,151 @@
           }
         }
       }
+    },
+    "/api/unit-visits/check-in": {
+      "post": {
+        "tags": [
+          "UnitVisits"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnitVisitCheckInRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnitVisitCheckInRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnitVisitCheckInRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitVisitDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/unit-visits/{id}/check-out": {
+      "post": {
+        "tags": [
+          "UnitVisits"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitVisitDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/unit-visits": {
+      "get": {
+        "tags": [
+          "UnitVisits"
+        ],
+        "parameters": [
+          {
+            "name": "contractId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitVisitDtoPagedResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/unit-visits/{id}": {
+      "get": {
+        "tags": [
+          "UnitVisits"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitVisitDto"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4960,7 +5172,7 @@
         ],
         "type": "string"
       },
-      "ApproveMoveOutRequest": {
+      "ApproveHandoverRequest": {
         "type": "object",
         "properties": {
           "inspectionSlot": {
@@ -5141,8 +5353,148 @@
             },
             "nullable": true
           },
-          "readyForHandover": {
+          "readyForCheckIn": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CheckInDetailDto": {
+        "type": "object",
+        "properties": {
+          "checkInId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reservationId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contractId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "storageUnitId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unitCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "staffId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "staffName": {
+            "type": "string",
+            "nullable": true
+          },
+          "checkInTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lockSerial": {
+            "type": "string",
+            "nullable": true
+          },
+          "cardNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "conditionNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/CheckInStatus"
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckInPhotoDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CheckInDetailDtoPagedResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckInDetailDto"
+            },
+            "nullable": true
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CheckInDto": {
+        "type": "object",
+        "properties": {
+          "checkInId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reservationId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contractId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "storageUnitId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unitCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "checkInTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lockSerial": {
+            "type": "string",
+            "nullable": true
+          },
+          "cardNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "conditionNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/CheckInStatus"
+          },
+          "accessCode": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -5167,6 +5519,45 @@
           }
         },
         "additionalProperties": false
+      },
+      "CheckInPhotoDto": {
+        "type": "object",
+        "properties": {
+          "checkInPhotoId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "checkInId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fileName": {
+            "type": "string",
+            "nullable": true
+          },
+          "contentType": {
+            "type": "string",
+            "nullable": true
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "uploadedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CheckInStatus": {
+        "enum": [
+          "Scheduled",
+          "InProgress",
+          "Completed",
+          "Cancelled"
+        ],
+        "type": "string"
       },
       "ConditionResult": {
         "enum": [
@@ -5272,7 +5663,7 @@
         "enum": [
           "Draft",
           "Active",
-          "PendingMoveOut",
+          "PendingHandover",
           "Closed",
           "Overdue",
           "Suspended",
@@ -5280,21 +5671,7 @@
         ],
         "type": "string"
       },
-      "CreateContractRequest": {
-        "type": "object",
-        "properties": {
-          "reservationId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "paymentDay": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "additionalProperties": false
-      },
-      "CreateHandoverRequest": {
+      "CreateCheckInRequest": {
         "type": "object",
         "properties": {
           "reservationId": {
@@ -5314,6 +5691,66 @@
             "nullable": true
           },
           "conditionNote": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateContractRequest": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "paymentDay": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateHandoverInspectionRequest": {
+        "type": "object",
+        "properties": {
+          "conditionResult": {
+            "$ref": "#/components/schemas/ConditionResult"
+          },
+          "cleaningFee": {
+            "type": "number",
+            "format": "double"
+          },
+          "repairCharge": {
+            "type": "number",
+            "format": "double"
+          },
+          "otherDeduction": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateHandoverRequest": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "plannedHandoverDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "refundMethod": {
+            "$ref": "#/components/schemas/RefundMethod"
+          },
+          "refundAccount": {
             "type": "string",
             "nullable": true
           }
@@ -5350,31 +5787,6 @@
         },
         "additionalProperties": false
       },
-      "CreateMoveOutRequest": {
-        "type": "object",
-        "properties": {
-          "contractId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "plannedMoveOutDate": {
-            "type": "string",
-            "format": "date"
-          },
-          "reason": {
-            "type": "string",
-            "nullable": true
-          },
-          "refundMethod": {
-            "$ref": "#/components/schemas/RefundMethod"
-          },
-          "refundAccount": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
       "CreatePricingPolicyRequest": {
         "type": "object",
         "properties": {
@@ -5400,6 +5812,10 @@
             "format": "int32"
           },
           "lateFeePercentPerWeek": {
+            "type": "number",
+            "format": "double"
+          },
+          "earlyTerminationPercent": {
             "type": "number",
             "format": "double"
           },
@@ -5450,27 +5866,6 @@
           "rentalMonths": {
             "type": "integer",
             "format": "int32"
-          }
-        },
-        "additionalProperties": false
-      },
-      "CreateReturnInspectionRequest": {
-        "type": "object",
-        "properties": {
-          "conditionResult": {
-            "$ref": "#/components/schemas/ConditionResult"
-          },
-          "cleaningFee": {
-            "type": "number",
-            "format": "double"
-          },
-          "repairCharge": {
-            "type": "number",
-            "format": "double"
-          },
-          "otherDeduction": {
-            "type": "number",
-            "format": "double"
           }
         },
         "additionalProperties": false
@@ -5682,7 +6077,7 @@
       "DepositSettlementDto": {
         "type": "object",
         "properties": {
-          "moveOutRequestId": {
+          "handoverId": {
             "type": "integer",
             "format": "int32"
           },
@@ -5691,6 +6086,10 @@
             "format": "double"
           },
           "damageDeductions": {
+            "type": "number",
+            "format": "double"
+          },
+          "earlyTerminationPenalty": {
             "type": "number",
             "format": "double"
           },
@@ -5707,7 +6106,7 @@
             "format": "double"
           },
           "status": {
-            "$ref": "#/components/schemas/MoveOutRequestStatus"
+            "$ref": "#/components/schemas/HandoverStatus"
           }
         },
         "additionalProperties": false
@@ -6053,67 +6452,6 @@
         },
         "additionalProperties": false
       },
-      "HandoverDetailDto": {
-        "type": "object",
-        "properties": {
-          "handoverId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "reservationId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "contractId": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
-          },
-          "storageUnitId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "unitCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "staffId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "staffName": {
-            "type": "string",
-            "nullable": true
-          },
-          "handoverTime": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "lockSerial": {
-            "type": "string",
-            "nullable": true
-          },
-          "cardNumber": {
-            "type": "string",
-            "nullable": true
-          },
-          "conditionNote": {
-            "type": "string",
-            "nullable": true
-          },
-          "status": {
-            "$ref": "#/components/schemas/HandoverStatus"
-          },
-          "photos": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HandoverPhotoDto"
-            },
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
       "HandoverDto": {
         "type": "object",
         "properties": {
@@ -6121,13 +6459,21 @@
             "type": "integer",
             "format": "int32"
           },
-          "reservationId": {
-            "type": "integer",
-            "format": "int32"
-          },
           "contractId": {
             "type": "integer",
             "format": "int32"
+          },
+          "contractNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
           },
           "storageUnitId": {
             "type": "integer",
@@ -6137,66 +6483,118 @@
             "type": "string",
             "nullable": true
           },
-          "handoverTime": {
+          "requestedAt": {
             "type": "string",
             "format": "date-time"
           },
-          "lockSerial": {
+          "plannedHandoverDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "reason": {
             "type": "string",
             "nullable": true
           },
-          "cardNumber": {
+          "inspectionSlot": {
             "type": "string",
+            "format": "date-time",
             "nullable": true
           },
-          "conditionNote": {
+          "refundMethod": {
+            "$ref": "#/components/schemas/RefundMethod"
+          },
+          "refundAccount": {
             "type": "string",
             "nullable": true
           },
           "status": {
             "$ref": "#/components/schemas/HandoverStatus"
           },
-          "accessCode": {
-            "type": "string",
-            "nullable": true
+          "inspection": {
+            "$ref": "#/components/schemas/HandoverInspectionDto"
           }
         },
         "additionalProperties": false
       },
-      "HandoverPhotoDto": {
+      "HandoverDtoPagedResult": {
         "type": "object",
         "properties": {
-          "handoverPhotoId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "handoverId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "fileName": {
-            "type": "string",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HandoverDto"
+            },
             "nullable": true
           },
-          "contentType": {
-            "type": "string",
-            "nullable": true
-          },
-          "sizeBytes": {
+          "page": {
             "type": "integer",
             "format": "int32"
           },
-          "uploadedAt": {
-            "type": "string",
-            "format": "date-time"
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
           }
         },
         "additionalProperties": false
+      },
+      "HandoverInspectionDto": {
+        "type": "object",
+        "properties": {
+          "handoverInspectionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inspectedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "conditionResult": {
+            "$ref": "#/components/schemas/ConditionResult"
+          },
+          "cleaningFee": {
+            "type": "number",
+            "format": "double"
+          },
+          "repairCharge": {
+            "type": "number",
+            "format": "double"
+          },
+          "otherDeduction": {
+            "type": "number",
+            "format": "double"
+          },
+          "refundAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "status": {
+            "$ref": "#/components/schemas/HandoverInspectionStatus"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HandoverInspectionStatus": {
+        "enum": [
+          "Draft",
+          "Completed",
+          "Disputed"
+        ],
+        "type": "string"
       },
       "HandoverStatus": {
         "enum": [
-          "Scheduled",
-          "InProgress",
+          "Requested",
+          "Approved",
+          "Inspected",
           "Completed",
           "Cancelled"
         ],
@@ -6514,110 +6912,6 @@
           "Scheduled",
           "InProgress",
           "Done",
-          "Cancelled"
-        ],
-        "type": "string"
-      },
-      "MoveOutRequestDto": {
-        "type": "object",
-        "properties": {
-          "moveOutRequestId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "contractId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "contractNumber": {
-            "type": "string",
-            "nullable": true
-          },
-          "customerId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "customerName": {
-            "type": "string",
-            "nullable": true
-          },
-          "storageUnitId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "unitCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "requestedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "plannedMoveOutDate": {
-            "type": "string",
-            "format": "date"
-          },
-          "reason": {
-            "type": "string",
-            "nullable": true
-          },
-          "inspectionSlot": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "refundMethod": {
-            "$ref": "#/components/schemas/RefundMethod"
-          },
-          "refundAccount": {
-            "type": "string",
-            "nullable": true
-          },
-          "status": {
-            "$ref": "#/components/schemas/MoveOutRequestStatus"
-          },
-          "inspection": {
-            "$ref": "#/components/schemas/ReturnInspectionDto"
-          }
-        },
-        "additionalProperties": false
-      },
-      "MoveOutRequestDtoPagedResult": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MoveOutRequestDto"
-            },
-            "nullable": true
-          },
-          "page": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "pageSize": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalPages": {
-            "type": "integer",
-            "format": "int32",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "MoveOutRequestStatus": {
-        "enum": [
-          "Requested",
-          "Approved",
-          "Inspected",
-          "Completed",
           "Cancelled"
         ],
         "type": "string"
@@ -6951,11 +7245,11 @@
             "type": "integer",
             "format": "int32"
           },
-          "noticeDays": {
-            "type": "integer",
-            "format": "int32"
-          },
           "lateFeePercentPerWeek": {
+            "type": "number",
+            "format": "double"
+          },
+          "earlyTerminationPercent": {
             "type": "number",
             "format": "double"
           },
@@ -7030,6 +7324,10 @@
             "format": "int32"
           },
           "lateFeePercentPerWeek": {
+            "type": "number",
+            "format": "double"
+          },
+          "earlyTerminationPercent": {
             "type": "number",
             "format": "double"
           },
@@ -7524,50 +7822,6 @@
         },
         "additionalProperties": false
       },
-      "ReturnInspectionDto": {
-        "type": "object",
-        "properties": {
-          "returnInspectionId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "inspectedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "conditionResult": {
-            "$ref": "#/components/schemas/ConditionResult"
-          },
-          "cleaningFee": {
-            "type": "number",
-            "format": "double"
-          },
-          "repairCharge": {
-            "type": "number",
-            "format": "double"
-          },
-          "otherDeduction": {
-            "type": "number",
-            "format": "double"
-          },
-          "refundAmount": {
-            "type": "number",
-            "format": "double"
-          },
-          "status": {
-            "$ref": "#/components/schemas/ReturnInspectionStatus"
-          }
-        },
-        "additionalProperties": false
-      },
-      "ReturnInspectionStatus": {
-        "enum": [
-          "Draft",
-          "Completed",
-          "Disputed"
-        ],
-        "type": "string"
-      },
       "RevenueMethodDto": {
         "type": "object",
         "properties": {
@@ -8047,7 +8301,7 @@
       },
       "TaskType": {
         "enum": [
-          "Handover",
+          "CheckIn",
           "Inspection",
           "Maintenance",
           "Reminder",
@@ -8606,6 +8860,101 @@
           },
           "isClimateControlled": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UnitVisitCheckInRequest": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UnitVisitDto": {
+        "type": "object",
+        "properties": {
+          "unitVisitId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contractId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contractNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "storageUnitId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unitCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "recordedBy": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recordedByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "checkInAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checkOutAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UnitVisitDtoPagedResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnitVisitDto"
+            },
+            "nullable": true
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
           }
         },
         "additionalProperties": false

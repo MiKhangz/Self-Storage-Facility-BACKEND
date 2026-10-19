@@ -13,6 +13,8 @@ public class PricingPolicy
     public int GraceDays { get; set; }
     public int NoticeDays { get; set; } = 30;
     public decimal LateFeePercentPerWeek { get; set; }
+    /// <summary>Percent of the deposit kept when the unit is handed back before the contract's end date (SR-04).</summary>
+    public decimal EarlyTerminationPercent { get; set; }
     public int SuspendAfterDays { get; set; }
     public int ClearOutAfterDays { get; set; }
     public int CancelFreeHours { get; set; }

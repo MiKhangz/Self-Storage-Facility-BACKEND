@@ -2,7 +2,7 @@ namespace StorEase.Domain.Enums;
 
 public enum TaskType
 {
-    Handover,
+    CheckIn,
     Inspection,
     Maintenance,
     Reminder,

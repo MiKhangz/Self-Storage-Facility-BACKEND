@@ -44,8 +44,9 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
             .OrderBy(p => p.UnitTypeId)
             .Select(p => new SizeDiscountDto(p.UnitTypeId, p.Discount3Month, p.Discount6Month, p.Discount12Month))
             .ToListAsync(ct);
-        return new PolicyTermsDto(policy.PricingPolicyId, policy.Version, policy.DepositMonths, policy.GraceDays, policy.NoticeDays,
-            policy.LateFeePercentPerWeek, policy.SuspendAfterDays, policy.ClearOutAfterDays, policy.CancelFreeHours, discounts);
+        return new PolicyTermsDto(policy.PricingPolicyId, policy.Version, policy.DepositMonths, policy.GraceDays,
+            policy.LateFeePercentPerWeek, policy.EarlyTerminationPercent, policy.SuspendAfterDays, policy.ClearOutAfterDays,
+            policy.CancelFreeHours, discounts);
     }
 
     public async Task<Result<PricingPolicyDto>> CreatePolicyAsync(CreatePricingPolicyRequest request, CancellationToken ct)
@@ -71,6 +72,7 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
             GraceDays = request.GraceDays,
             NoticeDays = request.NoticeDays,
             LateFeePercentPerWeek = request.LateFeePercentPerWeek,
+            EarlyTerminationPercent = request.EarlyTerminationPercent,
             SuspendAfterDays = request.SuspendAfterDays,
             ClearOutAfterDays = request.ClearOutAfterDays,
             CancelFreeHours = request.CancelFreeHours,
@@ -209,7 +211,7 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
 
     private static PricingPolicyDto ToDto(PricingPolicy policy) => new(
         policy.PricingPolicyId, policy.Version, policy.EffectiveFrom, policy.EffectiveTo,
-        policy.DepositMonths, policy.GraceDays, policy.NoticeDays, policy.LateFeePercentPerWeek,
+        policy.DepositMonths, policy.GraceDays, policy.NoticeDays, policy.LateFeePercentPerWeek, policy.EarlyTerminationPercent,
         policy.SuspendAfterDays, policy.ClearOutAfterDays, policy.CancelFreeHours, policy.Status,
         policy.UnitPrices.OrderBy(p => p.UnitType.Code)
             .Select(p => new UnitPriceDto(p.UnitPriceId, p.PricingPolicyId, p.UnitTypeId, p.UnitType.Code, p.UnitType.Name,

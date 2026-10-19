@@ -47,7 +47,7 @@ public sealed class ReportService(IUnitOfWork uow, ICurrentUser currentUser) : I
         var monthStart = VietnamTime.ToUtc(new DateTime(today.Year, today.Month, 1));
         var contracts = uow.Repository<Contract>().Query().Where(c => scope.Contains(c.StorageUnit.FacilityId));
         var activeContracts = await contracts.CountAsync(c => c.Status == ContractStatus.Active
-            || c.Status == ContractStatus.Overdue || c.Status == ContractStatus.Suspended || c.Status == ContractStatus.PendingMoveOut, ct);
+            || c.Status == ContractStatus.Overdue || c.Status == ContractStatus.Suspended || c.Status == ContractStatus.PendingHandover, ct);
         var upcoming = await uow.Repository<Reservation>().Query().CountAsync(r => scope.Contains(r.FacilityId)
             && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
             && r.MoveInDate >= today && r.MoveInDate <= today.AddDays(7), ct);
