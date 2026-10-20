@@ -98,6 +98,26 @@ public class BillingCycleTests
         (await t.Db.AccessCodes.SingleAsync()).IsActive.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData(ContractStatus.Closed)]
+    [InlineData(ContractStatus.Terminated)]
+    public async Task A_closed_or_cancelled_rental_is_not_chased_for_its_open_invoice(ContractStatus status)
+    {
+        var (t, contractId, email) = Seed();
+        using var _ = t;
+        await Billing(t, email).RunAsync(new DateOnly(2026, 1, 5), default);
+        var contract = await t.Db.Contracts.SingleAsync(c => c.ContractId == contractId);
+        contract.Status = status;
+        await t.Db.SaveChangesAsync();
+
+        var run = await Billing(t, email).RunAsync(new DateOnly(2026, 2, 25), default);
+
+        run.Value!.CasesOpened.Should().Be(0);
+        run.Value.ContractsLockedOut.Should().Be(0);
+        (await t.Db.OverdueCases.CountAsync()).Should().Be(0);
+        (await t.Db.Contracts.SingleAsync(c => c.ContractId == contractId)).Status.Should().Be(status);
+    }
+
     [Fact]
     public async Task Due_soon_reminders_go_out_once_and_respect_the_opt_out()
     {

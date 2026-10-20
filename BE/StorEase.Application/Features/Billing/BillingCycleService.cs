@@ -113,7 +113,9 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
         int markedOverdue = 0, opened = 0, feesUpdated = 0, lockedOut = 0, clearedOut = 0;
         var invoices = await uow.Repository<Invoice>().Query().Include(i => i.InvoiceItems)
             .Where(i => (i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.Overdue)
-                && i.PaidAmount < i.TotalAmount && i.DueDate < today)
+                && i.PaidAmount < i.TotalAmount && i.DueDate < today
+                // A closed rental (settled from the deposit) or a cancelled check-in is not chased any more.
+                && (i.ContractId == null || (i.Contract!.Status != ContractStatus.Closed && i.Contract.Status != ContractStatus.Terminated)))
             .ToListAsync(ct);
 
         foreach (var invoice in invoices)
