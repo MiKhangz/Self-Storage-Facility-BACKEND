@@ -76,6 +76,8 @@ public class WalkInTests
         duplicateEmail.Error!.Type.Should().Be(ErrorType.Conflict);
         outsider.Error!.Type.Should().Be(ErrorType.NotFound, "staff 77 works at no facility");
         found.Value!.Items.Should().ContainSingle(c => c.UserId == CustomerId);
+        (await staff.GetCustomerAsync(CustomerId, default)).Value!.Email.Should().Be("customer@x.vn");
+        (await staff.GetCustomerAsync(StaffId, default)).Error!.Type.Should().Be(ErrorType.NotFound, "staff accounts are not customers");
         (await t.Db.Users.CountAsync()).Should().Be(3, "the refused walk-in created no account");
     }
 }

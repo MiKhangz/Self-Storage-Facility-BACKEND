@@ -16,4 +16,13 @@ public class CustomersController(IWalkInService walkIns) : ApiControllerBase
         var result = await walkIns.SearchCustomersAsync(search, page, pageSize, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
+
+    /// <summary>One customer's contact details; 404 for a staff account or an unknown id.</summary>
+    [HttpGet("{id:int}")]
+    [Authorize(Roles = Roles.Staff)]
+    public async Task<ActionResult<CustomerSummaryDto>> Get(int id, CancellationToken ct)
+    {
+        var result = await walkIns.GetCustomerAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
 }

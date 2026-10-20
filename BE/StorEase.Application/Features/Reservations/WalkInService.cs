@@ -50,6 +50,9 @@ public interface IWalkInService
     /// <summary>Customers matching a name, email or phone, for staff at the desk.</summary>
     Task<Result<PagedResult<CustomerSummaryDto>>> SearchCustomersAsync(string? search, int page, int pageSize, CancellationToken ct);
 
+    /// <summary>One customer's contact details, for staff.</summary>
+    Task<Result<CustomerSummaryDto>> GetCustomerAsync(int userId, CancellationToken ct);
+
     /// <summary>
     /// A booking made at the desk: the reservation is Confirmed with the chosen unit at once, and the deposit is
     /// recorded as paid in cash, so check-in can follow straight away.
@@ -63,16 +66,25 @@ public class WalkInService(
 {
     public async Task<Result<PagedResult<CustomerSummaryDto>>> SearchCustomersAsync(string? search, int page, int pageSize, CancellationToken ct)
     {
-        var query = uow.Repository<User>().Query().Where(u => u.Role.RoleName == Roles.StorageCustomer);
+        var query = Customers();
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
             query = query.Where(u => u.FullName.Contains(term) || u.Email.Contains(term) || u.PhoneNumber.Contains(term));
         }
-        return await query.OrderBy(u => u.FullName)
-            .Select(u => new CustomerSummaryDto(u.UserId, u.FullName, u.Email, u.PhoneNumber, u.CitizenId))
-            .ToPagedResultAsync(page, pageSize, ct);
+        return await query.OrderBy(u => u.FullName).Select(ToSummary).ToPagedResultAsync(page, pageSize, ct);
     }
+
+    public async Task<Result<CustomerSummaryDto>> GetCustomerAsync(int userId, CancellationToken ct)
+    {
+        var dto = await Customers().Where(u => u.UserId == userId).Select(ToSummary).FirstOrDefaultAsync(ct);
+        return dto is null ? Error.NotFound("Customer not found.") : dto;
+    }
+
+    private IQueryable<User> Customers() => uow.Repository<User>().Query().Where(u => u.Role.RoleName == Roles.StorageCustomer);
+
+    private static readonly System.Linq.Expressions.Expression<Func<User, CustomerSummaryDto>> ToSummary =
+        u => new CustomerSummaryDto(u.UserId, u.FullName, u.Email, u.PhoneNumber, u.CitizenId);
 
     public async Task<Result<ReservationDto>> BookAsync(WalkInReservationRequest request, CancellationToken ct)
     {
