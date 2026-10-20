@@ -68,12 +68,14 @@ public class StaffAccountServiceTests
         var added = await asManager.SetFacilitiesAsync(staffId, new SetStaffFacilitiesRequest([w.F1.FacilityId, w.F2.FacilityId]), default);
         var droppedOther = await asManager.SetFacilitiesAsync(staffId, new SetStaffFacilitiesRequest([w.F1.FacilityId]), default);
         var aManager = await asManager.SetFacilitiesAsync(otherManager.UserId, new SetStaffFacilitiesRequest([w.F1.FacilityId]), default);
+        var self = await asManager.SetFacilitiesAsync(manager.UserId, new SetStaffFacilitiesRequest([]), default);
         var listed = await asManager.ListAsync(null, null, 1, 20, default);
 
         added.Value!.Facilities.Select(f => f.FacilityId).Should().BeEquivalentTo([w.F1.FacilityId, w.F2.FacilityId]);
         droppedOther.Error!.Type.Should().Be(ErrorType.Forbidden, "F2 is not theirs to remove");
         aManager.Error!.Type.Should().Be(ErrorType.NotFound, "managers only see facility staff");
-        listed.Value!.Items.Should().OnlyContain(u => u.Role == Roles.FacilityStaff);
+        self.Error!.Type.Should().Be(ErrorType.Forbidden);
+        listed.Value!.Items.Should().OnlyContain(u => u.Role == Roles.FacilityStaff || u.UserId == manager.UserId);
     }
 
     [Fact]

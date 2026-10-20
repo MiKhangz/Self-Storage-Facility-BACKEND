@@ -120,6 +120,8 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
             // A facility manager may add or remove only the facilities they manage; the staff member's others stay.
             if (currentUser.Role == Roles.FacilityManager)
             {
+                if (userId == currentUser.UserId)
+                    return Error.Forbidden("Only a system administrator can change your own facilities.");
                 var mine = await StaffScope.FacilityIdsOf(uow, currentUser.UserId).ToListAsync(ct);
                 var currentIds = current.Select(r => r.FacilityId).ToList();
                 if (wanted.Except(currentIds).Concat(currentIds.Except(wanted)).Any(id => !mine.Contains(id)))
@@ -166,10 +168,15 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
                $"{tasks} open task(s), {orders} open maintenance order(s). Reassign or finish them first.";
     }
 
-    // Customers are not managed here; this service only sees staff roles, and a facility manager only facility staff.
-    private IQueryable<User> StaffUsers() => currentUser.Role == Roles.FacilityManager
-        ? uow.Repository<User>().Query().Where(u => u.Role.RoleName == Roles.FacilityStaff)
-        : uow.Repository<User>().Query().Where(u => u.Role.RoleName != Roles.StorageCustomer);
+    // Customers are not managed here; this service only sees staff roles, and a facility manager facility staff and
+    // themselves (so the portal knows which facilities they manage).
+    private IQueryable<User> StaffUsers()
+    {
+        var userId = currentUser.UserId;
+        return currentUser.Role == Roles.FacilityManager
+            ? uow.Repository<User>().Query().Where(u => u.Role.RoleName == Roles.FacilityStaff || u.UserId == userId)
+            : uow.Repository<User>().Query().Where(u => u.Role.RoleName != Roles.StorageCustomer);
+    }
 
     private IQueryable<StaffAccountDto> Project(IQueryable<User> q) => q.Select(u => new StaffAccountDto(
         u.UserId, u.FullName, u.Email, u.PhoneNumber, u.Role.RoleName, u.Status, u.CreatedAt,

@@ -333,8 +333,9 @@ Unit side effects, in the same transaction: starting work on an `Available` unit
 
 ## Staff accounts (BE-64)
 
-`SystemAdministrator`: every route. `FacilityManager`: `GET` and `PUT .../facilities` only, sees `FacilityStaff` accounts only
-(others `404`), and may add or remove only the facilities they manage (`403`); the staff member's other facilities stay.
+`SystemAdministrator`: every route. `FacilityManager`: `GET` and `PUT .../facilities` only, sees `FacilityStaff` accounts and
+themselves (others `404`), and may add or remove only the facilities they manage (`403`); the staff member's other
+facilities stay. Their own facilities only an admin changes (`403`).
 Customers are never returned or editable here (`404`).
 
 | Method | Route | Success |
