@@ -3,7 +3,7 @@ using StorEase.Application.Interfaces;
 
 namespace StorEase.Infrastructure.Services;
 
-// ponytail: no SMTP provider yet, so emails are written to the API log (links included); swap for an SMTP/SendGrid implementation before real users.
+// Used when no Smtp:Host is configured: emails are written to the API log (links included) instead of being sent.
 public class LoggingEmailService(ILogger<LoggingEmailService> logger) : IEmailService
 {
     public Task<bool> SendAsync(string to, string subject, string body, CancellationToken ct)

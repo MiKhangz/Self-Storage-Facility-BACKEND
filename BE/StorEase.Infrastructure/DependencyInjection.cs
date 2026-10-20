@@ -10,7 +10,7 @@ namespace StorEase.Infrastructure;
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
-        this IServiceCollection services, string? connectionString, JwtOptions jwtOptions, string uploadsRoot)
+        this IServiceCollection services, string? connectionString, JwtOptions jwtOptions, string uploadsRoot, SmtpOptions smtp)
     {
         // MigrationsAssembly: the DbContext lives here but the startup project is StorEase.Api.
         services.AddDbContext<AppDbContext>(options =>
@@ -20,7 +20,13 @@ public static class DependencyInjection
         services.AddSingleton(jwtOptions);
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
-        services.AddSingleton<IEmailService, LoggingEmailService>();
+        if (string.IsNullOrWhiteSpace(smtp.Host))
+            services.AddSingleton<IEmailService, LoggingEmailService>();
+        else
+        {
+            services.AddSingleton(smtp);
+            services.AddSingleton<IEmailService, SmtpEmailService>();
+        }
         services.AddSingleton<IFileStorage>(new LocalFileStorage(uploadsRoot));
         services.AddScoped<DbSeeder>();
         return services;

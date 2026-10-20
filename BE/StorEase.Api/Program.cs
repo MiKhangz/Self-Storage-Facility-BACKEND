@@ -16,19 +16,20 @@ using StorEase.Infrastructure.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
+var smtp = builder.Configuration.GetSection("Smtp").Get<SmtpOptions>() ?? new SmtpOptions();
 
 builder.Services
     .AddApplication()
     .AddInfrastructure(
         builder.Configuration.GetConnectionString("DefaultConnection"), jwt,
-        Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["Storage:Root"] ?? "App_Data/uploads"));
+        Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["Storage:Root"] ?? "App_Data/uploads"), smtp);
 
 var appOptions = builder.Configuration.GetSection("App").Get<AppOptions>() ?? new AppOptions();
 builder.Services.AddSingleton(new AppOptions
 {
     FrontendBaseUrl = appOptions.FrontendBaseUrl,
-    // ponytail: emails only go to the API log (LoggingEmailService), so Development skips verification; drop this once real email is wired.
-    AutoVerifyEmail = builder.Environment.IsDevelopment(),
+    // Without SMTP the verification link only reaches the API log, so Development skips verification.
+    AutoVerifyEmail = builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(smtp.Host),
 });
 var gateway = builder.Configuration.GetSection("PaymentGateway").Get<PaymentGatewayOptions>() ?? new PaymentGatewayOptions();
 builder.Services.AddSingleton(new PaymentGatewayOptions

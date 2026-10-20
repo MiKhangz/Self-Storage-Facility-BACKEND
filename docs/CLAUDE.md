@@ -128,6 +128,17 @@ OpenAPI spec — from the repository root (works while the API is running):
 powershell -ExecutionPolicy Bypass -File scripts/export-openapi.ps1   # writes docs/openapi.json
 ```
 
+Real email — set the `Smtp` section with user secrets (never commit the password). With no `Smtp:Host`, emails go
+to the API log and Development activates new accounts without email verification.
+
+```bash
+cd BE
+dotnet user-secrets init --project StorEase.Api
+dotnet user-secrets set "Smtp:Host" "smtp.gmail.com" --project StorEase.Api
+dotnet user-secrets set "Smtp:UserName" "you@gmail.com" --project StorEase.Api
+dotnet user-secrets set "Smtp:Password" "<app password>" --project StorEase.Api
+```
+
 ---
 
 ## 5. Backend rules
