@@ -70,7 +70,7 @@ public class CheckInEvidenceService(IUnitOfWork uow, ICurrentUser currentUser, I
             return Error.Validation("Only JPEG, PNG or WebP photos are accepted.");
         if (length is <= 0 or > MaxBytes)
             return Error.Validation("A photo must be between 1 byte and 5 MB.");
-        if (!await uow.Repository<CheckIn>().Query().AnyAsync(h => h.CheckInId == checkInId, ct))
+        if (!await Visible().AnyAsync(h => h.CheckInId == checkInId, ct))
             return Error.NotFound("Check-in not found.");
 
         var stored = await files.SaveAsync(content, extension, ct);
