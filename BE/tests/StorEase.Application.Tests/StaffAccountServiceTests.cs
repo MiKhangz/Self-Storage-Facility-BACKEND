@@ -52,6 +52,31 @@ public class StaffAccountServiceTests
     }
 
     [Fact]
+    public async Task A_manager_assigns_facility_staff_only_to_the_facilities_they_manage()
+    {
+        var w = new World();
+        var manager = World.NewUser(w.ManagerRole, "mgr@x.vn");
+        var otherManager = World.NewUser(w.ManagerRole, "mgr2@x.vn");
+        w.Db.Db.AddRange(manager, otherManager);
+        w.Db.Db.SaveChanges();
+        w.Db.Db.Add(new StaffFacility { UserId = manager.UserId, FacilityId = w.F1.FacilityId, AssignedDate = new DateOnly(2026, 1, 1) });
+        w.Db.Db.SaveChanges();
+        var staffId = (await w.AsAdmin().CreateAsync(World.Create(), default)).Value!.UserId;
+        await w.AsAdmin().SetFacilitiesAsync(staffId, new SetStaffFacilitiesRequest([w.F2.FacilityId]), default);
+        var asManager = new StaffAccountService(w.Db.Uow, new FakeCurrentUser(manager.UserId, Roles.FacilityManager), new FakeHasher());
+
+        var added = await asManager.SetFacilitiesAsync(staffId, new SetStaffFacilitiesRequest([w.F1.FacilityId, w.F2.FacilityId]), default);
+        var droppedOther = await asManager.SetFacilitiesAsync(staffId, new SetStaffFacilitiesRequest([w.F1.FacilityId]), default);
+        var aManager = await asManager.SetFacilitiesAsync(otherManager.UserId, new SetStaffFacilitiesRequest([w.F1.FacilityId]), default);
+        var listed = await asManager.ListAsync(null, null, 1, 20, default);
+
+        added.Value!.Facilities.Select(f => f.FacilityId).Should().BeEquivalentTo([w.F1.FacilityId, w.F2.FacilityId]);
+        droppedOther.Error!.Type.Should().Be(ErrorType.Forbidden, "F2 is not theirs to remove");
+        aManager.Error!.Type.Should().Be(ErrorType.NotFound, "managers only see facility staff");
+        listed.Value!.Items.Should().OnlyContain(u => u.Role == Roles.FacilityStaff);
+    }
+
+    [Fact]
     public async Task Create_hashes_password_and_never_returns_it()
     {
         var w = new World();

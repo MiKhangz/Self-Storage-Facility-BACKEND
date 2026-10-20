@@ -117,6 +117,15 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
             var current = await uow.Repository<StaffFacility>().Query()
                 .Where(s => s.UserId == userId).ToListAsync(ct);
 
+            // A facility manager may add or remove only the facilities they manage; the staff member's others stay.
+            if (currentUser.Role == Roles.FacilityManager)
+            {
+                var mine = await StaffScope.FacilityIdsOf(uow, currentUser.UserId).ToListAsync(ct);
+                var currentIds = current.Select(r => r.FacilityId).ToList();
+                if (wanted.Except(currentIds).Concat(currentIds.Except(wanted)).Any(id => !mine.Contains(id)))
+                    return Error.Forbidden("You can only assign staff to facilities you manage.");
+            }
+
             // Unassigning must not strand work: refuse while the person still has open work at that facility.
             var leaving = current.Where(r => !wanted.Contains(r.FacilityId)).Select(r => r.FacilityId).ToList();
             if (leaving.Count > 0 && await OpenWorkAsync(userId, leaving, ct) is { } blocker)
@@ -157,9 +166,10 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
                $"{tasks} open task(s), {orders} open maintenance order(s). Reassign or finish them first.";
     }
 
-    // Customers are not managed here; this service only sees staff roles.
-    private IQueryable<User> StaffUsers() =>
-        uow.Repository<User>().Query().Where(u => u.Role.RoleName != Roles.StorageCustomer);
+    // Customers are not managed here; this service only sees staff roles, and a facility manager only facility staff.
+    private IQueryable<User> StaffUsers() => currentUser.Role == Roles.FacilityManager
+        ? uow.Repository<User>().Query().Where(u => u.Role.RoleName == Roles.FacilityStaff)
+        : uow.Repository<User>().Query().Where(u => u.Role.RoleName != Roles.StorageCustomer);
 
     private IQueryable<StaffAccountDto> Project(IQueryable<User> q) => q.Select(u => new StaffAccountDto(
         u.UserId, u.FullName, u.Email, u.PhoneNumber, u.Role.RoleName, u.Status, u.CreatedAt,

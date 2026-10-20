@@ -7,12 +7,17 @@ using StorEase.Domain.Enums;
 
 namespace StorEase.Api.Controllers;
 
-/// <summary>Staff accounts, roles and facility assignment. System administrators only.</summary>
+/// <summary>
+/// Staff accounts, roles and facility assignment. System administrators manage everything; facility managers see
+/// facility staff and assign them to the facilities they manage.
+/// </summary>
 [Route("api/staff")]
-[Authorize(Roles = Roles.SystemAdministrator)]
 public class StaffController(IStaffAccountService accounts) : ApiControllerBase
 {
+    private const string AdminOrManager = Roles.SystemAdministrator + "," + Roles.FacilityManager;
+
     [HttpGet]
+    [Authorize(Roles = AdminOrManager)]
     public async Task<ActionResult<PagedResult<StaffAccountDto>>> List(
         string? role, UserStatus? status, int page = 1, int pageSize = 20, CancellationToken ct = default)
     {
@@ -21,6 +26,7 @@ public class StaffController(IStaffAccountService accounts) : ApiControllerBase
     }
 
     [HttpGet("{id:int}")]
+    [Authorize(Roles = AdminOrManager)]
     public async Task<ActionResult<StaffAccountDto>> Get(int id, CancellationToken ct)
     {
         var result = await accounts.GetAsync(id, ct);
@@ -28,6 +34,7 @@ public class StaffController(IStaffAccountService accounts) : ApiControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = Roles.SystemAdministrator)]
     public async Task<ActionResult<StaffAccountDto>> Create(CreateStaffAccountRequest request, CancellationToken ct)
     {
         var result = await accounts.CreateAsync(request, ct);
@@ -37,6 +44,7 @@ public class StaffController(IStaffAccountService accounts) : ApiControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Roles = Roles.SystemAdministrator)]
     public async Task<ActionResult<StaffAccountDto>> Update(int id, UpdateStaffAccountRequest request, CancellationToken ct)
     {
         var result = await accounts.UpdateAsync(id, request, ct);
@@ -44,6 +52,7 @@ public class StaffController(IStaffAccountService accounts) : ApiControllerBase
     }
 
     [HttpPut("{id:int}/facilities")]
+    [Authorize(Roles = AdminOrManager)]
     public async Task<ActionResult<StaffAccountDto>> SetFacilities(
         int id, SetStaffFacilitiesRequest request, CancellationToken ct)
     {
