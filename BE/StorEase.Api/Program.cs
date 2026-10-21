@@ -107,7 +107,11 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment() || args.Contains("--seed-only"))
 {
     using var scope = app.Services.CreateScope();
-    await scope.ServiceProvider.GetRequiredService<DbSeeder>().SeedAsync();
+    var seeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
+    // `--seed-only --reset` starts from an empty database (the E2E tests do this). Never outside Development.
+    if (args.Contains("--reset") && app.Environment.IsDevelopment())
+        await seeder.ResetAsync();
+    await seeder.SeedAsync();
     if (args.Contains("--seed-only"))
         return;
 }
