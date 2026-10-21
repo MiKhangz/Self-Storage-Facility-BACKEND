@@ -557,6 +557,7 @@ FacilityStaff and FacilityManager see and act only on records of facilities they
 | Method & route | Who |
 |---|---|
 | `POST /api/pricing-policies/{id}/fee-types` · `PUT/DELETE /api/fee-types/{id}` | B (Draft policies only) |
+| `PUT /api/pricing-policies/{id}` (same body as create: dates and terms, `earlyTerminationPercent` 0–100) | B (Draft policies only, `409` otherwise) |
 
 ### Payments (Trường)
 
