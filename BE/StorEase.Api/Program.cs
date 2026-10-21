@@ -36,6 +36,10 @@ builder.Services.AddSingleton(new PaymentGatewayOptions
 {
     Secret = gateway.Secret,
     CheckoutBaseUrl = gateway.CheckoutBaseUrl,
+    VnPayTmnCode = gateway.VnPayTmnCode,
+    VnPayHashSecret = gateway.VnPayHashSecret,
+    VnPayUrl = gateway.VnPayUrl,
+    VnPayReturnUrl = gateway.VnPayReturnUrl,
     // Simulating the gateway would let a customer mark their own invoice paid, so it never exists outside Development.
     AllowSimulation = builder.Environment.IsDevelopment(),
 });

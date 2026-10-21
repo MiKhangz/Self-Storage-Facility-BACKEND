@@ -24,4 +24,17 @@ public sealed class PaymentGatewayOptions
 
     /// <summary>Shown to the customer as the place to pay; the demo checkout page.</summary>
     public string CheckoutBaseUrl { get; init; } = "http://localhost:5173/checkout";
+
+    /// <summary>VNPay merchant code (vnp_TmnCode). With <see cref="VnPayHashSecret"/> it switches checkout to VNPay.</summary>
+    public string VnPayTmnCode { get; init; } = string.Empty;
+
+    /// <summary>VNPay secret for the HMAC-SHA512 signature. Keep it in user secrets, never in appsettings.</summary>
+    public string VnPayHashSecret { get; init; } = string.Empty;
+
+    public string VnPayUrl { get; init; } = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
+
+    /// <summary>Where VNPay sends the customer back: the frontend page that shows the result.</summary>
+    public string VnPayReturnUrl { get; init; } = "http://localhost:5173/account/payments/vnpay-return";
+
+    public bool UsesVnPay => VnPayTmnCode.Length > 0 && VnPayHashSecret.Length > 0;
 }
