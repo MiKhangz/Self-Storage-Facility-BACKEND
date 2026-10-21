@@ -566,6 +566,8 @@ FacilityStaff and FacilityManager see and act only on records of facilities they
 | `POST /api/invoices/{id}/payments/online` | C | returns `{ paymentId, paymentCode, amount, status: "Pending", checkoutUrl }`; nothing credited yet |
 | `POST /api/payments/gateway-callback` | anon | `{ paymentCode, status, amount, referenceNo, signature }`, HMAC-SHA256 of `code|status|amount(0.00)|ref` with `PaymentGateway:Secret` |
 | `POST /api/payments/{paymentCode}/simulate-success` | C | **Development only** — stands in for the gateway |
+| `GET /api/payments/vnpay-ipn?vnp_...` | anon | VNPay's IPN, checked by `vnp_SecureHash` (HMAC-SHA512, `PaymentGateway:VnPayHashSecret`). Always `200` `{ RspCode, Message }`: `00` recorded, `97` bad signature, `01` unknown payment, `04` wrong amount, `02` already settled otherwise |
+| `GET /api/payments/vnpay-return?vnp_...` | anon | The frontend forwards VNPay's return parameters; same check, `200` `InvoiceDto` or `401`/`404`/`400`/`409` |
 | `POST /api/invoices/{id}/payments/manual` | S, M | cash at the counter |
 | `GET /api/payments?invoiceId=&status=` | any | customer sees own |
 | `POST /api/payments/{id}/refund` | B | `{ reason }` |

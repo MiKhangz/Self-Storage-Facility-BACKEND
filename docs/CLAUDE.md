@@ -139,6 +139,17 @@ dotnet user-secrets set "Smtp:UserName" "you@gmail.com" --project StorEase.Api
 dotnet user-secrets set "Smtp:Password" "<app password>" --project StorEase.Api
 ```
 
+Real payments (VNPay sandbox) — register a sandbox merchant at sandbox.vnpayment.vn, then set its code and secret
+with user secrets. Without them, online payment uses the demo checkout and `simulate-success` (Development only).
+VNPay's IPN must reach `GET /api/payments/vnpay-ipn` (set it in the VNPay merchant portal; needs a public URL such
+as the Cloudflare tunnel). Locally, the frontend's return page calls `GET /api/payments/vnpay-return`, which runs the
+same signed check, so payments are recorded even without the IPN.
+
+```bash
+dotnet user-secrets set "PaymentGateway:VnPayTmnCode" "<TmnCode>" --project StorEase.Api
+dotnet user-secrets set "PaymentGateway:VnPayHashSecret" "<HashSecret>" --project StorEase.Api
+```
+
 ---
 
 ## 5. Backend rules
