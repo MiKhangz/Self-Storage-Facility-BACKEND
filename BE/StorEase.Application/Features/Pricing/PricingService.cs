@@ -14,6 +14,8 @@ public interface IPricingService
     Task<Result<PolicyTermsDto>> GetCurrentTermsAsync(CancellationToken ct);
     Task<Result<PricingPolicyDto>> CreatePolicyAsync(CreatePricingPolicyRequest request, CancellationToken ct);
     Task<Result<PricingPolicyDto>> ActivatePolicyAsync(int policyId, CancellationToken ct);
+    /// <summary>T-03: changes the dates and terms of a Draft policy; an Active or Expired one is history and stays.</summary>
+    Task<Result<PricingPolicyDto>> UpdatePolicyAsync(int policyId, CreatePricingPolicyRequest request, CancellationToken ct);
     Task<Result<UnitPriceDto>> UpsertUnitPriceAsync(int policyId, int unitTypeId, UpsertUnitPriceRequest request, CancellationToken ct);
     Task<Result<FeeTypeDto>> CreateFeeTypeAsync(int policyId, FeeTypeRequest request, CancellationToken ct);
     Task<Result<FeeTypeDto>> UpdateFeeTypeAsync(int feeTypeId, FeeTypeRequest request, CancellationToken ct);
@@ -81,6 +83,37 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
         uow.Repository<PricingPolicy>().Add(policy);
         await uow.SaveChangesAsync(ct);
         return await GetPolicyAsync(policy.PricingPolicyId, ct);
+    }
+
+    public async Task<Result<PricingPolicyDto>> UpdatePolicyAsync(int policyId, CreatePricingPolicyRequest request, CancellationToken ct)
+    {
+        var policy = await uow.Repository<PricingPolicy>().FindAsync(policyId, ct);
+        if (policy is null)
+            return Error.NotFound("Pricing policy not found.");
+        if (policy.Status != PricingPolicyStatus.Draft)
+            return Error.Conflict($"Only a Draft policy can be edited; this one is {policy.Status}.");
+        // Same overlap rule as CreatePolicyAsync, ignoring the policy itself.
+        var newEnd = request.EffectiveTo ?? DateOnly.MaxValue;
+        var overlap = await uow.Repository<PricingPolicy>().Query().AnyAsync(p =>
+            p.PricingPolicyId != policyId
+            && p.EffectiveTo != null
+            && p.EffectiveFrom <= newEnd
+            && p.EffectiveTo >= request.EffectiveFrom, ct);
+        if (overlap)
+            return Error.Conflict("The effective date range overlaps an existing pricing policy.");
+
+        policy.EffectiveFrom = request.EffectiveFrom;
+        policy.EffectiveTo = request.EffectiveTo;
+        policy.DepositMonths = request.DepositMonths;
+        policy.GraceDays = request.GraceDays;
+        policy.NoticeDays = request.NoticeDays;
+        policy.LateFeePercentPerWeek = request.LateFeePercentPerWeek;
+        policy.EarlyTerminationPercent = request.EarlyTerminationPercent;
+        policy.SuspendAfterDays = request.SuspendAfterDays;
+        policy.ClearOutAfterDays = request.ClearOutAfterDays;
+        policy.CancelFreeHours = request.CancelFreeHours;
+        await uow.SaveChangesAsync(ct);
+        return await GetPolicyAsync(policyId, ct);
     }
 
     public async Task<Result<PricingPolicyDto>> ActivatePolicyAsync(int policyId, CancellationToken ct)
