@@ -37,6 +37,41 @@ public sealed class PaymentsController(IInvoiceService invoices) : ApiController
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
+    /// <summary>
+    /// VNPay's server-to-server IPN. Answers in VNPay's format with 200 every time; RspCode 00 means the result is
+    /// recorded (or was already), anything else makes VNPay retry or report the error.
+    /// </summary>
+    [HttpGet("vnpay-ipn")]
+    [AllowAnonymous]
+    public async Task<IActionResult> VnPayIpn(CancellationToken ct)
+    {
+        var result = await invoices.ConfirmVnPayAsync(VnPayParameters(), ct);
+        var (code, message) = result.IsSuccess ? ("00", "Confirm Success") : result.Error!.Type switch
+        {
+            ErrorType.Unauthorized => ("97", "Invalid signature"),
+            ErrorType.NotFound => ("01", "Order not found"),
+            ErrorType.Validation => ("04", "Invalid amount"),
+            ErrorType.Conflict => ("02", "Order already confirmed"),
+            _ => ("99", "Unknown error"),
+        };
+        return Ok(new { RspCode = code, Message = message });
+    }
+
+    /// <summary>
+    /// The frontend forwards VNPay's return-URL parameters here. Same check as the IPN, so a local setup that VNPay's
+    /// IPN cannot reach still records the payment; returns the invoice.
+    /// </summary>
+    [HttpGet("vnpay-return")]
+    [AllowAnonymous]
+    public async Task<ActionResult<InvoiceDto>> VnPayReturn(CancellationToken ct)
+    {
+        var result = await invoices.ConfirmVnPayAsync(VnPayParameters(), ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    private Dictionary<string, string> VnPayParameters() =>
+        Request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
+
     /// <summary>Development only (404 elsewhere): the customer stands in for the gateway's success callback.</summary>
     [HttpPost("{paymentCode}/simulate-success")]
     [Authorize(Roles = Roles.StorageCustomer)]
