@@ -19,6 +19,12 @@ public interface IInvoiceService
     /// <summary>The customer starts paying their own invoice; nothing is credited until the gateway confirms.</summary>
     Task<Result<PaymentIntentDto>> PayOnlineAsync(int invoiceId, PaymentRequest request, CancellationToken ct);
 
+    /// <summary>
+    /// T-02: VNPay's IPN or return-URL parameters. Unauthorized = bad signature, NotFound = unknown payment,
+    /// Validation = wrong amount, Conflict = already settled the other way. Repeats are harmless.
+    /// </summary>
+    Task<Result<InvoiceDto>> ConfirmVnPayAsync(IReadOnlyDictionary<string, string> parameters, CancellationToken ct);
+
     /// <summary>The gateway's signed callback: credits the invoice on success. Idempotent.</summary>
     Task<Result<InvoiceDto>> ConfirmGatewayAsync(GatewayCallbackRequest request, CancellationToken ct);
 
@@ -82,6 +88,24 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
         if (!SignatureMatches(request))
             return Error.Unauthorized("Invalid gateway signature.");
         return await SettleGatewayPaymentAsync(request.PaymentCode, request.Status, request.Amount, Clean(request.ReferenceNo), ct);
+    }
+
+    public async Task<Result<InvoiceDto>> ConfirmVnPayAsync(IReadOnlyDictionary<string, string> parameters, CancellationToken ct)
+    {
+        if (!VnPay.SignatureMatches(gateway.VnPayHashSecret, parameters))
+            return Error.Unauthorized("Invalid VNPay signature.");
+        var paymentCode = parameters.GetValueOrDefault("vnp_TxnRef") ?? "";
+        var payment = await uow.Repository<Payment>().Query().Where(p => p.PaymentCode == paymentCode)
+            .Select(p => new { p.Amount }).FirstOrDefaultAsync(ct);
+        if (payment is null)
+            return Error.NotFound("Payment not found.");
+        if (!long.TryParse(parameters.GetValueOrDefault("vnp_Amount"), out var hundredths) || hundredths != (long)(payment.Amount * 100m))
+            return Error.Validation("The confirmed amount does not match the payment.");
+
+        // Both codes are "00" only when VNPay actually took the money.
+        var paid = parameters.GetValueOrDefault("vnp_ResponseCode") == "00" && parameters.GetValueOrDefault("vnp_TransactionStatus") == "00";
+        return await SettleGatewayPaymentAsync(paymentCode, paid ? PaymentStatus.Succeeded : PaymentStatus.Failed, payment.Amount,
+            Clean(parameters.GetValueOrDefault("vnp_TransactionNo")), ct);
     }
 
     public async Task<Result<InvoiceDto>> SimulateGatewaySuccessAsync(string paymentCode, CancellationToken ct)
