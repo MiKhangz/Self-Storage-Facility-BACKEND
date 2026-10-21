@@ -16,6 +16,13 @@ public class DbSeeder(AppDbContext db, IPasswordHasher hasher, ILogger<DbSeeder>
 {
     public const string DemoPassword = "Demo@123";
 
+    /// <summary>Drops the database and re-applies every migration. Development only (see Program.cs `--reset`).</summary>
+    public async Task ResetAsync(CancellationToken ct = default)
+    {
+        await db.Database.EnsureDeletedAsync(ct);
+        await db.Database.MigrateAsync(ct);
+    }
+
     public async Task SeedAsync(CancellationToken ct = default)
     {
         if ((await db.Database.GetPendingMigrationsAsync(ct)).Any())
