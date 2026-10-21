@@ -12,6 +12,12 @@ public interface IRenewalService
     Task<Result<RenewalDto>> RequestAsync(CreateRenewalRequest request, CancellationToken ct);
     Task<Result<RenewalDto>> GetAsync(int id, CancellationToken ct);
     Task<Result<PagedResult<RenewalDto>>> ListAsync(int? contractId, string? status, int page, int pageSize, CancellationToken ct);
+
+    /// <summary>
+    /// T-01: extends the contract to the renewal's end date at its new rent. The billing job then issues the extra
+    /// months by itself, so no invoice is created here.
+    /// </summary>
+    Task<Result<RenewalDto>> ApproveAsync(int id, CancellationToken ct);
 }
 
 public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewalService
@@ -79,6 +85,43 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
 
         return await Project(query.OrderByDescending(r => r.RequestedAt).ThenByDescending(r => r.RenewalId))
             .ToPagedResultAsync(page, pageSize, ct);
+    }
+
+    public async Task<Result<RenewalDto>> ApproveAsync(int id, CancellationToken ct)
+    {
+        var approved = await uow.InTransactionAsync<int>(async () =>
+        {
+            var renewal = await Managed().Include(r => r.Contract).ThenInclude(c => c.AccessCodes)
+                .FirstOrDefaultAsync(r => r.RenewalId == id, ct);
+            if (renewal is null)
+                return Error.NotFound("Renewal not found.");
+            if (renewal.Status != RenewalStatus.Requested)
+                return Error.Conflict($"Only a Requested renewal can be approved; this one is {renewal.Status}.");
+            var contract = renewal.Contract;
+            if (contract.Status != ContractStatus.Active)
+                return Error.Conflict($"Only an Active contract can be renewed; this one is {contract.Status}.");
+
+            renewal.Status = RenewalStatus.Approved;
+            renewal.ApprovedBy = currentUser.UserId;
+            contract.EndDate = renewal.NewEndDate;
+            // shortcut: the new rent applies to every month not billed yet, not only the extension; split the rent per period if that matters.
+            contract.MonthlyRent = renewal.NewMonthlyRent;
+            // Codes expire the day after the end date (AccessCodeService), so the live one follows the new end date.
+            foreach (var code in contract.AccessCodes.Where(a => a.IsActive))
+                code.ExpiresAt = renewal.NewEndDate.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            return renewal.RenewalId;
+        }, ct);
+        return approved.IsSuccess ? await GetAsync(approved.Value, ct) : approved.Error;
+    }
+
+    /// <summary>Renewals a manager may decide: their own facilities; business operations and admin see all.</summary>
+    private IQueryable<Renewal> Managed()
+    {
+        var query = uow.Repository<Renewal>().Query();
+        if (StaffScope.SeesAllFacilities(currentUser.Role))
+            return query;
+        var facilityIds = StaffScope.FacilityIdsOf(uow, currentUser.UserId);
+        return query.Where(r => facilityIds.Contains(r.Contract.StorageUnit.FacilityId));
     }
 
     private IQueryable<Renewal> Visible()
