@@ -474,6 +474,8 @@ Not part of the frozen demo set. `Renewal.Status` values: `Requested`, `Approved
 | `POST` | `/api/renewals` | `StorageCustomer` (own contract) | `201` + `Location`, `RenewalDto` |
 | `GET` | `/api/renewals?contractId=1&status=Requested&page=1&pageSize=20` | any logged-in user (customer: own) | `200` `PagedResult<RenewalDto>`, newest first |
 | `GET` | `/api/renewals/{id}` | any logged-in user (customer: own) | `200` `RenewalDto` |
+| `POST` | `/api/renewals/{id}/approve` | `FacilityManager` (own facilities), `BusinessOperationsManager` | `200` `RenewalDto`; contract `EndDate`, `MonthlyRent` and live code expiry move; `404` out of scope; `409` unless `Requested` and contract `Active` |
+| `POST` | `/api/renewals/{id}/reject` | same | `200` `RenewalDto`; contract unchanged; `409` unless `Requested` |
 
 ```jsonc
 // POST /api/renewals

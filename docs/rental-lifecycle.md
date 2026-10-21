@@ -25,5 +25,5 @@ for both the rental start and a visit.
 | 10 | **Deposit settled** | B · `POST /api/handovers/{id}/settle-deposit` | Refund = deposit − damage − outstanding invoices − early-termination penalty, never below zero (any excess is the customer's shortfall). Penalty = `DepositAmount × EarlyTerminationPercent / 100` when the planned date is before `Contract.EndDate`, rate from the policy in force on the move-in date; it is added to `HandoverInspection.OtherDeduction` and returned as its own line. `HandoverInspection.RefundAmount` set; `Handover` → `Completed`; `Contract` → `Closed`; access codes off. |
 | 11 | **Unit free again** | system on step 10 | `StorageUnit` `Occupied` → `Available` (`Maintenance` if the inspection found major damage). |
 
-Not built yet: approving a renewal (requests stay `Requested`) and a real payment gateway (payments are simulated
+Not built yet: a real payment gateway (payments are simulated
 in Development). Email is sent over SMTP when `Smtp:Host` is set, otherwise it goes to the API log.

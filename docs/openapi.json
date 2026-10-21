@@ -3079,6 +3079,66 @@
         }
       }
     },
+    "/api/renewals/{id}/approve": {
+      "post": {
+        "tags": [
+          "Renewals"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewalDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/renewals/{id}/reject": {
+      "post": {
+        "tags": [
+          "Renewals"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewalDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/reports/dashboard": {
       "get": {
         "tags": [
