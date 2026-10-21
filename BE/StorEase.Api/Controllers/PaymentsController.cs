@@ -54,7 +54,8 @@ public sealed class PaymentsController(IInvoiceService invoices) : ApiController
             ErrorType.Conflict => ("02", "Order already confirmed"),
             _ => ("99", "Unknown error"),
         };
-        return Ok(new { RspCode = code, Message = message });
+        // VNPay reads these exact property names; the API's camelCase JSON policy would rename them.
+        return Content($"{{\"RspCode\":\"{code}\",\"Message\":\"{message}\"}}", "application/json");
     }
 
     /// <summary>
