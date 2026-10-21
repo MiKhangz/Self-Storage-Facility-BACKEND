@@ -18,6 +18,9 @@ public interface IRenewalService
     /// months by itself, so no invoice is created here.
     /// </summary>
     Task<Result<RenewalDto>> ApproveAsync(int id, CancellationToken ct);
+
+    /// <summary>T-01: the contract is left as it is.</summary>
+    Task<Result<RenewalDto>> RejectAsync(int id, CancellationToken ct);
 }
 
 public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewalService
@@ -112,6 +115,19 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
             return renewal.RenewalId;
         }, ct);
         return approved.IsSuccess ? await GetAsync(approved.Value, ct) : approved.Error;
+    }
+
+    public async Task<Result<RenewalDto>> RejectAsync(int id, CancellationToken ct)
+    {
+        var renewal = await Managed().FirstOrDefaultAsync(r => r.RenewalId == id, ct);
+        if (renewal is null)
+            return Error.NotFound("Renewal not found.");
+        if (renewal.Status != RenewalStatus.Requested)
+            return Error.Conflict($"Only a Requested renewal can be rejected; this one is {renewal.Status}.");
+        renewal.Status = RenewalStatus.Rejected;
+        renewal.ApprovedBy = currentUser.UserId;
+        await uow.SaveChangesAsync(ct);
+        return await GetAsync(id, ct);
     }
 
     /// <summary>Renewals a manager may decide: their own facilities; business operations and admin see all.</summary>
