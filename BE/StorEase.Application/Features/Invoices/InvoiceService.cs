@@ -70,8 +70,11 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
         };
         uow.Repository<Payment>().Add(payment);
         await uow.SaveChangesAsync(ct);
-        return new PaymentIntentDto(payment.PaymentId, payment.PaymentCode, invoice.InvoiceId, payment.Amount, payment.Status,
-            $"{gateway.CheckoutBaseUrl}?payment={Uri.EscapeDataString(payment.PaymentCode)}");
+        // shortcut: VNPay requires a client IP but does not check it; pass the caller's IP if VNPay ever starts to.
+        var checkoutUrl = gateway.UsesVnPay
+            ? VnPay.PaymentUrl(gateway, payment.PaymentCode, payment.Amount, "127.0.0.1", DateTime.UtcNow)
+            : $"{gateway.CheckoutBaseUrl}?payment={Uri.EscapeDataString(payment.PaymentCode)}";
+        return new PaymentIntentDto(payment.PaymentId, payment.PaymentCode, invoice.InvoiceId, payment.Amount, payment.Status, checkoutUrl);
     }
 
     public async Task<Result<InvoiceDto>> ConfirmGatewayAsync(GatewayCallbackRequest request, CancellationToken ct)
