@@ -9,6 +9,8 @@ namespace StorEase.Api.Controllers;
 [Route("api/renewals")]
 public class RenewalsController(IRenewalService renewals) : ApiControllerBase
 {
+    private const string Deciders = Roles.FacilityManager + "," + Roles.BusinessOperationsManager;
+
     [HttpPost]
     [Authorize(Roles = Roles.StorageCustomer)]
     public async Task<ActionResult<RenewalDto>> Create(CreateRenewalRequest request, CancellationToken ct)
@@ -34,6 +36,23 @@ public class RenewalsController(IRenewalService renewals) : ApiControllerBase
     public async Task<ActionResult<RenewalDto>> Get(int id, CancellationToken ct)
     {
         var result = await renewals.GetAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>Facility managers (own facilities) and business operations; 409 unless Requested and the contract Active.</summary>
+    [HttpPost("{id:int}/approve")]
+    [Authorize(Roles = Deciders)]
+    public async Task<ActionResult<RenewalDto>> Approve(int id, CancellationToken ct)
+    {
+        var result = await renewals.ApproveAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    [HttpPost("{id:int}/reject")]
+    [Authorize(Roles = Deciders)]
+    public async Task<ActionResult<RenewalDto>> Reject(int id, CancellationToken ct)
+    {
+        var result = await renewals.RejectAsync(id, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 }
