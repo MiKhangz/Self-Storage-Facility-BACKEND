@@ -67,6 +67,29 @@ public sealed class TruongCoreFeatureTests
     }
 
     [Fact]
+    public async Task A_draft_policy_can_be_edited_but_an_active_one_cannot()
+    {
+        using var db = new TestDb();
+        SeedRoleAndUser(db, 7);
+        var service = new PricingService(db.Uow, new FakeCurrentUser(7, Roles.BusinessOperationsManager));
+        var draft = (await service.CreatePolicyAsync(new CreatePricingPolicyRequest(
+            new DateOnly(2027, 1, 1), null, 1, 3, 30, 2, 0, 14, 60, 24), default)).Value!;
+
+        var edited = await service.UpdatePolicyAsync(draft.PricingPolicyId, new CreatePricingPolicyRequest(
+            new DateOnly(2027, 2, 1), null, 2, 5, 30, 3, 10, 14, 60, 48), default);
+        var policy = await db.Db.PricingPolicies.SingleAsync();
+        policy.Status = PricingPolicyStatus.Active;
+        await db.Db.SaveChangesAsync();
+        var locked = await service.UpdatePolicyAsync(draft.PricingPolicyId, new CreatePricingPolicyRequest(
+            new DateOnly(2027, 2, 1), null, 2, 5, 30, 3, 50, 14, 60, 48), default);
+
+        edited.Value!.EffectiveFrom.Should().Be(new DateOnly(2027, 2, 1));
+        policy.EarlyTerminationPercent.Should().Be(10m);
+        policy.DepositMonths.Should().Be(2);
+        locked.Error!.Type.Should().Be(ErrorType.Conflict);
+    }
+
+    [Fact]
     public async Task Customer_can_pay_only_its_own_invoice_and_invoice_is_marked_paid_atomically()
     {
         using var db = new TestDb();
