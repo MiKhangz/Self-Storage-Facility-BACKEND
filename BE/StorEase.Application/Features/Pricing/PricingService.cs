@@ -15,7 +15,7 @@ public interface IPricingService
     Task<Result<PricingPolicyDto>> CreatePolicyAsync(CreatePricingPolicyRequest request, CancellationToken ct);
     Task<Result<PricingPolicyDto>> ActivatePolicyAsync(int policyId, CancellationToken ct);
     /// <summary>T-03: changes the dates and terms of a Draft policy; an Active or Expired one is history and stays.</summary>
-    Task<Result<PricingPolicyDto>> UpdatePolicyAsync(int policyId, CreatePricingPolicyRequest request, CancellationToken ct);
+    Task<Result<PricingPolicyDto>> UpdatePolicyAsync(int policyId, UpdatePricingPolicyRequest request, CancellationToken ct);
     Task<Result<UnitPriceDto>> UpsertUnitPriceAsync(int policyId, int unitTypeId, UpsertUnitPriceRequest request, CancellationToken ct);
     Task<Result<FeeTypeDto>> CreateFeeTypeAsync(int policyId, FeeTypeRequest request, CancellationToken ct);
     Task<Result<FeeTypeDto>> UpdateFeeTypeAsync(int feeTypeId, FeeTypeRequest request, CancellationToken ct);
@@ -85,7 +85,7 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
         return await GetPolicyAsync(policy.PricingPolicyId, ct);
     }
 
-    public async Task<Result<PricingPolicyDto>> UpdatePolicyAsync(int policyId, CreatePricingPolicyRequest request, CancellationToken ct)
+    public async Task<Result<PricingPolicyDto>> UpdatePolicyAsync(int policyId, UpdatePricingPolicyRequest request, CancellationToken ct)
     {
         var policy = await uow.Repository<PricingPolicy>().FindAsync(policyId, ct);
         if (policy is null)

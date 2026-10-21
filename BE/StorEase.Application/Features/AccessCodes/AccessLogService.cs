@@ -11,12 +11,21 @@ public class AccessLogService(IUnitOfWork uow, ICurrentUser currentUser) : IAcce
     public Task<Result<PagedResult<AccessLogDto>>> SearchAsync(
         int? storageUnitId, int? customerId, DateOnly? from, DateOnly? to, int page, int pageSize, CancellationToken ct)
     {
-        var query = uow.Repository<AccessLog>().Query().AsNoTracking();
+        var query = Visible().AsNoTracking();
         if (storageUnitId is not null)
             query = query.Where(l => l.StorageUnitId == storageUnitId);
         if (customerId is not null)
             query = query.Where(l => l.AccessCode.Contract.CustomerId == customerId);
         return PageAsync(query, from, to, page, pageSize, ct);
+    }
+
+    private IQueryable<AccessLog> Visible()
+    {
+        var query = uow.Repository<AccessLog>().Query();
+        if (StaffScope.SeesAllFacilities(currentUser.Role))
+            return query;
+        var facilityIds = StaffScope.FacilityIdsOf(uow, currentUser.UserId);
+        return query.Where(l => facilityIds.Contains(l.StorageUnit.FacilityId));
     }
 
     public Task<Result<PagedResult<AccessLogDto>>> ListMineAsync(

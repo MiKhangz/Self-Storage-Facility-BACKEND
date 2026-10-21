@@ -48,13 +48,15 @@ public class AccessCodeManagementTests
 
         var c1 = new User { UserId = 1, FullName = "Khach A" };
         var c2 = new User { UserId = 2, FullName = "Khach B" };
-        var u1 = new StorageUnit { StorageUnitId = 1, UnitCode = "A-101" };
-        var u2 = new StorageUnit { StorageUnitId = 2, UnitCode = "A-102" };
+        var facility = new Facility { FacilityId = 1, Name = "Test facility", Status = FacilityStatus.Active };
+        var u1 = new StorageUnit { StorageUnitId = 1, UnitCode = "A-101", FacilityId = facility.FacilityId, Facility = facility };
+        var u2 = new StorageUnit { StorageUnitId = 2, UnitCode = "A-102", FacilityId = facility.FacilityId, Facility = facility };
         var k1 = new Contract { ContractId = 1, ContractNumber = "CT1", CustomerId = 1, Customer = c1, StorageUnitId = 1, StorageUnit = u1, Status = ContractStatus.Active, EndDate = new DateOnly(2999, 1, 1) };
         var k2 = new Contract { ContractId = 2, ContractNumber = "CT2", CustomerId = 2, Customer = c2, StorageUnitId = 2, StorageUnit = u2, Status = ContractStatus.Active, EndDate = new DateOnly(2999, 1, 1) };
         var a1 = new AccessCode { AccessCodeId = 1, ContractId = 1, Contract = k1, CodeHash = "x", IssuedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow.AddDays(30), IsActive = true };
         var a2 = new AccessCode { AccessCodeId = 2, ContractId = 2, Contract = k2, CodeHash = "y", IssuedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow.AddDays(30), IsActive = true };
-        db.AddRange(c1, c2, u1, u2, k1, k2, a1, a2,
+        db.AddRange(c1, c2, facility, u1, u2, k1, k2, a1, a2,
+            new StaffFacility { UserId = userId, FacilityId = facility.FacilityId, AssignedDate = new DateOnly(2026, 1, 1) },
             new AccessLog { AccessCodeId = 1, AccessCode = a1, StorageUnitId = 1, StorageUnit = u1, AccessTime = new DateTime(2026, 10, 1, 8, 0, 0, DateTimeKind.Utc), Result = AccessResult.Granted },
             new AccessLog { AccessCodeId = 1, AccessCode = a1, StorageUnitId = 1, StorageUnit = u1, AccessTime = new DateTime(2026, 10, 5, 8, 0, 0, DateTimeKind.Utc), Result = AccessResult.Denied },
             new AccessLog { AccessCodeId = 2, AccessCode = a2, StorageUnitId = 2, StorageUnit = u2, AccessTime = new DateTime(2026, 10, 3, 8, 0, 0, DateTimeKind.Utc), Result = AccessResult.Granted });

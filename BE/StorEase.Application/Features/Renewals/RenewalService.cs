@@ -143,8 +143,13 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
     private IQueryable<Renewal> Visible()
     {
         var query = uow.Repository<Renewal>().Query();
-        if (!currentUser.IsCustomer)
+        if (StaffScope.SeesAllFacilities(currentUser.Role))
             return query;
+        if (!currentUser.IsCustomer)
+        {
+            var facilityIds = StaffScope.FacilityIdsOf(uow, currentUser.UserId);
+            return query.Where(r => facilityIds.Contains(r.Contract.StorageUnit.FacilityId));
+        }
 
         var customerId = currentUser.UserId;
         return query.Where(r => r.Contract.CustomerId == customerId);

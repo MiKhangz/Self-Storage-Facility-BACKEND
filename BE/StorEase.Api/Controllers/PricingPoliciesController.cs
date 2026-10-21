@@ -42,7 +42,7 @@ public sealed class PricingPoliciesController(IPricingService pricing) : ApiCont
 
     /// <summary>Same body and rules as create; 409 unless the policy is Draft.</summary>
     [HttpPut("{id:int}")]
-    public async Task<ActionResult<PricingPolicyDto>> Update(int id, CreatePricingPolicyRequest request, CancellationToken ct)
+    public async Task<ActionResult<PricingPolicyDto>> Update(int id, UpdatePricingPolicyRequest request, CancellationToken ct)
     {
         var result = await pricing.UpdatePolicyAsync(id, request, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);

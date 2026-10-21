@@ -44,6 +44,18 @@ public sealed record CreatePricingPolicyRequest(
     int ClearOutAfterDays,
     int CancelFreeHours);
 
+public sealed record UpdatePricingPolicyRequest(
+    DateOnly EffectiveFrom,
+    DateOnly? EffectiveTo,
+    int DepositMonths,
+    int GraceDays,
+    int NoticeDays,
+    decimal LateFeePercentPerWeek,
+    decimal EarlyTerminationPercent,
+    int SuspendAfterDays,
+    int ClearOutAfterDays,
+    int CancelFreeHours);
+
 public sealed record UpsertUnitPriceRequest(
     decimal BasePricePerMonth,
     decimal Discount3Month,

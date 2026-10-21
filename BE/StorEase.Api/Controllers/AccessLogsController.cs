@@ -10,7 +10,7 @@ namespace StorEase.Api.Controllers;
 public class AccessLogsController(IAccessLogService logs) : ApiControllerBase
 {
     [HttpGet]
-    [Authorize(Roles = Roles.FacilityManager)]
+    [Authorize(Roles = Roles.FacilityManager + "," + Roles.BusinessOperationsManager + "," + Roles.SystemAdministrator)]
     public async Task<ActionResult<PagedResult<AccessLogDto>>> Search(
         int? storageUnitId, int? customerId, DateOnly? from, DateOnly? to,
         int page = 1, int pageSize = 20, CancellationToken ct = default)

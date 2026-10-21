@@ -2660,17 +2660,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePricingPolicyRequest"
+                "$ref": "#/components/schemas/UpdatePricingPolicyRequest"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePricingPolicyRequest"
+                "$ref": "#/components/schemas/UpdatePricingPolicyRequest"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePricingPolicyRequest"
+                "$ref": "#/components/schemas/UpdatePricingPolicyRequest"
               }
             }
           }
@@ -9293,6 +9293,53 @@
             "type": "integer",
             "format": "int32",
             "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdatePricingPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "effectiveTo": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "depositMonths": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "graceDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "noticeDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lateFeePercentPerWeek": {
+            "type": "number",
+            "format": "double"
+          },
+          "earlyTerminationPercent": {
+            "type": "number",
+            "format": "double"
+          },
+          "suspendAfterDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "clearOutAfterDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cancelFreeHours": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false

@@ -17,7 +17,7 @@ public interface IInvoiceService
     Task<Result<InvoiceDto>> GetAsync(int invoiceId, CancellationToken ct);
 
     /// <summary>The customer starts paying their own invoice; nothing is credited until the gateway confirms.</summary>
-    Task<Result<PaymentIntentDto>> PayOnlineAsync(int invoiceId, PaymentRequest request, CancellationToken ct);
+    Task<Result<PaymentIntentDto>> PayOnlineAsync(int invoiceId, PaymentRequest request, CancellationToken ct, string? clientIp = null);
 
     /// <summary>
     /// T-02: VNPay's IPN or return-URL parameters. Unauthorized = bad signature, NotFound = unknown payment,
@@ -54,7 +54,7 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
         return invoice is null ? Error.NotFound("Invoice not found.") : ToDto(invoice);
     }
 
-    public async Task<Result<PaymentIntentDto>> PayOnlineAsync(int invoiceId, PaymentRequest request, CancellationToken ct)
+    public async Task<Result<PaymentIntentDto>> PayOnlineAsync(int invoiceId, PaymentRequest request, CancellationToken ct, string? clientIp = null)
     {
         var invoice = await Visible().FirstOrDefaultAsync(i => i.InvoiceId == invoiceId, ct);
         if (invoice is null)
@@ -76,9 +76,8 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
         };
         uow.Repository<Payment>().Add(payment);
         await uow.SaveChangesAsync(ct);
-        // shortcut: VNPay requires a client IP but does not check it; pass the caller's IP if VNPay ever starts to.
         var checkoutUrl = gateway.UsesVnPay
-            ? VnPay.PaymentUrl(gateway, payment.PaymentCode, payment.Amount, "127.0.0.1", DateTime.UtcNow)
+            ? VnPay.PaymentUrl(gateway, payment.PaymentCode, payment.Amount, clientIp ?? "127.0.0.1", DateTime.UtcNow)
             : $"{gateway.CheckoutBaseUrl}?payment={Uri.EscapeDataString(payment.PaymentCode)}";
         return new PaymentIntentDto(payment.PaymentId, payment.PaymentCode, invoice.InvoiceId, payment.Amount, payment.Status, checkoutUrl);
     }

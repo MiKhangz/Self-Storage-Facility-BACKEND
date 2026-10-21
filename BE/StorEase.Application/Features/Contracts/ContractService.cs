@@ -94,8 +94,8 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
     public Task<Result<string>> ActivateAsync(int contractId, CancellationToken ct) =>
         uow.InTransactionAsync<string>(async () =>
         {
-            var contract = await uow.Repository<Contract>().Query()
-                .Include(c => c.AccessCodes).FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
+            var contract = await Visible().Include(c => c.AccessCodes)
+                .FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
             if (contract is null)
                 return Error.NotFound("Contract not found.");
             if (contract.Status != ContractStatus.Draft)

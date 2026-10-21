@@ -75,12 +75,12 @@ public sealed class TruongCoreFeatureTests
         var draft = (await service.CreatePolicyAsync(new CreatePricingPolicyRequest(
             new DateOnly(2027, 1, 1), null, 1, 3, 30, 2, 0, 14, 60, 24), default)).Value!;
 
-        var edited = await service.UpdatePolicyAsync(draft.PricingPolicyId, new CreatePricingPolicyRequest(
+        var edited = await service.UpdatePolicyAsync(draft.PricingPolicyId, new UpdatePricingPolicyRequest(
             new DateOnly(2027, 2, 1), null, 2, 5, 30, 3, 10, 14, 60, 48), default);
         var policy = await db.Db.PricingPolicies.SingleAsync();
         policy.Status = PricingPolicyStatus.Active;
         await db.Db.SaveChangesAsync();
-        var locked = await service.UpdatePolicyAsync(draft.PricingPolicyId, new CreatePricingPolicyRequest(
+        var locked = await service.UpdatePolicyAsync(draft.PricingPolicyId, new UpdatePricingPolicyRequest(
             new DateOnly(2027, 2, 1), null, 2, 5, 30, 3, 50, 14, 60, 48), default);
 
         edited.Value!.EffectiveFrom.Should().Be(new DateOnly(2027, 2, 1));
