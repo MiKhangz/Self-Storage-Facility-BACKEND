@@ -34,7 +34,13 @@ var gateway = builder.Configuration.GetSection("PaymentGateway").Get<PaymentGate
 builder.Services.AddSingleton(new PaymentGatewayOptions
 {
     Secret = gateway.Secret,
+    Provider = gateway.Provider,
     CheckoutBaseUrl = gateway.CheckoutBaseUrl,
+    VnPayTmnCode = gateway.VnPayTmnCode,
+    VnPayHashSecret = gateway.VnPayHashSecret,
+    VnPayPaymentUrl = gateway.VnPayPaymentUrl,
+    VnPayReturnUrl = gateway.VnPayReturnUrl,
+    VnPayIpAddress = gateway.VnPayIpAddress,
     // Simulating the gateway would let a customer mark their own invoice paid, so it never exists outside Development.
     AllowSimulation = builder.Environment.IsDevelopment(),
 });

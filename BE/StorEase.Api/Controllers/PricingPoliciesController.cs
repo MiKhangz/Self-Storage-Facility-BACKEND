@@ -40,6 +40,13 @@ public sealed class PricingPoliciesController(IPricingService pricing) : ApiCont
         return result.IsSuccess ? CreatedAtAction(nameof(Get), new { id = result.Value.PricingPolicyId }, result.Value) : Failure(result.Error);
     }
 
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<PricingPolicyDto>> Update(int id, UpdatePricingPolicyRequest request, CancellationToken ct)
+    {
+        var result = await pricing.UpdatePolicyAsync(id, request, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
     [HttpPost("{id:int}/activate")]
     public async Task<ActionResult<PricingPolicyDto>> Activate(int id, CancellationToken ct)
     {

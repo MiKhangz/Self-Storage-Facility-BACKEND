@@ -17,10 +17,11 @@ public interface IInvoiceService
     Task<Result<InvoiceDto>> GetAsync(int invoiceId, CancellationToken ct);
 
     /// <summary>The customer starts paying their own invoice; nothing is credited until the gateway confirms.</summary>
-    Task<Result<PaymentIntentDto>> PayOnlineAsync(int invoiceId, PaymentRequest request, CancellationToken ct);
+    Task<Result<PaymentIntentDto>> PayOnlineAsync(int invoiceId, PaymentRequest request, CancellationToken ct, string? clientIp = null);
 
     /// <summary>The gateway's signed callback: credits the invoice on success. Idempotent.</summary>
     Task<Result<InvoiceDto>> ConfirmGatewayAsync(GatewayCallbackRequest request, CancellationToken ct);
+    Task<Result<InvoiceDto>> ConfirmVnPayAsync(IReadOnlyDictionary<string, string> parameters, CancellationToken ct);
 
     /// <summary>Development only: the customer stands in for the gateway's success callback.</summary>
     Task<Result<InvoiceDto>> SimulateGatewaySuccessAsync(string paymentCode, CancellationToken ct);
@@ -48,7 +49,8 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
         return invoice is null ? Error.NotFound("Invoice not found.") : ToDto(invoice);
     }
 
-    public async Task<Result<PaymentIntentDto>> PayOnlineAsync(int invoiceId, PaymentRequest request, CancellationToken ct)
+    public async Task<Result<PaymentIntentDto>> PayOnlineAsync(
+        int invoiceId, PaymentRequest request, CancellationToken ct, string? clientIp = null)
     {
         var invoice = await Visible().FirstOrDefaultAsync(i => i.InvoiceId == invoiceId, ct);
         if (invoice is null)
@@ -70,8 +72,11 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
         };
         uow.Repository<Payment>().Add(payment);
         await uow.SaveChangesAsync(ct);
+        var checkoutUrl = gateway.IsVnPayConfigured
+            ? VnPayGateway.BuildPaymentUrl(gateway, payment.PaymentCode, payment.Amount, clientIp)
+            : $"{gateway.CheckoutBaseUrl}?payment={Uri.EscapeDataString(payment.PaymentCode)}";
         return new PaymentIntentDto(payment.PaymentId, payment.PaymentCode, invoice.InvoiceId, payment.Amount, payment.Status,
-            $"{gateway.CheckoutBaseUrl}?payment={Uri.EscapeDataString(payment.PaymentCode)}");
+            checkoutUrl);
     }
 
     public async Task<Result<InvoiceDto>> ConfirmGatewayAsync(GatewayCallbackRequest request, CancellationToken ct)
@@ -79,6 +84,16 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
         if (!SignatureMatches(request))
             return Error.Unauthorized("Invalid gateway signature.");
         return await SettleGatewayPaymentAsync(request.PaymentCode, request.Status, request.Amount, Clean(request.ReferenceNo), ct);
+    }
+
+    public async Task<Result<InvoiceDto>> ConfirmVnPayAsync(
+        IReadOnlyDictionary<string, string> parameters, CancellationToken ct)
+    {
+        if (!gateway.IsVnPayConfigured)
+            return Error.NotImplemented("VNPay is not configured for this environment.");
+        if (!VnPayGateway.TryReadCallback(gateway, parameters, out var paymentCode, out var status, out var amount, out var referenceNo))
+            return Error.Unauthorized("Invalid VNPay callback signature or payload.");
+        return await SettleGatewayPaymentAsync(paymentCode, status, amount, Clean(referenceNo), ct);
     }
 
     public async Task<Result<InvoiceDto>> SimulateGatewaySuccessAsync(string paymentCode, CancellationToken ct)

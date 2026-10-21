@@ -37,6 +37,32 @@ public sealed class PaymentsController(IInvoiceService invoices) : ApiController
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
+    [HttpGet("vnpay-return")]
+    [AllowAnonymous]
+    public async Task<ActionResult<InvoiceDto>> VnPayReturn(CancellationToken ct)
+    {
+        var parameters = Request.Query.ToDictionary(x => x.Key, x => x.Value.ToString(), StringComparer.Ordinal);
+        var result = await invoices.ConfirmVnPayAsync(parameters, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    [HttpGet("vnpay-ipn")]
+    [AllowAnonymous]
+    public async Task<ActionResult<InvoiceDto>> VnPayIpn(CancellationToken ct)
+    {
+        var parameters = Request.Query.ToDictionary(x => x.Key, x => x.Value.ToString(), StringComparer.Ordinal);
+        var result = await invoices.ConfirmVnPayAsync(parameters, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    [HttpPost("vnpay-ipn")]
+    [AllowAnonymous]
+    public async Task<ActionResult<InvoiceDto>> VnPayIpnForm([FromForm] Dictionary<string, string> parameters, CancellationToken ct)
+    {
+        var result = await invoices.ConfirmVnPayAsync(parameters, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
     /// <summary>Development only (404 elsewhere): the customer stands in for the gateway's success callback.</summary>
     [HttpPost("{paymentCode}/simulate-success")]
     [Authorize(Roles = Roles.StorageCustomer)]

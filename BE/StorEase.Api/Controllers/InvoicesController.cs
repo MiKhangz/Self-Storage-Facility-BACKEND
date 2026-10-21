@@ -35,7 +35,7 @@ public sealed class InvoicesController(IInvoiceService invoices, IReminderServic
     [Authorize(Roles = Roles.StorageCustomer)]
     public async Task<ActionResult<PaymentIntentDto>> PayOnline(int id, PaymentRequest request, CancellationToken ct)
     {
-        var result = await invoices.PayOnlineAsync(id, request, ct);
+        var result = await invoices.PayOnlineAsync(id, request, ct, HttpContext.Connection.RemoteIpAddress?.ToString());
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 

@@ -20,6 +20,23 @@ public sealed class CreatePricingPolicyRequestValidator : AbstractValidator<Crea
     }
 }
 
+public sealed class UpdatePricingPolicyRequestValidator : AbstractValidator<UpdatePricingPolicyRequest>
+{
+    public UpdatePricingPolicyRequestValidator()
+    {
+        RuleFor(x => x.EffectiveFrom).NotEmpty();
+        RuleFor(x => x.EffectiveTo).GreaterThanOrEqualTo(x => x.EffectiveFrom).When(x => x.EffectiveTo.HasValue);
+        RuleFor(x => x.DepositMonths).InclusiveBetween(0, 12);
+        RuleFor(x => x.GraceDays).InclusiveBetween(0, 90);
+        RuleFor(x => x.NoticeDays).InclusiveBetween(0, 365);
+        RuleFor(x => x.LateFeePercentPerWeek).InclusiveBetween(0, 100);
+        RuleFor(x => x.EarlyTerminationPercent).InclusiveBetween(0, 100);
+        RuleFor(x => x.SuspendAfterDays).InclusiveBetween(0, 365);
+        RuleFor(x => x.ClearOutAfterDays).InclusiveBetween(0, 365);
+        RuleFor(x => x.CancelFreeHours).InclusiveBetween(0, 720);
+    }
+}
+
 public sealed class UpsertUnitPriceRequestValidator : AbstractValidator<UpsertUnitPriceRequest>
 {
     public UpsertUnitPriceRequestValidator()

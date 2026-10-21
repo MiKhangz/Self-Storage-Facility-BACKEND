@@ -16,6 +16,9 @@ public sealed class AppOptions
 /// </summary>
 public sealed class PaymentGatewayOptions
 {
+    /// <summary>Set to <c>VNPay</c> after the sandbox merchant credentials are configured.</summary>
+    public string Provider { get; init; } = "Mock";
+
     /// <summary>Shared secret for callback signatures. Empty means every callback is rejected.</summary>
     public string Secret { get; init; } = string.Empty;
 
@@ -24,4 +27,20 @@ public sealed class PaymentGatewayOptions
 
     /// <summary>Shown to the customer as the place to pay; the demo checkout page.</summary>
     public string CheckoutBaseUrl { get; init; } = "http://localhost:5173/checkout";
+
+    /// <summary>VNPay merchant code. Keep it in appsettings.Development.json or user secrets.</summary>
+    public string VnPayTmnCode { get; init; } = string.Empty;
+
+    /// <summary>VNPay HMAC-SHA512 secret. Never commit this value.</summary>
+    public string VnPayHashSecret { get; init; } = string.Empty;
+
+    public string VnPayPaymentUrl { get; init; } = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
+    public string VnPayReturnUrl { get; init; } = "https://localhost:7001/api/payments/vnpay-return";
+    public string VnPayIpAddress { get; init; } = "127.0.0.1";
+
+    public bool IsVnPayConfigured => Provider.Equals("VNPay", StringComparison.OrdinalIgnoreCase)
+        && !string.IsNullOrWhiteSpace(VnPayTmnCode)
+        && !string.IsNullOrWhiteSpace(VnPayHashSecret)
+        && Uri.TryCreate(VnPayPaymentUrl, UriKind.Absolute, out _)
+        && Uri.TryCreate(VnPayReturnUrl, UriKind.Absolute, out _);
 }

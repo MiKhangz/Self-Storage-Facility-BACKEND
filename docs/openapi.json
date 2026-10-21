@@ -2428,6 +2428,83 @@
         }
       }
     },
+    "/api/payments/vnpay-return": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments/vnpay-ipn": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "parameters": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "encoding": {
+                "parameters": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/payments/{paymentCode}/simulate-success": {
       "post": {
         "tags": [
@@ -2567,6 +2644,53 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingPolicyDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "PricingPolicies"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePricingPolicyRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePricingPolicyRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePricingPolicyRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -3021,6 +3145,66 @@
     },
     "/api/renewals/{id}": {
       "get": {
+        "tags": [
+          "Renewals"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewalDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/renewals/{id}/approve": {
+      "post": {
+        "tags": [
+          "Renewals"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewalDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/renewals/{id}/reject": {
+      "post": {
         "tags": [
           "Renewals"
         ],
@@ -9125,6 +9309,53 @@
             "type": "integer",
             "format": "int32",
             "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdatePricingPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "effectiveTo": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "depositMonths": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "graceDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "noticeDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lateFeePercentPerWeek": {
+            "type": "number",
+            "format": "double"
+          },
+          "earlyTerminationPercent": {
+            "type": "number",
+            "format": "double"
+          },
+          "suspendAfterDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "clearOutAfterDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cancelFreeHours": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false

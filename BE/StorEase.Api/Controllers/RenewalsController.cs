@@ -36,4 +36,20 @@ public class RenewalsController(IRenewalService renewals) : ApiControllerBase
         var result = await renewals.GetAsync(id, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
+
+    [HttpPost("{id:int}/approve")]
+    [Authorize(Roles = Roles.FacilityManager + "," + Roles.BusinessOperationsManager)]
+    public async Task<ActionResult<RenewalDto>> Approve(int id, CancellationToken ct)
+    {
+        var result = await renewals.ApproveAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    [HttpPost("{id:int}/reject")]
+    [Authorize(Roles = Roles.FacilityManager + "," + Roles.BusinessOperationsManager)]
+    public async Task<ActionResult<RenewalDto>> Reject(int id, CancellationToken ct)
+    {
+        var result = await renewals.RejectAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
 }

@@ -14,9 +14,9 @@ public class AccessCodeService(IUnitOfWork uow, IPasswordHasher hasher, ICurrent
     public Task<Result<AccessCodeDto>> IssueAsync(int contractId, CancellationToken ct) =>
         uow.InTransactionAsync<AccessCodeDto>(async () =>
         {
-            var contract = await uow.Repository<Contract>().Query()
-                .Include(c => c.AccessCodes).FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
-            if (contract is null || (currentUser.IsCustomer && contract.CustomerId != currentUser.UserId))
+            var contract = await VisibleContracts().Include(c => c.AccessCodes)
+                .FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
+            if (contract is null)
                 return Error.NotFound("Contract not found.");
             if (contract.Status != ContractStatus.Active)
                 return Error.Conflict($"Access codes are issued for an Active contract; this one is {contract.Status}.");
@@ -29,8 +29,10 @@ public class AccessCodeService(IUnitOfWork uow, IPasswordHasher hasher, ICurrent
     public Task<Result<AccessCodeSummaryDto>> RevokeAsync(int accessCodeId, CancellationToken ct) =>
         uow.InTransactionAsync<AccessCodeSummaryDto>(async () =>
         {
-            var code = await uow.Repository<AccessCode>().Query().FirstOrDefaultAsync(a => a.AccessCodeId == accessCodeId, ct);
-            if (code is null)
+            var code = await uow.Repository<AccessCode>().Query()
+                .Include(a => a.Contract).ThenInclude(c => c.StorageUnit)
+                .FirstOrDefaultAsync(a => a.AccessCodeId == accessCodeId, ct);
+            if (code is null || !await CanSeeContractAsync(code.Contract, ct))
                 return Error.NotFound("Access code not found.");
             if (!code.IsActive)
                 return Error.Conflict("The access code is already revoked.");
@@ -41,9 +43,9 @@ public class AccessCodeService(IUnitOfWork uow, IPasswordHasher hasher, ICurrent
 
     public async Task<Result<AccessCodeSummaryDto>> GetActiveAsync(int contractId, CancellationToken ct)
     {
-        var contract = await uow.Repository<Contract>().Query().AsNoTracking()
+        var contract = await VisibleContracts().AsNoTracking()
             .Include(c => c.AccessCodes).FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
-        if (contract is null || (currentUser.IsCustomer && contract.CustomerId != currentUser.UserId))
+        if (contract is null)
             return Error.NotFound("Contract not found.");
 
         // An expired code is no use to the customer even while its flag is still set.
@@ -77,4 +79,22 @@ public class AccessCodeService(IUnitOfWork uow, IPasswordHasher hasher, ICurrent
 
     private static AccessCodeSummaryDto ToSummary(AccessCode a) =>
         new(a.AccessCodeId, a.ContractId, a.IssuedAt, a.ExpiresAt, a.IsActive);
+
+    private IQueryable<Contract> VisibleContracts()
+    {
+        var query = uow.Repository<Contract>().Query();
+        if (currentUser.IsCustomer)
+            return query.Where(c => c.CustomerId == currentUser.UserId);
+        if (StaffScope.SeesAllFacilities(currentUser.Role))
+            return query;
+        var facilityIds = StaffScope.FacilityIdsOf(uow, currentUser.UserId);
+        return query.Where(c => facilityIds.Contains(c.StorageUnit.FacilityId));
+    }
+
+    private async Task<bool> CanSeeContractAsync(Contract contract, CancellationToken ct) =>
+        currentUser.IsCustomer
+            ? contract.CustomerId == currentUser.UserId
+            : StaffScope.SeesAllFacilities(currentUser.Role)
+                || await StaffScope.FacilityIdsOf(uow, currentUser.UserId)
+                    .AnyAsync(id => id == contract.StorageUnit.FacilityId, ct);
 }
