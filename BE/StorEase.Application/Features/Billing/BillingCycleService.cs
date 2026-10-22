@@ -118,6 +118,19 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
                 && (i.ContractId == null || (i.Contract!.Status != ContractStatus.Closed && i.Contract.Status != ContractStatus.Terminated)))
             .ToListAsync(ct);
 
+        // Late fee, grace and lock-out days are the ones each contract was signed under, not today's policy.
+        var termsOf = new Dictionary<int, PricingPolicy?>();
+        async Task<PricingPolicy> TermsOfAsync(int contractId)
+        {
+            if (!termsOf.TryGetValue(contractId, out var pinned))
+            {
+                var c = await uow.Repository<Contract>().Query().Where(x => x.ContractId == contractId)
+                    .Select(x => new { x.PricingPolicyId, x.StartDate }).FirstAsync(ct);
+                termsOf[contractId] = pinned = await RentCalculator.PolicyOfAsync(uow, c.PricingPolicyId, c.StartDate, ct);
+            }
+            return pinned ?? policy;
+        }
+
         foreach (var invoice in invoices)
         {
             if (invoice.Status != InvoiceStatus.Overdue)
@@ -127,7 +140,10 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
             }
             var daysOverdue = today.DayNumber - invoice.DueDate.DayNumber;
             // A deposit has no contract to escalate; the unpaid deposit simply blocks the check-in.
-            if (invoice.ContractId is not { } contractId || daysOverdue <= policy.GraceDays)
+            if (invoice.ContractId is not { } contractId)
+                continue;
+            var terms = await TermsOfAsync(contractId);
+            if (daysOverdue <= terms.GraceDays)
                 continue;
 
             var overdue = await uow.Repository<OverdueCase>().Query()
@@ -149,17 +165,17 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
             }
             overdue.DaysOverdue = daysOverdue;
 
-            if (UpdateLateFee(invoice, overdue, policy, daysOverdue, today))
+            if (UpdateLateFee(invoice, overdue, terms, daysOverdue, today))
                 feesUpdated++;
 
             // AccessSuspendedAt on a LateFee case means a manager restored access by hand; respect that.
             if (overdue.Stage is OverdueStage.Reminder or OverdueStage.LateFee && overdue.AccessSuspendedAt is null
-                && daysOverdue >= policy.SuspendAfterDays)
+                && daysOverdue >= terms.SuspendAfterDays)
             {
                 await OverdueRules.LockOutAsync(uow, overdue, now, ct);
                 lockedOut++;
             }
-            if (overdue.Stage == OverdueStage.Suspended && daysOverdue >= policy.ClearOutAfterDays)
+            if (overdue.Stage == OverdueStage.Suspended && daysOverdue >= terms.ClearOutAfterDays)
             {
                 overdue.Stage = OverdueStage.ClearOut;
                 clearedOut++;
