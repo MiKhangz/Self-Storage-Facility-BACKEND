@@ -27,3 +27,6 @@ for both the rental start and a visit.
 
 Online payment goes through VNPay when its sandbox keys are set; otherwise it is simulated in Development.
 Email is sent over SMTP when `Smtp:Host` is set, otherwise it goes to the API log.
+
+Deposits owed back (a refundable cancellation, or a handover settled with a refund) are recorded as Pending
+`DepositRefund`s; Business Operations mark each one Paid once the customer has the money (Admin › Deposit refunds).

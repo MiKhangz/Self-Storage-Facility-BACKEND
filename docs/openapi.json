@@ -1066,6 +1066,101 @@
         }
       }
     },
+    "/api/deposit-refunds": {
+      "get": {
+        "tags": [
+          "DepositRefunds"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/DepositRefundStatus"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositRefundDtoPagedResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/deposit-refunds/{id}/paid": {
+      "post": {
+        "tags": [
+          "DepositRefunds"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkDepositRefundPaidRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkDepositRefundPaidRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkDepositRefundPaidRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositRefundDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/facilities": {
       "get": {
         "tags": [
@@ -6412,6 +6507,127 @@
         },
         "additionalProperties": false
       },
+      "DepositRefundDto": {
+        "type": "object",
+        "properties": {
+          "depositRefundId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "source": {
+            "$ref": "#/components/schemas/DepositRefundSource"
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "method": {
+            "$ref": "#/components/schemas/RefundMethod"
+          },
+          "refundAccount": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/DepositRefundStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "paidAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "paidByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "referenceNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "facilityId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "facilityName": {
+            "type": "string",
+            "nullable": true
+          },
+          "reservationId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reservationCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "handoverId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DepositRefundDtoPagedResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepositRefundDto"
+            },
+            "nullable": true
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DepositRefundSource": {
+        "enum": [
+          "Cancellation",
+          "Handover"
+        ],
+        "type": "string"
+      },
+      "DepositRefundStatus": {
+        "enum": [
+          "Pending",
+          "Paid"
+        ],
+        "type": "string"
+      },
       "DepositSettlementDto": {
         "type": "object",
         "properties": {
@@ -7253,6 +7469,19 @@
           "Cancelled"
         ],
         "type": "string"
+      },
+      "MarkDepositRefundPaidRequest": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "$ref": "#/components/schemas/RefundMethod"
+          },
+          "referenceNo": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       },
       "NotificationSettingsDto": {
         "type": "object",
