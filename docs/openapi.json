@@ -6691,6 +6691,13 @@
           "unitCount": {
             "type": "integer",
             "format": "int32"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FloorStatus"
+          },
+          "rentedUnits": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -6903,9 +6910,21 @@
           "name": {
             "type": "string",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/FloorStatus"
           }
         },
         "additionalProperties": false
+      },
+      "FloorStatus": {
+        "enum": [
+          "Open",
+          "UnderConstruction",
+          "Renovation",
+          "Removed"
+        ],
+        "type": "string"
       },
       "ForgotPasswordRequest": {
         "type": "object",
