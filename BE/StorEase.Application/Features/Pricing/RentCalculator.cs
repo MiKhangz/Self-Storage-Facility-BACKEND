@@ -14,9 +14,10 @@ public sealed record RentTerms(PricingPolicy Policy, decimal MonthlyRent, decima
 /// </summary>
 public static class RentCalculator
 {
+    // A Superseded version still governs the dates it covered; only Drafts were never in force.
     public static Task<PricingPolicy?> PolicyForAsync(IUnitOfWork uow, DateOnly date, CancellationToken ct) =>
         uow.Repository<PricingPolicy>().Query()
-            .Where(p => p.Status == PricingPolicyStatus.Active && p.EffectiveFrom <= date
+            .Where(p => (p.Status == PricingPolicyStatus.Active || p.Status == PricingPolicyStatus.Superseded) && p.EffectiveFrom <= date
                 && (p.EffectiveTo == null || p.EffectiveTo >= date))
             .OrderByDescending(p => p.EffectiveFrom)
             .FirstOrDefaultAsync(ct);
