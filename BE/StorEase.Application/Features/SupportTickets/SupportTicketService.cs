@@ -20,7 +20,7 @@ public class SupportTicketService(IUnitOfWork uow, ICurrentUser currentUser) : I
 {
     // A customer can raise a ticket about a unit they still hold under one of these contract states.
     private static readonly ContractStatus[] HeldStatuses =
-        [ContractStatus.Active, ContractStatus.Overdue, ContractStatus.Suspended, ContractStatus.PendingHandover];
+        [ContractStatus.Active, ContractStatus.Overdue, ContractStatus.Suspended, ContractStatus.PendingReturn];
 
     public async Task<Result<IReadOnlyList<TicketCategoryDto>>> ListCategoriesAsync(CancellationToken ct)
     {

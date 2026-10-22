@@ -11,7 +11,7 @@ public sealed record DepositRefundDto(
     int DepositRefundId, DepositRefundSource Source, decimal Amount, RefundMethod? Method, string? RefundAccount,
     DepositRefundStatus Status, DateTime CreatedAt, DateTime? PaidAt, string? PaidByName, string? ReferenceNo,
     int CustomerId, string CustomerName, string CustomerPhone, int FacilityId, string FacilityName,
-    int ReservationId, string ReservationCode, int? HandoverId);
+    int ReservationId, string ReservationCode, int? UnitReturnId);
 
 /// <summary>How the money went back and, for a transfer, the bank's reference.</summary>
 public sealed record MarkDepositRefundPaidRequest(RefundMethod Method, string? ReferenceNo);
@@ -69,9 +69,9 @@ public class DepositRefundService(IUnitOfWork uow, ICurrentUser currentUser) : I
 
     /// <summary>
     /// Records a deposit StorEase now owes back, as Pending, in the caller's transaction (no save). Called by a
-    /// refundable cancellation and by a handover settlement with a refund.
+    /// refundable cancellation and by a return settlement with a refund.
     /// </summary>
-    internal static void Owe(IUnitOfWork uow, Reservation reservation, decimal amount, Handover? handover = null)
+    internal static void Owe(IUnitOfWork uow, Reservation reservation, decimal amount, UnitReturn? unitReturn = null)
     {
         if (amount <= 0)
             return;
@@ -80,11 +80,11 @@ public class DepositRefundService(IUnitOfWork uow, ICurrentUser currentUser) : I
             CustomerId = reservation.CustomerId,
             FacilityId = reservation.FacilityId,
             ReservationId = reservation.ReservationId,
-            HandoverId = handover?.HandoverId,
-            Source = handover is null ? DepositRefundSource.Cancellation : DepositRefundSource.Handover,
+            UnitReturnId = unitReturn?.UnitReturnId,
+            Source = unitReturn is null ? DepositRefundSource.Cancellation : DepositRefundSource.Return,
             Amount = Money.Round(amount),
-            Method = handover?.RefundMethod,
-            RefundAccount = handover?.RefundAccount,
+            Method = unitReturn?.RefundMethod,
+            RefundAccount = unitReturn?.RefundAccount,
             Status = DepositRefundStatus.Pending,
             CreatedAt = DateTime.UtcNow,
         });
@@ -107,5 +107,5 @@ public class DepositRefundService(IUnitOfWork uow, ICurrentUser currentUser) : I
             r.DepositRefundId, r.Source, r.Amount, r.Method, r.RefundAccount, r.Status, r.CreatedAt, r.PaidAt,
             r.PaidByUser != null ? r.PaidByUser.FullName : null, r.ReferenceNo,
             r.CustomerId, r.Customer.FullName, r.Customer.PhoneNumber, r.FacilityId, r.Facility.Name,
-            r.ReservationId, r.Reservation.ReservationCode, r.HandoverId));
+            r.ReservationId, r.Reservation.ReservationCode, r.UnitReturnId));
 }

@@ -223,7 +223,7 @@ public class MaintenanceServiceTests
         using var _ = w.Db;
         var svc = w.As(w.Staff);
         var id = (await svc.CreateAsync(Req(w.Unit), default)).Value.MaintenanceOrderId;
-        // e.g. a handover inspection found damage and parked the unit in Maintenance.
+        // e.g. a return inspection found damage and parked the unit in Maintenance.
         (await w.Db.Db.StorageUnits.SingleAsync(u => u.StorageUnitId == w.Unit.StorageUnitId)).Status = StorageUnitStatus.Maintenance;
         await w.Db.Db.SaveChangesAsync();
 

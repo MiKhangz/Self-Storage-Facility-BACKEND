@@ -9,7 +9,7 @@ public interface IAccessCodeService
     /// <summary>Staff, or the owning customer, issue a code for an Active contract; the previous active code is revoked.</summary>
     Task<Result<AccessCodeDto>> IssueAsync(int contractId, CancellationToken ct);
 
-    /// <summary>Deactivates one code (lockout, handover, reported lost). 409 when it is already inactive.</summary>
+    /// <summary>Deactivates one code (lockout, return, reported lost). 409 when it is already inactive.</summary>
     Task<Result<AccessCodeSummaryDto>> RevokeAsync(int accessCodeId, CancellationToken ct);
 
     /// <summary>The contract's current valid code, without the plaintext. 404 when none, or not the caller's contract.</summary>

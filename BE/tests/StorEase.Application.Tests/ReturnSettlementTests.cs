@@ -1,8 +1,8 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
-using StorEase.Application.Features.Handovers;
-using StorEase.Application.Features.Handovers.Dtos;
+using StorEase.Application.Features.Returns;
+using StorEase.Application.Features.Returns.Dtos;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
 using static StorEase.Application.Tests.CoreFlowSeed;
@@ -10,7 +10,7 @@ using static StorEase.Application.Tests.CoreFlowSeed;
 namespace StorEase.Application.Tests;
 
 /// <summary>SR-04: no notice period; handing back before the end date keeps a share of the deposit.</summary>
-public class HandoverSettlementTests
+public class ReturnSettlementTests
 {
     private static int SeedActiveContract(TestDb t, decimal earlyTerminationPercent)
     {
@@ -46,21 +46,21 @@ public class HandoverSettlementTests
         var ops = new FakeCurrentUser(98, Roles.BusinessOperationsManager);
 
         // Tomorrow is well inside the old 30-day notice period.
-        var requested = await new HandoverService(t.Uow, Customer).RequestAsync(
-            new CreateHandoverRequest(contractId, VietnamTime.Today.AddDays(1), null, RefundMethod.Cash, null), default);
-        var id = requested.Value!.HandoverId;
-        await new HandoverService(t.Uow, Staff).ApproveAsync(id, new ApproveHandoverRequest(DateTime.UtcNow.AddDays(1)), default);
-        await new HandoverService(t.Uow, Staff).InspectAsync(id, new CreateHandoverInspectionRequest(ConditionResult.Good, 50_000m, 0m, 0m), default);
-        var settled = await new HandoverService(t.Uow, ops).SettleAsync(id, default);
-        var pastDate = await new HandoverService(t.Uow, Customer).RequestAsync(
-            new CreateHandoverRequest(contractId, VietnamTime.Today.AddDays(-1), null, RefundMethod.Cash, null), default);
+        var requested = await new ReturnService(t.Uow, Customer).RequestAsync(
+            new CreateReturnRequest(contractId, VietnamTime.Today.AddDays(1), null, RefundMethod.Cash, null), default);
+        var id = requested.Value!.UnitReturnId;
+        await new ReturnService(t.Uow, Staff).ApproveAsync(id, new ApproveReturnRequest(DateTime.UtcNow.AddDays(1)), default);
+        await new ReturnService(t.Uow, Staff).InspectAsync(id, new CreateReturnInspectionRequest(ConditionResult.Good, 50_000m, 0m, 0m), default);
+        var settled = await new ReturnService(t.Uow, ops).SettleAsync(id, default);
+        var pastDate = await new ReturnService(t.Uow, Customer).RequestAsync(
+            new CreateReturnRequest(contractId, VietnamTime.Today.AddDays(-1), null, RefundMethod.Cash, null), default);
 
         requested.IsSuccess.Should().BeTrue(requested.Error?.Message);
         settled.IsSuccess.Should().BeTrue(settled.Error?.Message);
         settled.Value!.EarlyTerminationPenalty.Should().Be(200_000m);
         settled.Value.DamageDeductions.Should().Be(50_000m);
         settled.Value.RefundAmount.Should().Be(750_000m);
-        (await t.Db.HandoverInspections.SingleAsync()).OtherDeduction.Should().Be(200_000m);
-        pastDate.IsSuccess.Should().BeFalse("a handover date in the past is refused");
+        (await t.Db.ReturnInspections.SingleAsync()).OtherDeduction.Should().Be(200_000m);
+        pastDate.IsSuccess.Should().BeFalse("a return date in the past is refused");
     }
 }

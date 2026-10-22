@@ -116,7 +116,7 @@ public class MaintenanceService(IUnitOfWork uow, ICurrentUser currentUser) : IMa
 
             var unit = order.StorageUnit;
             // Only work that was actually under way took the unit off the market; closing an order that
-            // never started must not release a unit held in Maintenance for another reason (e.g. handover damage).
+            // never started must not release a unit held in Maintenance for another reason (e.g. return damage).
             var wasUnderWay = order.Status == MaintenanceOrderStatus.InProgress;
             switch (target)
             {

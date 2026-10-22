@@ -1,6 +1,6 @@
 using StorEase.Application.Common;
 
-namespace StorEase.Application.Features.Handovers;
+namespace StorEase.Application.Features.Returns;
 
 /// <summary>Business rules 7 and 8, kept free of I/O so they are unit-tested directly.</summary>
 public static class DepositSettlement

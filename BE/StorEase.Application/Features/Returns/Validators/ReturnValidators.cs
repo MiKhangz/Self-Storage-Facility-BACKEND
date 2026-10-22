@@ -1,12 +1,12 @@
 using FluentValidation;
-using StorEase.Application.Features.Handovers.Dtos;
+using StorEase.Application.Features.Returns.Dtos;
 using StorEase.Domain.Enums;
 
-namespace StorEase.Application.Features.Handovers.Validators;
+namespace StorEase.Application.Features.Returns.Validators;
 
-public class CreateHandoverRequestValidator : AbstractValidator<CreateHandoverRequest>
+public class CreateReturnRequestValidator : AbstractValidator<CreateReturnRequest>
 {
-    public CreateHandoverRequestValidator()
+    public CreateReturnRequestValidator()
     {
         RuleFor(x => x.ContractId).GreaterThan(0);
         RuleFor(x => x.Reason).MaximumLength(200);
@@ -18,18 +18,18 @@ public class CreateHandoverRequestValidator : AbstractValidator<CreateHandoverRe
     }
 }
 
-public class ApproveHandoverRequestValidator : AbstractValidator<ApproveHandoverRequest>
+public class ApproveReturnRequestValidator : AbstractValidator<ApproveReturnRequest>
 {
-    public ApproveHandoverRequestValidator()
+    public ApproveReturnRequestValidator()
     {
         RuleFor(x => x.InspectionSlot).Must(s => s > DateTime.UtcNow)
             .WithMessage("The inspection slot must be in the future.");
     }
 }
 
-public class CreateHandoverInspectionRequestValidator : AbstractValidator<CreateHandoverInspectionRequest>
+public class CreateReturnInspectionRequestValidator : AbstractValidator<CreateReturnInspectionRequest>
 {
-    public CreateHandoverInspectionRequestValidator()
+    public CreateReturnInspectionRequestValidator()
     {
         RuleFor(x => x.ConditionResult).IsInEnum();
         RuleFor(x => x.CleaningFee).InclusiveBetween(0, 9_999_999_999.99m);

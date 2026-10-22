@@ -7,7 +7,7 @@ using StorEase.Application.Features.Billing;
 using StorEase.Application.Features.Contracts;
 using StorEase.Application.Features.Facilities;
 using StorEase.Application.Features.CheckIns;
-using StorEase.Application.Features.Handovers;
+using StorEase.Application.Features.Returns;
 using StorEase.Application.Features.Renewals;
 using StorEase.Application.Features.Maintenance;
 using StorEase.Application.Features.Reservations;
@@ -41,7 +41,7 @@ public static class DependencyInjection
         services.AddScoped<IContractService, ContractService>();
         services.AddScoped<IAccessCodeService, AccessCodeService>();
         services.AddScoped<IAccessLogService, AccessLogService>();
-        services.AddScoped<IHandoverService, HandoverService>();
+        services.AddScoped<IReturnService, ReturnService>();
         services.AddScoped<IRenewalService, RenewalService>();
         services.AddScoped<ITicketQueueService, TicketQueueService>();
         services.AddScoped<ISupportTicketService, SupportTicketService>();

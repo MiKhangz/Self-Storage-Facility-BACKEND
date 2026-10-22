@@ -2,8 +2,8 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.DepositRefunds;
-using StorEase.Application.Features.Handovers;
-using StorEase.Application.Features.Handovers.Dtos;
+using StorEase.Application.Features.Returns;
+using StorEase.Application.Features.Returns.Dtos;
 using StorEase.Application.Features.Reservations;
 using StorEase.Application.Features.Reservations.Dtos;
 using StorEase.Domain.Entities;
@@ -36,11 +36,11 @@ public class DepositRefundTests
         };
         t.Db.Add(contract);
         t.Db.SaveChanges();
-        var id = (await new HandoverService(t.Uow, Customer).RequestAsync(
-            new CreateHandoverRequest(contract.ContractId, today.AddDays(1), null, RefundMethod.BankTransfer, "VCB 0123456789"), default)).Value!.HandoverId;
-        await new HandoverService(t.Uow, Staff).ApproveAsync(id, new ApproveHandoverRequest(DateTime.UtcNow.AddDays(1)), default);
-        await new HandoverService(t.Uow, Staff).InspectAsync(id, new CreateHandoverInspectionRequest(ConditionResult.Good, 100_000m, 0m, 0m), default);
-        await new HandoverService(t.Uow, Ops).SettleAsync(id, default);
+        var id = (await new ReturnService(t.Uow, Customer).RequestAsync(
+            new CreateReturnRequest(contract.ContractId, today.AddDays(1), null, RefundMethod.BankTransfer, "VCB 0123456789"), default)).Value!.UnitReturnId;
+        await new ReturnService(t.Uow, Staff).ApproveAsync(id, new ApproveReturnRequest(DateTime.UtcNow.AddDays(1)), default);
+        await new ReturnService(t.Uow, Staff).InspectAsync(id, new CreateReturnInspectionRequest(ConditionResult.Good, 100_000m, 0m, 0m), default);
+        await new ReturnService(t.Uow, Ops).SettleAsync(id, default);
 
         var owed = (await new DepositRefundService(t.Uow, Customer).ListAsync(null, 1, 20, default)).Value!.Items.Single();
         var paid = await new DepositRefundService(t.Uow, Ops).MarkPaidAsync(owed.DepositRefundId,
@@ -49,7 +49,7 @@ public class DepositRefundTests
             new MarkDepositRefundPaidRequest(RefundMethod.Cash, null), default);
         var otherManager = await new DepositRefundService(t.Uow, new FakeCurrentUser(77, Roles.FacilityManager)).ListAsync(null, 1, 20, default);
 
-        owed.Source.Should().Be(DepositRefundSource.Handover);
+        owed.Source.Should().Be(DepositRefundSource.Return);
         owed.Amount.Should().Be(900_000m, "the deposit less 100,000 cleaning");
         owed.Status.Should().Be(DepositRefundStatus.Pending);
         owed.RefundAccount.Should().Be("VCB 0123456789", "the customer's choice comes with it");

@@ -30,7 +30,7 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
     public const int DueSoonDays = 3;
 
     private static readonly ContractStatus[] BillableStatuses =
-        [ContractStatus.Active, ContractStatus.Overdue, ContractStatus.Suspended, ContractStatus.PendingHandover];
+        [ContractStatus.Active, ContractStatus.Overdue, ContractStatus.Suspended, ContractStatus.PendingReturn];
 
     public async Task<Result<BillingRunDto>> RunAsync(DateOnly today, CancellationToken ct)
     {

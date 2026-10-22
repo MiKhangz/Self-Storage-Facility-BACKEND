@@ -30,8 +30,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Renewal> Renewals => Set<Renewal>();
     public DbSet<UnitVisit> UnitVisits => Set<UnitVisit>();
     public DbSet<DepositRefund> DepositRefunds => Set<DepositRefund>();
-    public DbSet<Handover> Handovers => Set<Handover>();
-    public DbSet<HandoverInspection> HandoverInspections => Set<HandoverInspection>();
+    public DbSet<UnitReturn> UnitReturns => Set<UnitReturn>();
+    public DbSet<ReturnInspection> ReturnInspections => Set<ReturnInspection>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<Payment> Payments => Set<Payment>();

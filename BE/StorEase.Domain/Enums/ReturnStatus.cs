@@ -1,6 +1,6 @@
 namespace StorEase.Domain.Enums;
 
-public enum HandoverStatus
+public enum ReturnStatus
 {
     Requested,
     Approved,

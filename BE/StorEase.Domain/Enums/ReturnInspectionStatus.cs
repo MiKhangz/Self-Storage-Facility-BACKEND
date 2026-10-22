@@ -1,6 +1,6 @@
 namespace StorEase.Domain.Enums;
 
-public enum HandoverInspectionStatus
+public enum ReturnInspectionStatus
 {
     Draft,
     Completed,
