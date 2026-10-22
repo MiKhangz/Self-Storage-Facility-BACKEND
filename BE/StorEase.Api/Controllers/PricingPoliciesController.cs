@@ -7,7 +7,8 @@ using StorEase.Application.Features.Pricing.Dtos;
 namespace StorEase.Api.Controllers;
 
 [Route("api/pricing-policies")]
-[Authorize(Roles = Roles.BusinessOperationsManager)]
+// Business operations own pricing; system administrators may also change prices, fees and terms.
+[Authorize(Roles = Roles.BusinessOperationsManager + "," + Roles.SystemAdministrator)]
 public sealed class PricingPoliciesController(IPricingService pricing) : ApiControllerBase
 {
     [HttpGet]
