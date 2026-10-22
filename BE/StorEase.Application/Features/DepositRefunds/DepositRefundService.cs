@@ -67,6 +67,29 @@ public class DepositRefundService(IUnitOfWork uow, ICurrentUser currentUser) : I
         return await Project(Visible().Where(r => r.DepositRefundId == depositRefundId)).FirstAsync(ct);
     }
 
+    /// <summary>
+    /// Records a deposit StorEase now owes back, as Pending, in the caller's transaction (no save). Called by a
+    /// refundable cancellation and by a handover settlement with a refund.
+    /// </summary>
+    internal static void Owe(IUnitOfWork uow, Reservation reservation, decimal amount, Handover? handover = null)
+    {
+        if (amount <= 0)
+            return;
+        uow.Repository<DepositRefund>().Add(new DepositRefund
+        {
+            CustomerId = reservation.CustomerId,
+            FacilityId = reservation.FacilityId,
+            ReservationId = reservation.ReservationId,
+            HandoverId = handover?.HandoverId,
+            Source = handover is null ? DepositRefundSource.Cancellation : DepositRefundSource.Handover,
+            Amount = Money.Round(amount),
+            Method = handover?.RefundMethod,
+            RefundAccount = handover?.RefundAccount,
+            Status = DepositRefundStatus.Pending,
+            CreatedAt = DateTime.UtcNow,
+        });
+    }
+
     private IQueryable<DepositRefund> Visible()
     {
         var query = uow.Repository<DepositRefund>().Query();
