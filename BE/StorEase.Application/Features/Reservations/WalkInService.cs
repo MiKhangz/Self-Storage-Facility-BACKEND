@@ -121,6 +121,7 @@ public class WalkInService(
                 ReservationCode = ReservationService.NewReservationCode(),
                 MoveInDate = request.MoveInDate,
                 RentalMonths = request.RentalMonths,
+                PricingPolicyId = terms.Value.Policy.PricingPolicyId,
                 Status = ReservationStatus.Confirmed,
                 CreatedAt = DateTime.UtcNow,
             };
