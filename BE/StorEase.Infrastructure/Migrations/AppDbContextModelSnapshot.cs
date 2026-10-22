@@ -319,6 +319,85 @@ namespace StorEase.Infrastructure.Migrations
                     b.ToTable("Contract", (string)null);
                 });
 
+            modelBuilder.Entity("StorEase.Domain.Entities.DepositRefund", b =>
+                {
+                    b.Property<int>("DepositRefundId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DepositRefundId"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FacilityId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("HandoverId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Method")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("PaidBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReferenceNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("RefundAccount")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("ReservationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("DepositRefundId");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("FacilityId");
+
+                    b.HasIndex("HandoverId")
+                        .IsUnique()
+                        .HasFilter("[HandoverId] IS NOT NULL");
+
+                    b.HasIndex("PaidBy");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("ReservationId", "Source")
+                        .IsUnique()
+                        .HasFilter("[Source] = 'Cancellation'");
+
+                    b.ToTable("DepositRefund", (string)null);
+                });
+
             modelBuilder.Entity("StorEase.Domain.Entities.Facility", b =>
                 {
                     b.Property<int>("FacilityId")
@@ -1674,6 +1753,47 @@ namespace StorEase.Infrastructure.Migrations
                     b.Navigation("Reservation");
 
                     b.Navigation("StorageUnit");
+                });
+
+            modelBuilder.Entity("StorEase.Domain.Entities.DepositRefund", b =>
+                {
+                    b.HasOne("StorEase.Domain.Entities.User", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("StorEase.Domain.Entities.Facility", "Facility")
+                        .WithMany()
+                        .HasForeignKey("FacilityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("StorEase.Domain.Entities.Handover", "Handover")
+                        .WithMany()
+                        .HasForeignKey("HandoverId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("StorEase.Domain.Entities.User", "PaidByUser")
+                        .WithMany()
+                        .HasForeignKey("PaidBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("StorEase.Domain.Entities.Reservation", "Reservation")
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("Facility");
+
+                    b.Navigation("Handover");
+
+                    b.Navigation("PaidByUser");
+
+                    b.Navigation("Reservation");
                 });
 
             modelBuilder.Entity("StorEase.Domain.Entities.Facility", b =>

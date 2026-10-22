@@ -29,6 +29,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<AccessLog> AccessLogs => Set<AccessLog>();
     public DbSet<Renewal> Renewals => Set<Renewal>();
     public DbSet<UnitVisit> UnitVisits => Set<UnitVisit>();
+    public DbSet<DepositRefund> DepositRefunds => Set<DepositRefund>();
     public DbSet<Handover> Handovers => Set<Handover>();
     public DbSet<HandoverInspection> HandoverInspections => Set<HandoverInspection>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
