@@ -210,6 +210,10 @@ dotnet user-secrets set "PaymentGateway:VnPayHashSecret" "<HashSecret>" --projec
    customer e-signs → staff completes check-in → contract becomes `Active` → access code issued.
 4. **Only one pricing policy is active at a time.** Activating a new version ends the previous one.
    A contract keeps the rent agreed at signing; a later policy change does not alter it.
+   A booking records the version it was quoted under (`Reservation.PricingPolicyId`) and the contract copies it
+   (`Contract.PricingPolicyId`). That version decides the contract's rent and deposit even if prices change before
+   move-in, and its late fee, grace days, lock-out days, free-cancellation hours and early-return penalty for the
+   whole rental. A Superseded version still governs the dates it covered. Only renewals use the current price.
 5. **Invoices are raised per billing cycle for every `Active` contract**, by a scheduled job, not
    on demand (`BillingWorker` → `BillingCycleService`: issued 7 days before the `PaymentDay` due date,
    idempotent per day).
@@ -218,8 +222,8 @@ dotnet user-secrets set "PaymentGateway:VnPayHashSecret" "<HashSecret>" --projec
 7. **Deposit is refunded only after the handover inspection**, minus damage and any outstanding invoice.
 8. **Early return is allowed.** No notice period: a handover may be requested for any date from today. A
    penalty of `DepositAmount × EarlyTerminationPercent / 100` applies when the return date (the planned
-   handover date) falls before the contract's `EndDate`, at the rate of the policy in force on the move-in
-   date. It is added to `HandoverInspection.OtherDeduction` and shown as its own settlement line.
+   handover date) falls before the contract's `EndDate`, at the rate of the contract's own policy version
+   (rule 4). It is added to `HandoverInspection.OtherDeduction` and shown as its own settlement line.
 9. **Access codes expire.** Issuing a new one revokes the previous active code for that contract.
 10. **Never delete a facility, unit or user that has history.** Deactivate instead.
 
