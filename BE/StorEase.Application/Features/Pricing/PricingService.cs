@@ -19,6 +19,8 @@ public interface IPricingService
     /// brought back: as a new version, so no past dates change. 409 while another Draft exists.
     /// </summary>
     Task<Result<PricingPolicyDto>> CopyToDraftAsync(int policyId, CancellationToken ct);
+    /// <summary>Removes a Draft with its prices and fees. A published version is history and stays (409).</summary>
+    Task<Result<bool>> DeleteDraftAsync(int policyId, CancellationToken ct);
     /// <summary>T-03: changes the dates and terms of a Draft policy; an Active or Expired one is history and stays.</summary>
     Task<Result<PricingPolicyDto>> UpdatePolicyAsync(int policyId, UpdatePricingPolicyRequest request, CancellationToken ct);
     Task<Result<UnitPriceDto>> UpsertUnitPriceAsync(int policyId, int unitTypeId, UpsertUnitPriceRequest request, CancellationToken ct);
@@ -160,6 +162,25 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
         await uow.SaveChangesAsync(ct);
         return await GetPolicyAsync(draft.PricingPolicyId, ct);
     }
+
+    public Task<Result<bool>> DeleteDraftAsync(int policyId, CancellationToken ct) =>
+        uow.InTransactionAsync<bool>(async () =>
+        {
+            var policy = await uow.Repository<PricingPolicy>().Query()
+                .Include(p => p.UnitPrices).Include(p => p.FeeTypes)
+                .FirstOrDefaultAsync(p => p.PricingPolicyId == policyId, ct);
+            if (policy is null)
+                return Error.NotFound("Pricing policy not found.");
+            // A draft was never in force, so no booking or contract points to it; published versions are the record.
+            if (policy.Status != PricingPolicyStatus.Draft)
+                return Error.Conflict($"Only a Draft can be deleted; this version is {policy.Status}.");
+            foreach (var price in policy.UnitPrices.ToList())
+                uow.Repository<UnitPrice>().Remove(price);
+            foreach (var fee in policy.FeeTypes.ToList())
+                uow.Repository<FeeType>().Remove(fee);
+            uow.Repository<PricingPolicy>().Remove(policy);
+            return true;
+        }, ct);
 
     public async Task<Result<PricingPolicyDto>> ActivatePolicyAsync(int policyId, CancellationToken ct)
     {
