@@ -1,6 +1,6 @@
 using FluentAssertions;
 using StorEase.Application.Common;
-using StorEase.Application.Features.UnitVisits;
+using StorEase.Application.Features.CheckIns;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
 using static StorEase.Application.Tests.CoreFlowSeed;
@@ -8,7 +8,7 @@ using static StorEase.Application.Tests.CoreFlowSeed;
 namespace StorEase.Application.Tests;
 
 /// <summary>SR-05: one open visit per Active contract; staff of other facilities cannot record one.</summary>
-public class UnitVisitTests
+public class CheckInTests
 {
     private static int SeedContract(TestDb t, ContractStatus status)
     {
@@ -33,16 +33,16 @@ public class UnitVisitTests
     {
         using var t = Create();
         var contractId = SeedContract(t, ContractStatus.Active);
-        var staff = new UnitVisitService(t.Uow, Staff);
+        var staff = new CheckInService(t.Uow, Staff);
 
-        var first = await staff.CheckInAsync(new UnitVisitCheckInRequest(contractId, "Lấy đồ"), default);
-        var second = await staff.CheckInAsync(new UnitVisitCheckInRequest(contractId, null), default);
-        var outOnce = await staff.CheckOutAsync(first.Value!.UnitVisitId, default);
-        var outTwice = await staff.CheckOutAsync(first.Value.UnitVisitId, default);
-        var afterLeaving = await staff.CheckInAsync(new UnitVisitCheckInRequest(contractId, null), default);
-        var outsider = await new UnitVisitService(t.Uow, new FakeCurrentUser(77, Roles.FacilityStaff))
-            .CheckInAsync(new UnitVisitCheckInRequest(contractId, null), default);
-        var customerSees = await new UnitVisitService(t.Uow, Customer).ListAsync(contractId, 1, 20, default);
+        var first = await staff.CheckInAsync(new CheckInRequest(contractId, "Lấy đồ"), default);
+        var second = await staff.CheckInAsync(new CheckInRequest(contractId, null), default);
+        var outOnce = await staff.CheckOutAsync(first.Value!.CheckInId, default);
+        var outTwice = await staff.CheckOutAsync(first.Value.CheckInId, default);
+        var afterLeaving = await staff.CheckInAsync(new CheckInRequest(contractId, null), default);
+        var outsider = await new CheckInService(t.Uow, new FakeCurrentUser(77, Roles.FacilityStaff))
+            .CheckInAsync(new CheckInRequest(contractId, null), default);
+        var customerSees = await new CheckInService(t.Uow, Customer).ListAsync(contractId, 1, 20, default);
 
         first.IsSuccess.Should().BeTrue(first.Error?.Message);
         first.Value.UnitCode.Should().Be("A-101");
@@ -60,7 +60,7 @@ public class UnitVisitTests
         using var t = Create();
         var contractId = SeedContract(t, ContractStatus.Suspended);
 
-        var result = await new UnitVisitService(t.Uow, Staff).CheckInAsync(new UnitVisitCheckInRequest(contractId, null), default);
+        var result = await new CheckInService(t.Uow, Staff).CheckInAsync(new CheckInRequest(contractId, null), default);
 
         result.Error!.Type.Should().Be(ErrorType.Conflict);
     }

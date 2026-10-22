@@ -4,9 +4,9 @@ namespace StorEase.Domain.Entities;
 /// A customer visiting the unit they rent, recorded by staff at reception (SR-05). Independent of AccessCode and
 /// AccessLog. "Check-in" here means entering for a visit, not the start of the rental (<see cref="Handover"/>).
 /// </summary>
-public class UnitVisit
+public class CheckIn
 {
-    public int UnitVisitId { get; set; }
+    public int CheckInId { get; set; }
     public int ContractId { get; set; }
     public int StorageUnitId { get; set; }
     public int RecordedBy { get; set; }
