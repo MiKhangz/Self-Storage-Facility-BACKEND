@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Interfaces;
@@ -12,10 +13,27 @@ public sealed record DepositRefundDto(
     int CustomerId, string CustomerName, string CustomerPhone, int FacilityId, string FacilityName,
     int ReservationId, string ReservationCode, int? HandoverId);
 
+/// <summary>How the money went back and, for a transfer, the bank's reference.</summary>
+public sealed record MarkDepositRefundPaidRequest(RefundMethod Method, string? ReferenceNo);
+
+public class MarkDepositRefundPaidRequestValidator : AbstractValidator<MarkDepositRefundPaidRequest>
+{
+    public MarkDepositRefundPaidRequestValidator()
+    {
+        RuleFor(x => x.Method).IsInEnum();
+        RuleFor(x => x.ReferenceNo).MaximumLength(50);
+        RuleFor(x => x.ReferenceNo).NotEmpty().When(x => x.Method == RefundMethod.BankTransfer)
+            .WithMessage("A bank transfer needs its transaction reference.");
+    }
+}
+
 public interface IDepositRefundService
 {
     /// <summary>Customers see their own refunds; managers their facilities'; business operations and admin all.</summary>
     Task<Result<PagedResult<DepositRefundDto>>> ListAsync(DepositRefundStatus? status, int page, int pageSize, CancellationToken ct);
+
+    /// <summary>Records that the customer has the money back. 409 if it was already paid.</summary>
+    Task<Result<DepositRefundDto>> MarkPaidAsync(int depositRefundId, MarkDepositRefundPaidRequest request, CancellationToken ct);
 }
 
 public class DepositRefundService(IUnitOfWork uow, ICurrentUser currentUser) : IDepositRefundService
@@ -27,7 +45,26 @@ public class DepositRefundService(IUnitOfWork uow, ICurrentUser currentUser) : I
         if (status is not null)
             query = query.Where(r => r.Status == status);
         // Oldest pending first: those are the customers who have waited longest for their money.
-        return await Project(query.OrderBy(r => r.Status).ThenBy(r => r.CreatedAt)).ToPagedResultAsync(page, pageSize, ct);
+        return await Project(query.OrderBy(r => r.Status == DepositRefundStatus.Paid).ThenBy(r => r.CreatedAt))
+            .ToPagedResultAsync(page, pageSize, ct);
+    }
+
+    public async Task<Result<DepositRefundDto>> MarkPaidAsync(
+        int depositRefundId, MarkDepositRefundPaidRequest request, CancellationToken ct)
+    {
+        var refund = await Visible().FirstOrDefaultAsync(r => r.DepositRefundId == depositRefundId, ct);
+        if (refund is null)
+            return Error.NotFound("Deposit refund not found.");
+        if (refund.Status == DepositRefundStatus.Paid)
+            return Error.Conflict("This deposit refund is already paid.");
+
+        refund.Status = DepositRefundStatus.Paid;
+        refund.Method = request.Method;
+        refund.ReferenceNo = string.IsNullOrWhiteSpace(request.ReferenceNo) ? null : request.ReferenceNo.Trim();
+        refund.PaidAt = DateTime.UtcNow;
+        refund.PaidBy = currentUser.UserId;
+        await uow.SaveChangesAsync(ct);
+        return await Project(Visible().Where(r => r.DepositRefundId == depositRefundId)).FirstAsync(ct);
     }
 
     private IQueryable<DepositRefund> Visible()
