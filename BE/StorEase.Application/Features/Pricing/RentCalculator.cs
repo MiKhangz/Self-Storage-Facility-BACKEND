@@ -22,10 +22,24 @@ public static class RentCalculator
             .OrderByDescending(p => p.EffectiveFrom)
             .FirstOrDefaultAsync(ct);
 
+    /// <summary>
+    /// A rental's own policy version (pinned when it was booked), or for rentals from before pinning, the one in force
+    /// on <paramref name="date"/>.
+    /// </summary>
+    public static async Task<PricingPolicy?> PolicyOfAsync(IUnitOfWork uow, int? pricingPolicyId, DateOnly date, CancellationToken ct) =>
+        pricingPolicyId is { } id
+            ? await uow.Repository<PricingPolicy>().FindAsync(id, ct)
+            : await PolicyForAsync(uow, date, ct);
+
+    /// <summary>
+    /// Rent and deposit for a stay. A new booking passes no <paramref name="pricingPolicyId"/> and is quoted from the
+    /// policy in force on the move-in date; a booking being turned into a contract passes the version it was quoted
+    /// under, so a price change in between does not reach it.
+    /// </summary>
     public static async Task<Result<RentTerms>> TermsAsync(
-        IUnitOfWork uow, int unitTypeId, DateOnly moveInDate, int rentalMonths, CancellationToken ct)
+        IUnitOfWork uow, int unitTypeId, DateOnly moveInDate, int rentalMonths, CancellationToken ct, int? pricingPolicyId = null)
     {
-        var policy = await PolicyForAsync(uow, moveInDate, ct);
+        var policy = await PolicyOfAsync(uow, pricingPolicyId, moveInDate, ct);
         if (policy is null)
             return Error.NotFound("No active pricing policy applies to the move-in date.");
 
