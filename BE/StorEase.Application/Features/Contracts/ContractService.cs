@@ -43,7 +43,9 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
                     && (c.Status == ContractStatus.Active || c.Status == ContractStatus.Draft), ct))
                 return Error.Conflict("The unit already has an Active or Draft contract.");
 
-            var terms = await RentCalculator.TermsAsync(uow, reservation.UnitTypeId, reservation.MoveInDate, reservation.RentalMonths, ct);
+            // The rent and deposit the customer was quoted when booking, even if a new price was published since.
+            var terms = await RentCalculator.TermsAsync(uow, reservation.UnitTypeId, reservation.MoveInDate, reservation.RentalMonths, ct,
+                reservation.PricingPolicyId);
             if (!terms.IsSuccess)
                 return terms.Error;
 
@@ -60,6 +62,7 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
                 EndDate = reservation.MoveInDate.AddMonths(reservation.RentalMonths).AddDays(-1),
                 MonthlyRent = terms.Value.MonthlyRent,
                 DepositAmount = terms.Value.Deposit,
+                PricingPolicyId = terms.Value.Policy.PricingPolicyId,
                 PaymentDay = request.PaymentDay,
                 Status = ContractStatus.Draft,
             };
