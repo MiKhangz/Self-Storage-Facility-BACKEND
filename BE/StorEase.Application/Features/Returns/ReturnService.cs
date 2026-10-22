@@ -21,6 +21,9 @@ public interface IReturnService
 
 public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnService
 {
+    /// <summary>Days the customer has to empty the unit, counted from the return request.</summary>
+    public const int MoveOutDays = 15;
+
     public async Task<Result<ReturnDto>> RequestAsync(CreateReturnRequest request, CancellationToken ct)
     {
         var created = await uow.InTransactionAsync<int>(async () =>
@@ -40,8 +43,12 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
                 return Error.Conflict("This contract already has an open return request.");
 
             // Rule 8 (SR-04): no notice period; an early return is allowed and costs a penalty at settlement.
-            if (request.PlannedReturnDate < VietnamTime.Today)
+            var today = VietnamTime.Today;
+            if (request.PlannedReturnDate < today)
                 return Error.Validation("The return date cannot be in the past.");
+            var deadline = today.AddDays(MoveOutDays);
+            if (request.PlannedReturnDate > deadline)
+                return Error.Validation($"The unit must be emptied within {MoveOutDays} days, by {deadline:dd/MM/yyyy}.");
 
             var unitReturn = new UnitReturn
             {
@@ -52,6 +59,7 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
                 RefundMethod = request.RefundMethod,
                 RefundAccount = request.RefundAccount,
                 Status = ReturnStatus.Requested,
+                MoveOutDeadline = deadline,
             };
             uow.Repository<UnitReturn>().Add(unitReturn);
             contract.Status = ContractStatus.PendingReturn;
@@ -213,6 +221,8 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
             m.RefundMethod,
             m.RefundAccount,
             m.Status,
+            m.MoveOutDeadline,
+            m.AccessLockedAt,
             inspections.Where(i => i.UnitReturnId == m.UnitReturnId)
                 .OrderByDescending(i => i.ReturnInspectionId)
                 .Select(i => new ReturnInspectionDto(

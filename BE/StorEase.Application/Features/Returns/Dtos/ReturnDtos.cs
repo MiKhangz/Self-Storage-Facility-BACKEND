@@ -19,7 +19,7 @@ public sealed record ReturnDto(
     int UnitReturnId, int ContractId, string ContractNumber, int CustomerId, string CustomerName,
     int StorageUnitId, string UnitCode, DateTime RequestedAt, DateOnly PlannedReturnDate, string? Reason,
     DateTime? InspectionSlot, RefundMethod? RefundMethod, string? RefundAccount, ReturnStatus Status,
-    ReturnInspectionDto? Inspection);
+    DateOnly MoveOutDeadline, DateTime? AccessLockedAt, ReturnInspectionDto? Inspection);
 
 /// <summary>Breakdown of the deposit settlement; <c>Shortfall</c> is what the customer still owes when deductions exceed the deposit.</summary>
 /// <summary>EarlyTerminationPenalty is also added to the inspection's OtherDeduction; DamageDeductions excludes it.</summary>
