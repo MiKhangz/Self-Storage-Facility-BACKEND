@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.DepositRefunds;
 using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.Handovers.Dtos;
 using StorEase.Application.Interfaces;
@@ -126,8 +127,8 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser) : IHando
     }
 
     /// <summary>
-    /// Business rule 7. Records the refund and closes the contract; the payout itself goes through the
-    /// payment gateway, which is not connected, so nothing is paid out here.
+    /// Business rule 7. Records the refund and closes the contract. The refund is owed as a Pending DepositRefund,
+    /// which Business Operations mark Paid once the customer has the money.
     /// </summary>
     public Task<Result<DepositSettlementDto>> SettleAsync(int id, CancellationToken ct) =>
         uow.InTransactionAsync<DepositSettlementDto>(async () =>
@@ -161,6 +162,8 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser) : IHando
             var (refund, shortfall) = DepositSettlement.Calculate(contract.DepositAmount, damage + penalty, outstanding);
 
             inspection.RefundAmount = refund;
+            var reservation = (await uow.Repository<Reservation>().FindAsync(contract.ReservationId, ct))!;
+            DepositRefundService.Owe(uow, reservation, refund, handover);
             handover.Status = HandoverStatus.Completed;
             contract.Status = ContractStatus.Closed;
 
