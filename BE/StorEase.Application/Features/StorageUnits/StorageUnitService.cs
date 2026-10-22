@@ -63,7 +63,9 @@ public class StorageUnitService(IUnitOfWork uow, ICurrentUser currentUser) : ISt
             Zone = Clean(request.Zone),
             CurrentPrice = request.CurrentPrice is { } price ? Money.Round(price) : await PolicyPriceAsync(request.UnitTypeId, ct),
             Note = Clean(request.Note),
-            Status = StorageUnitStatus.Available,
+            // A unit added to a floor under construction or renovation goes on sale when the floor reopens.
+            Status = await uow.Repository<Floor>().Query().AnyAsync(f => f.FloorId == request.FloorId && f.Status == FloorStatus.Open, ct)
+                ? StorageUnitStatus.Available : StorageUnitStatus.Maintenance,
         };
         uow.Repository<StorageUnit>().Add(unit);
         await uow.SaveChangesAsync(ct);
@@ -119,7 +121,7 @@ public class StorageUnitService(IUnitOfWork uow, ICurrentUser currentUser) : ISt
     private async Task<Error?> CheckPlacementAsync(
         int facilityId, int floorId, int unitTypeId, string unitCode, int? exceptUnitId, CancellationToken ct)
     {
-        if (!await uow.Repository<Floor>().Query().AnyAsync(f => f.FloorId == floorId && f.FacilityId == facilityId, ct))
+        if (!await uow.Repository<Floor>().Query().AnyAsync(f => f.FloorId == floorId && f.FacilityId == facilityId && f.Status != FloorStatus.Removed, ct))
             return Error.Validation("The floor does not belong to this facility.");
         if (!await uow.Repository<UnitType>().Query().AnyAsync(t => t.UnitTypeId == unitTypeId, ct))
             return Error.NotFound("Unit type not found.");

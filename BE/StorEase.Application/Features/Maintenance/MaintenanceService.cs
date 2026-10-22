@@ -143,7 +143,9 @@ public class MaintenanceService(IUnitOfWork uow, ICurrentUser currentUser) : IMa
                     o.StorageUnitId == unit.StorageUnitId &&
                     o.MaintenanceOrderId != order.MaintenanceOrderId &&
                     LiveStatuses.Contains(o.Status), ct);
-                if (!otherLive)
+                // A repair finished on a floor that is closed leaves the unit off the market until the floor reopens.
+                var floorOpen = await uow.Repository<Floor>().Query().AnyAsync(f => f.FloorId == unit.FloorId && f.Status == FloorStatus.Open, ct);
+                if (!otherLive && floorOpen)
                     unit.Status = StorageUnitStatus.Available;
             }
 
