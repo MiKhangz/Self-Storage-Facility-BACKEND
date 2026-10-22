@@ -1,3 +1,4 @@
+using StorEase.Domain.Enums;
 using FluentValidation;
 using StorEase.Application.Features.Facilities.Dtos;
 
@@ -23,5 +24,6 @@ public class FloorRequestValidator : AbstractValidator<FloorRequest>
     {
         RuleFor(x => x.FloorNumber).InclusiveBetween(-5, 200);
         RuleFor(x => x.Name).MaximumLength(50);
+        RuleFor(x => x.Status).IsInEnum().NotEqual(FloorStatus.Removed).WithMessage("Remove a floor with DELETE /api/floors/{id}.");
     }
 }

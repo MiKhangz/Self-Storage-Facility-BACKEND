@@ -60,8 +60,9 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
             facility.FacilityId, facility.Code, facility.Name, facility.Address, facility.District, facility.Phone,
             facility.OpeningHours, facility.Status, facility.ManagerId, facility.Manager?.FullName,
             units.Count, units.Count(u => u.Status == StorageUnitStatus.Available),
-            facility.Floors.OrderBy(f => f.FloorNumber)
-                .Select(f => new FacilityFloorDto(f.FloorId, f.FacilityId, f.FloorNumber, f.Name, units.Count(u => u.FloorId == f.FloorId)))
+            facility.Floors.Where(f => f.Status != FloorStatus.Removed).OrderBy(f => f.FloorNumber)
+                .Select(f => new FacilityFloorDto(f.FloorId, f.FacilityId, f.FloorNumber, f.Name, units.Count(u => u.FloorId == f.FloorId), f.Status,
+                    units.Count(u => u.FloorId == f.FloorId && u.Status is StorageUnitStatus.Reserved or StorageUnitStatus.Occupied)))
                 .ToList(),
             units.GroupBy(u => u.UnitType).OrderBy(g => g.Key.AreaM2)
                 .Select(g => new FacilityUnitTypeDto(g.Key.UnitTypeId, g.Key.Code, g.Key.Name, g.Key.AreaM2, g.Key.IsClimateControlled,
