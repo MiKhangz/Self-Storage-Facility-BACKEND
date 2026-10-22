@@ -11,7 +11,7 @@ namespace StorEase.Application.Features.Billing;
 
 public sealed record BillingRunDto(
     DateOnly Date, int InvoicesIssued, int InvoicesMarkedOverdue, int CasesOpened, int LateFeesUpdated,
-    int ContractsLockedOut, int CasesClearedOut, int RemindersSent, int RemindersFailed);
+    int ContractsLockedOut, int CasesClearedOut, int RemindersSent, int RemindersFailed, int ReturnsLockedOut);
 
 public interface IBillingCycleService
 {
@@ -41,14 +41,15 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
         {
             var issued = await IssueRentInvoicesAsync(today, ct);
             var escalation = policy is null ? new int[5] : await EscalateOverdueAsync(policy, today, now, ct);
-            return new[] { issued }.Concat(escalation).ToArray();
+            var returnsLocked = await LockPastMoveOutDeadlineAsync(today, now, ct);
+            return new[] { issued }.Concat(escalation).Append(returnsLocked).ToArray();
         }, ct);
         if (!counts.IsSuccess)
             return counts.Error;
 
         var (sent, failed) = await SendScheduledRemindersAsync(today, ct);
         var c = counts.Value;
-        return new BillingRunDto(today, c[0], c[1], c[2], c[3], c[4], c[5], sent, failed);
+        return new BillingRunDto(today, c[0], c[1], c[2], c[3], c[4], c[5], sent, failed, c[6]);
     }
 
     /// <summary>
@@ -182,6 +183,27 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
             }
         }
         return [markedOverdue, opened, feesUpdated, lockedOut, clearedOut];
+    }
+
+    /// <summary>
+    /// A return still not inspected after its move-out deadline: the customer's codes stop working and staff clear
+    /// the unit out, then inspect and settle as usual.
+    /// </summary>
+    private async Task<int> LockPastMoveOutDeadlineAsync(DateOnly today, DateTime now, CancellationToken ct)
+    {
+        var late = await uow.Repository<UnitReturn>().Query()
+            .Where(r => (r.Status == ReturnStatus.Requested || r.Status == ReturnStatus.Approved)
+                && r.MoveOutDeadline < today && r.AccessLockedAt == null)
+            .ToListAsync(ct);
+        foreach (var unitReturn in late)
+        {
+            var codes = await uow.Repository<AccessCode>().Query()
+                .Where(a => a.ContractId == unitReturn.ContractId && a.IsActive).ToListAsync(ct);
+            foreach (var code in codes)
+                code.IsActive = false;
+            unitReturn.AccessLockedAt = now;
+        }
+        return late.Count;
     }
 
     /// <summary>

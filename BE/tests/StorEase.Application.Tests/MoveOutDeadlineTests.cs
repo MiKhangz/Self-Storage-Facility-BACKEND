@@ -52,4 +52,24 @@ public class MoveOutDeadlineTests
         lastDay.Value!.MoveOutDeadline.Should().Be(VietnamTime.Today.AddDays(ReturnService.MoveOutDays));
         lastDay.Value.AccessLockedAt.Should().BeNull();
     }
+
+    [Fact]
+    public async Task The_daily_job_locks_access_once_the_deadline_has_passed()
+    {
+        using var t = Create();
+        var contractId = SeedActiveContract(t);
+        var id = (await new ReturnService(t.Uow, Customer).RequestAsync(On(contractId, 10), default)).Value!.UnitReturnId;
+        var billing = new BillingCycleService(t.Uow, new ReminderService(t.Uow, Staff, new FakeEmailService()));
+        var deadline = VietnamTime.Today.AddDays(ReturnService.MoveOutDays);
+
+        var onDeadline = await billing.RunAsync(deadline, default);
+        var dayAfter = await billing.RunAsync(deadline.AddDays(1), default);
+        var again = await billing.RunAsync(deadline.AddDays(2), default);
+
+        onDeadline.Value!.ReturnsLockedOut.Should().Be(0, "the deadline day itself is still the customer's");
+        dayAfter.Value!.ReturnsLockedOut.Should().Be(1);
+        again.Value!.ReturnsLockedOut.Should().Be(0, "a locked return is not locked twice");
+        (await t.Db.AccessCodes.SingleAsync(a => a.ContractId == contractId)).IsActive.Should().BeFalse();
+        (await new ReturnService(t.Uow, Staff).GetAsync(id, default)).Value!.AccessLockedAt.Should().NotBeNull();
+    }
 }
