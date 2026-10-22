@@ -1490,11 +1490,17 @@ namespace StorEase.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UnitReturnId"));
 
+                    b.Property<DateTime?>("AccessLockedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("ContractId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("InspectionSlot")
                         .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("MoveOutDeadline")
+                        .HasColumnType("date");
 
                     b.Property<DateOnly>("PlannedReturnDate")
                         .HasColumnType("date");
