@@ -14,6 +14,11 @@ public interface IPricingService
     Task<Result<PolicyTermsDto>> GetCurrentTermsAsync(CancellationToken ct);
     Task<Result<PricingPolicyDto>> CreatePolicyAsync(CreatePricingPolicyRequest request, CancellationToken ct);
     Task<Result<PricingPolicyDto>> ActivatePolicyAsync(int policyId, CancellationToken ct);
+    /// <summary>
+    /// A new Draft with the prices, discounts, fees and terms of any version, starting today. This is how an old price is
+    /// brought back: as a new version, so no past dates change. 409 while another Draft exists.
+    /// </summary>
+    Task<Result<PricingPolicyDto>> CopyToDraftAsync(int policyId, CancellationToken ct);
     /// <summary>T-03: changes the dates and terms of a Draft policy; an Active or Expired one is history and stays.</summary>
     Task<Result<PricingPolicyDto>> UpdatePolicyAsync(int policyId, UpdatePricingPolicyRequest request, CancellationToken ct);
     Task<Result<UnitPriceDto>> UpsertUnitPriceAsync(int policyId, int unitTypeId, UpsertUnitPriceRequest request, CancellationToken ct);
@@ -114,6 +119,46 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
         policy.CancelFreeHours = request.CancelFreeHours;
         await uow.SaveChangesAsync(ct);
         return await GetPolicyAsync(policyId, ct);
+    }
+
+    public async Task<Result<PricingPolicyDto>> CopyToDraftAsync(int policyId, CancellationToken ct)
+    {
+        var source = await uow.Repository<PricingPolicy>().Query().AsNoTracking()
+            .Include(p => p.UnitPrices).Include(p => p.FeeTypes)
+            .FirstOrDefaultAsync(p => p.PricingPolicyId == policyId, ct);
+        if (source is null)
+            return Error.NotFound("Pricing policy not found.");
+        // The page works on one draft at a time; a second one would hide which is meant to be published.
+        if (await uow.Repository<PricingPolicy>().Query().AnyAsync(p => p.Status == PricingPolicyStatus.Draft, ct))
+            return Error.Conflict("Publish or delete the current draft first.");
+
+        var version = (await uow.Repository<PricingPolicy>().Query().MaxAsync(p => (int?)p.Version, ct) ?? 0) + 1;
+        var draft = new PricingPolicy
+        {
+            CreatedBy = currentUser.UserId,
+            Version = version,
+            EffectiveFrom = VietnamTime.Today,
+            DepositMonths = source.DepositMonths,
+            GraceDays = source.GraceDays,
+            NoticeDays = source.NoticeDays,
+            LateFeePercentPerWeek = source.LateFeePercentPerWeek,
+            EarlyTerminationPercent = source.EarlyTerminationPercent,
+            SuspendAfterDays = source.SuspendAfterDays,
+            ClearOutAfterDays = source.ClearOutAfterDays,
+            CancelFreeHours = source.CancelFreeHours,
+            Status = PricingPolicyStatus.Draft,
+        };
+        foreach (var price in source.UnitPrices)
+            draft.UnitPrices.Add(new UnitPrice
+            {
+                UnitTypeId = price.UnitTypeId, BasePricePerMonth = price.BasePricePerMonth,
+                Discount3Month = price.Discount3Month, Discount6Month = price.Discount6Month, Discount12Month = price.Discount12Month,
+            });
+        foreach (var fee in source.FeeTypes)
+            draft.FeeTypes.Add(new FeeType { Code = fee.Code, Name = fee.Name, Amount = fee.Amount, IsPercentage = fee.IsPercentage });
+        uow.Repository<PricingPolicy>().Add(draft);
+        await uow.SaveChangesAsync(ct);
+        return await GetPolicyAsync(draft.PricingPolicyId, ct);
     }
 
     public async Task<Result<PricingPolicyDto>> ActivatePolicyAsync(int policyId, CancellationToken ct)
