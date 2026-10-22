@@ -554,10 +554,13 @@ FacilityStaff and FacilityManager see and act only on records of facilities they
 
 ### Pricing fees (Trường)
 
+Every `/api/pricing-policies` route (list, get, create, edit, unit prices, activate, fees): `BusinessOperationsManager` and
+`SystemAdministrator`, except `current-terms`, which is public.
+
 | Method & route | Who |
 |---|---|
-| `POST /api/pricing-policies/{id}/fee-types` · `PUT/DELETE /api/fee-types/{id}` | B (Draft policies only) |
-| `PUT /api/pricing-policies/{id}` (same body as create: dates and terms, `earlyTerminationPercent` 0–100) | B (Draft policies only, `409` otherwise) |
+| `POST /api/pricing-policies/{id}/fee-types` · `PUT/DELETE /api/fee-types/{id}` | B, A (Draft policies only) |
+| `PUT /api/pricing-policies/{id}` (same body as create: dates and terms, `earlyTerminationPercent` 0–100) | B, A (Draft policies only, `409` otherwise) |
 
 ### Payments (Trường)
 
