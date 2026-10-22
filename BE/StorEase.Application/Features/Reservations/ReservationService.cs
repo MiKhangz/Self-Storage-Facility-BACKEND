@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.DepositRefunds;
 using StorEase.Application.Features.Invoices;
 using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.Reservations.Dtos;
@@ -206,6 +207,8 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
                 var freeUntil = reservation.CreatedAt.AddHours(policy?.CancelFreeHours ?? 0);
                 refundable = !currentUser.IsCustomer || DateTime.UtcNow <= freeUntil;
             }
+            if (refundable)
+                DepositRefundService.Owe(uow, reservation, paid);
             return (reservation.ReservationId, paid, refundable);
         }, ct);
 
