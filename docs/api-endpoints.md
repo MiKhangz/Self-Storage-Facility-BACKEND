@@ -561,6 +561,8 @@ Every `/api/pricing-policies` route (list, get, create, edit, unit prices, activ
 |---|---|
 | `POST /api/pricing-policies/{id}/fee-types` · `PUT/DELETE /api/fee-types/{id}` | B, A (Draft policies only) |
 | `PUT /api/pricing-policies/{id}` (same body as create: dates and terms, `earlyTerminationPercent` 0–100) | B, A (Draft policies only, `409` otherwise) |
+| `POST /api/pricing-policies/{id}/copy` | B, A | `201` a new Draft (next version, starts today) with that version's prices, discounts, fees and terms; `409` while another Draft exists. How an old price comes back: as a new version, so no past dates change. |
+| `DELETE /api/pricing-policies/{id}` | B, A | `204`; removes a Draft with its prices and fees. `409` for an Active or Superseded version (history). |
 
 ### Payments (Trường)
 
