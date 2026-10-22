@@ -49,6 +49,22 @@ public sealed class PricingPoliciesController(IPricingService pricing) : ApiCont
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
+    /// <summary>A new Draft copied from any version (prices, discounts, fees, terms). 409 while another Draft exists.</summary>
+    [HttpPost("{id:int}/copy")]
+    public async Task<ActionResult<PricingPolicyDto>> CopyToDraft(int id, CancellationToken ct)
+    {
+        var result = await pricing.CopyToDraftAsync(id, ct);
+        return result.IsSuccess ? CreatedAtAction(nameof(Get), new { id = result.Value.PricingPolicyId }, result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>Deletes a Draft; 409 for a published (Active or Superseded) version.</summary>
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteDraft(int id, CancellationToken ct)
+    {
+        var result = await pricing.DeleteDraftAsync(id, ct);
+        return result.IsSuccess ? NoContent() : Failure(result.Error);
+    }
+
     [HttpPost("{id:int}/activate")]
     public async Task<ActionResult<PricingPolicyDto>> Activate(int id, CancellationToken ct)
     {
