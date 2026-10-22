@@ -283,6 +283,9 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<int>("PaymentDay")
                         .HasColumnType("int");
 
+                    b.Property<int?>("PricingPolicyId")
+                        .HasColumnType("int");
+
                     b.Property<int>("ReservationId")
                         .HasColumnType("int");
 
@@ -307,6 +310,8 @@ namespace StorEase.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("CustomerId");
+
+                    b.HasIndex("PricingPolicyId");
 
                     b.HasIndex("ReservationId");
 
@@ -1075,6 +1080,9 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<DateOnly>("MoveInDate")
                         .HasColumnType("date");
 
+                    b.Property<int?>("PricingPolicyId")
+                        .HasColumnType("int");
+
                     b.Property<int>("RentalMonths")
                         .HasColumnType("int");
 
@@ -1105,6 +1113,8 @@ namespace StorEase.Infrastructure.Migrations
                     b.HasIndex("FacilityId");
 
                     b.HasIndex("MoveInDate");
+
+                    b.HasIndex("PricingPolicyId");
 
                     b.HasIndex("ReservationCode")
                         .IsUnique();
@@ -1736,6 +1746,11 @@ namespace StorEase.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("StorEase.Domain.Entities.PricingPolicy", "PricingPolicy")
+                        .WithMany()
+                        .HasForeignKey("PricingPolicyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("StorEase.Domain.Entities.Reservation", "Reservation")
                         .WithMany()
                         .HasForeignKey("ReservationId")
@@ -1749,6 +1764,8 @@ namespace StorEase.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Customer");
+
+                    b.Navigation("PricingPolicy");
 
                     b.Navigation("Reservation");
 
@@ -2040,6 +2057,11 @@ namespace StorEase.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("StorEase.Domain.Entities.PricingPolicy", "PricingPolicy")
+                        .WithMany()
+                        .HasForeignKey("PricingPolicyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("StorEase.Domain.Entities.StorageUnit", "StorageUnit")
                         .WithMany()
                         .HasForeignKey("StorageUnitId")
@@ -2056,6 +2078,8 @@ namespace StorEase.Infrastructure.Migrations
                     b.Navigation("Customer");
 
                     b.Navigation("Facility");
+
+                    b.Navigation("PricingPolicy");
 
                     b.Navigation("StorageUnit");
 

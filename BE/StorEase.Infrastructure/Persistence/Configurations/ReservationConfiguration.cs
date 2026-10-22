@@ -12,6 +12,7 @@ public class ReservationConfiguration : IEntityTypeConfiguration<Reservation>
         builder.HasKey(x => x.ReservationId);
 
         builder.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId);
+        builder.HasOne(x => x.PricingPolicy).WithMany().HasForeignKey(x => x.PricingPolicyId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.Facility).WithMany().HasForeignKey(x => x.FacilityId);
         builder.HasOne(x => x.UnitType).WithMany().HasForeignKey(x => x.UnitTypeId);
         builder.HasOne(x => x.StorageUnit).WithMany().HasForeignKey(x => x.StorageUnitId);
