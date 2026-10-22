@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using StorEase.Api;
+using StorEase.Api.Controllers;
 using StorEase.Api.Middleware;
 using StorEase.Application;
 using StorEase.Application.Common;
@@ -64,6 +65,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         // Keep claim names as issued ("sub", "role") instead of the long WS-* URIs.
         options.MapInboundClaims = false;
+        // The web app's token comes in the HttpOnly session cookie set at login; Swagger and tests still send the header.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (string.IsNullOrEmpty(context.Request.Headers.Authorization))
+                    context.Token = context.Request.Cookies[AuthController.SessionCookie];
+                return Task.CompletedTask;
+            },
+        };
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidIssuer = jwt.Issuer,
@@ -93,8 +104,8 @@ builder.Services.AddSwaggerGen(options =>
     options.AddSecurityRequirement(new OpenApiSecurityRequirement { [bearer] = [] });
 });
 
-// Owner decision (VS-1341): any origin in every environment. The frontend holds its JWT in memory and sends it
-// in the Authorization header, so no credentialed CORS is needed. To restore: WithOrigins("http://localhost:5173").
+// Owner decision (VS-1341): any origin in every environment. The web app calls the API through its own origin
+// (the Vite proxy), so the session cookie needs no credentialed CORS. To restore: WithOrigins("http://localhost:5173").
 const string AnyOriginCors = "AnyOrigin";
 builder.Services.AddCors(options => options.AddPolicy(AnyOriginCors, policy => policy
     .AllowAnyOrigin()

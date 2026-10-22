@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StorEase.Application.Features.Auth;
@@ -9,11 +10,41 @@ namespace StorEase.Api.Controllers;
 [AllowAnonymous]
 public class AuthController(IAuthService auth) : ApiControllerBase
 {
+    /// <summary>Holds the login token. HttpOnly, so page scripts never see it; it lasts as long as the token inside.</summary>
+    public const string SessionCookie = "storease_session";
+
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request, CancellationToken ct)
     {
         var result = await auth.LoginAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString(), ct);
-        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+        if (!result.IsSuccess)
+            return Failure(result.Error);
+        // Strict: the browser never sends it on a request started by another site, which is the CSRF guard.
+        Response.Cookies.Append(SessionCookie, result.Value!.Token, new CookieOptions
+        {
+            HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Path = "/api",
+        });
+        return Ok(result.Value);
+    }
+
+    /// <summary>The signed-in user, so a reloaded page can pick its session back up from the cookie.</summary>
+    [HttpGet("session")]
+    public ActionResult<SessionResponse> Session()
+    {
+        // The controller is [AllowAnonymous], which would override [Authorize] here.
+        if (User.Identity?.IsAuthenticated != true)
+            return Unauthorized();
+        var exp = long.Parse(User.FindFirstValue("exp")!);
+        return new SessionResponse(
+            int.Parse(User.FindFirstValue("sub")!), User.FindFirstValue("name") ?? "", User.FindFirstValue("role")!,
+            DateTimeOffset.FromUnixTimeSeconds(exp).UtcDateTime);
+    }
+
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        Response.Cookies.Delete(SessionCookie, new CookieOptions { Secure = true, SameSite = SameSiteMode.Strict, Path = "/api" });
+        return NoContent();
     }
 
     /// <summary>Creates a customer account in Pending and emails a verification link.</summary>
