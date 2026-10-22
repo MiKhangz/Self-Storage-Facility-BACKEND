@@ -1,9 +1,9 @@
 namespace StorEase.Domain.Entities;
 
-public class CheckInPhoto
+public class HandoverPhoto
 {
-    public int CheckInPhotoId { get; set; }
-    public int CheckInId { get; set; }
+    public int HandoverPhotoId { get; set; }
+    public int HandoverId { get; set; }
     public int UploadedBy { get; set; }
     public string FileName { get; set; } = string.Empty;
     public string ContentType { get; set; } = string.Empty;
@@ -11,6 +11,6 @@ public class CheckInPhoto
     public int SizeBytes { get; set; }
     public DateTime UploadedAt { get; set; }
 
-    public CheckIn CheckIn { get; set; } = null!;
+    public Handover Handover { get; set; } = null!;
     public User UploadedByUser { get; set; } = null!;
 }

@@ -34,10 +34,10 @@ public sealed record CancelReservationRequest(string? Reason);
 /// </summary>
 public sealed record ReservationCancellationDto(ReservationDto Reservation, decimal DepositPaid, bool DepositRefundable);
 
-public sealed record CheckInItemDto(string Key, string Label, bool Done, string? Detail);
+public sealed record HandoverItemDto(string Key, string Label, bool Done, string? Detail);
 
-/// <summary>What staff confirm at the counter before check-in. CheckIn is allowed when <see cref="ReadyForCheckIn"/>.</summary>
-public sealed record CheckInChecklistDto(
+/// <summary>What staff confirm at the counter before handover. Handover is allowed when <see cref="ReadyForHandover"/>.</summary>
+public sealed record HandoverChecklistDto(
     int ReservationId,
     string ReservationCode,
     string CustomerName,
@@ -45,5 +45,5 @@ public sealed record CheckInChecklistDto(
     string? CitizenId,
     string? UnitCode,
     int? ContractId,
-    IReadOnlyList<CheckInItemDto> Items,
-    bool ReadyForCheckIn);
+    IReadOnlyList<HandoverItemDto> Items,
+    bool ReadyForHandover);

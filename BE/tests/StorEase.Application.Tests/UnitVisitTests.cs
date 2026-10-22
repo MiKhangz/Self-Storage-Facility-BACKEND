@@ -17,7 +17,7 @@ public class UnitVisitTests
             Reservation = new Reservation
             {
                 CustomerId = CustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, StorageUnitId = A101, ReservationCode = "RS-VISIT",
-                MoveInDate = MoveIn, RentalMonths = 1, Status = ReservationStatus.CheckedIn, CreatedAt = DateTime.UtcNow,
+                MoveInDate = MoveIn, RentalMonths = 1, Status = ReservationStatus.HandedOver, CreatedAt = DateTime.UtcNow,
             },
             CustomerId = CustomerId, StorageUnitId = A101, ContractNumber = "CT-VISIT", StartDate = MoveIn, EndDate = MoveIn.AddMonths(1),
             MonthlyRent = 900_000m, DepositAmount = 900_000m, PaymentDay = 10, SignedAt = DateTime.UtcNow, Status = status,

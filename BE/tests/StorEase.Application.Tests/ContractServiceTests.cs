@@ -136,7 +136,7 @@ public class ContractServiceTests
         var elsewhere = await outsider.SignAsync(1, default);
 
         signed.Value!.SignedAt.Should().NotBeNull();
-        signed.Value.Status.Should().Be(ContractStatus.Draft, "signing never activates; check-in does");
+        signed.Value.Status.Should().Be(ContractStatus.Draft, "signing never activates; handover does");
         elsewhere.Error!.Type.Should().Be(ErrorType.NotFound);
     }
 }

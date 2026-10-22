@@ -1,6 +1,6 @@
 namespace StorEase.Domain.Enums;
 
-public enum CheckInStatus
+public enum HandoverStatus
 {
     Scheduled,
     InProgress,

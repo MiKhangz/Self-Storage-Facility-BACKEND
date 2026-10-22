@@ -18,7 +18,7 @@ public sealed class TruongAssignedTaskTests
     {
         using var db = Create();
         var manager = AddManager(db, 10, FacilityId);
-        var (_, contractId) = SeedReadyForCheckIn(db, signed: true);
+        var (_, contractId) = SeedReadyForHandover(db, signed: true);
         var contract = db.Db.Contracts.Single(c => c.ContractId == contractId);
         contract.Status = ContractStatus.Active;
         contract.EndDate = new DateOnly(2027, 1, 31);
@@ -45,7 +45,7 @@ public sealed class TruongAssignedTaskTests
     public async Task Renewal_decision_is_hidden_from_a_manager_of_another_facility()
     {
         using var db = Create();
-        var (_, contractId) = SeedReadyForCheckIn(db, signed: true);
+        var (_, contractId) = SeedReadyForHandover(db, signed: true);
         var contract = db.Db.Contracts.Single(c => c.ContractId == contractId);
         contract.Status = ContractStatus.Active;
         var renewal = new Renewal
@@ -68,7 +68,7 @@ public sealed class TruongAssignedTaskTests
     {
         using var db = Create();
         var manager = AddManager(db, 10, FacilityId);
-        var (_, contractId) = SeedReadyForCheckIn(db, signed: true);
+        var (_, contractId) = SeedReadyForHandover(db, signed: true);
         var contract = db.Db.Contracts.Single(c => c.ContractId == contractId);
         contract.Status = ContractStatus.Active;
         var originalEnd = contract.EndDate;

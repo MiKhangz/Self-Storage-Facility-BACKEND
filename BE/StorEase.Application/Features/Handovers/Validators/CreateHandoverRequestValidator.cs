@@ -1,11 +1,11 @@
 using FluentValidation;
-using StorEase.Application.Features.CheckIns.Dtos;
+using StorEase.Application.Features.Handovers.Dtos;
 
-namespace StorEase.Application.Features.CheckIns.Validators;
+namespace StorEase.Application.Features.Handovers.Validators;
 
-public class CreateCheckInRequestValidator : AbstractValidator<CreateCheckInRequest>
+public class CreateHandoverRequestValidator : AbstractValidator<CreateHandoverRequest>
 {
-    public CreateCheckInRequestValidator()
+    public CreateHandoverRequestValidator()
     {
         RuleFor(x => x.ReservationId).GreaterThan(0);
         RuleFor(x => x.ContractId).GreaterThan(0);

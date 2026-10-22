@@ -78,7 +78,7 @@ public class ScopeTermsAndBillingTests
             Reservation = new Reservation
             {
                 CustomerId = CustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, StorageUnitId = A101, ReservationCode = "RS-31",
-                MoveInDate = start, RentalMonths = 3, Status = ReservationStatus.CheckedIn, CreatedAt = DateTime.UtcNow,
+                MoveInDate = start, RentalMonths = 3, Status = ReservationStatus.HandedOver, CreatedAt = DateTime.UtcNow,
             },
             CustomerId = CustomerId, StorageUnitId = A101, ContractNumber = "CT-31", StartDate = start, EndDate = start.AddMonths(3).AddDays(-1),
             MonthlyRent = 900_000m, DepositAmount = 900_000m, PaymentDay = 28, SignedAt = DateTime.UtcNow, Status = ContractStatus.Active,

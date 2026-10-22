@@ -12,7 +12,7 @@ public class UnitVisitsController(IUnitVisitService visits) : ApiControllerBase
     [HttpPost("check-in")]
     [Authorize(Roles = Roles.Staff)]
     [ProducesResponseType<UnitVisitDto>(StatusCodes.Status201Created)]
-    public async Task<ActionResult<UnitVisitDto>> CheckIn(UnitVisitCheckInRequest request, CancellationToken ct)
+    public async Task<ActionResult<UnitVisitDto>> Handover(UnitVisitCheckInRequest request, CancellationToken ct)
     {
         var result = await visits.CheckInAsync(request, ct);
         return result.IsSuccess

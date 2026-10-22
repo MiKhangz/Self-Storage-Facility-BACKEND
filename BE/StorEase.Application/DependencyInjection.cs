@@ -6,7 +6,7 @@ using StorEase.Application.Features.Auth;
 using StorEase.Application.Features.Billing;
 using StorEase.Application.Features.Contracts;
 using StorEase.Application.Features.Facilities;
-using StorEase.Application.Features.CheckIns;
+using StorEase.Application.Features.Handovers;
 using StorEase.Application.Features.Returns;
 using StorEase.Application.Features.Renewals;
 using StorEase.Application.Features.Maintenance;
@@ -37,7 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IPricingService, PricingService>();
         services.AddScoped<IInvoiceService, InvoiceService>();
         services.AddScoped<IReservationService, ReservationService>();
-        services.AddScoped<ICheckInService, CheckInService>();
+        services.AddScoped<IHandoverService, HandoverService>();
         services.AddScoped<IContractService, ContractService>();
         services.AddScoped<IAccessCodeService, AccessCodeService>();
         services.AddScoped<IAccessLogService, AccessLogService>();
@@ -52,7 +52,7 @@ public static class DependencyInjection
         services.AddScoped<IActivityLogService, ActivityLogService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IFloorService, FloorService>();
-        services.AddScoped<ICheckInEvidenceService, CheckInEvidenceService>();
+        services.AddScoped<IHandoverEvidenceService, HandoverEvidenceService>();
         services.AddScoped<IReminderService, ReminderService>();
         services.AddScoped<IBillingCycleService, BillingCycleService>();
         services.AddScoped<IOverdueService, OverdueService>();

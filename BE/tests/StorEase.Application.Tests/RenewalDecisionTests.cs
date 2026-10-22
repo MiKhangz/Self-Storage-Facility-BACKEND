@@ -25,7 +25,7 @@ public class RenewalDecisionTests
             Reservation = new Reservation
             {
                 CustomerId = CustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, StorageUnitId = A101,
-                ReservationCode = "RS-RENEW", MoveInDate = Start, RentalMonths = 3, Status = ReservationStatus.CheckedIn, CreatedAt = DateTime.UtcNow,
+                ReservationCode = "RS-RENEW", MoveInDate = Start, RentalMonths = 3, Status = ReservationStatus.HandedOver, CreatedAt = DateTime.UtcNow,
             },
             CustomerId = CustomerId, StorageUnitId = A101, ContractNumber = "CT-RENEW", StartDate = Start, EndDate = End,
             MonthlyRent = 900_000m, DepositAmount = 900_000m, PaymentDay = 10, SignedAt = DateTime.UtcNow, Status = ContractStatus.Active,

@@ -3,8 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.AccessCodes;
 using StorEase.Application.Features.Contracts;
-using StorEase.Application.Features.CheckIns;
-using StorEase.Application.Features.CheckIns.Dtos;
+using StorEase.Application.Features.Handovers;
+using StorEase.Application.Features.Handovers.Dtos;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
@@ -42,7 +42,7 @@ public class ContractLifecycleTests
         }
     }
 
-    private sealed record Fixture(AppDbContext Db, ContractService Contracts, AccessCodeService Codes, CheckInService CheckIns);
+    private sealed record Fixture(AppDbContext Db, ContractService Contracts, AccessCodeService Codes, HandoverService Handovers);
 
     private static Fixture Create(string role = Roles.FacilityStaff)
     {
@@ -52,7 +52,7 @@ public class ContractLifecycleTests
         var user = new FakeUser(9, role);
         var codes = new AccessCodeService(uow, new FakeHasher(), user);
         var contracts = new ContractService(uow, user, codes);
-        return new Fixture(db, contracts, codes, new CheckInService(uow, user, contracts));
+        return new Fixture(db, contracts, codes, new HandoverService(uow, user, contracts));
     }
 
     // One confirmed reservation, its Reserved unit and a Draft contract.
@@ -72,15 +72,15 @@ public class ContractLifecycleTests
         db.SaveChanges();
     }
 
-    private static CreateCheckInRequest CheckIn() => new(1, 1, "LK1", "CARD1", null);
+    private static CreateHandoverRequest Handover() => new(1, 1, "LK1", "CARD1", null);
 
     [Fact]
-    public async Task CheckIn_activates_contract_occupies_unit_and_issues_a_hashed_code()
+    public async Task Handover_activates_contract_occupies_unit_and_issues_a_hashed_code()
     {
         var f = Create();
         Seed(f.Db);
 
-        var result = await f.CheckIns.CreateAsync(CheckIn(), default);
+        var result = await f.Handovers.CreateAsync(Handover(), default);
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.AccessCode.Should().MatchRegex("^[0-9]{6}$");
@@ -93,12 +93,12 @@ public class ContractLifecycleTests
     }
 
     [Fact]
-    public async Task CheckIn_refuses_an_unsigned_contract_and_changes_nothing()
+    public async Task Handover_refuses_an_unsigned_contract_and_changes_nothing()
     {
         var f = Create();
         Seed(f.Db, signed: false);
 
-        var result = await f.CheckIns.CreateAsync(CheckIn(), default);
+        var result = await f.Handovers.CreateAsync(Handover(), default);
 
         result.Error!.Type.Should().Be(ErrorType.Conflict);
         f.Db.Set<Contract>().Single().Status.Should().Be(ContractStatus.Draft);
@@ -137,7 +137,7 @@ public class ContractLifecycleTests
         Seed(f.Db);
         (await f.Codes.IssueAsync(1, default)).Error!.Type.Should().Be(ErrorType.Conflict); // still Draft
 
-        await f.CheckIns.CreateAsync(CheckIn(), default);
+        await f.Handovers.CreateAsync(Handover(), default);
         var second = await f.Codes.IssueAsync(1, default);
 
         second.IsSuccess.Should().BeTrue();
@@ -151,7 +151,7 @@ public class ContractLifecycleTests
     {
         var f = Create(Roles.FacilityManager);
         Seed(f.Db);
-        await f.CheckIns.CreateAsync(CheckIn(), default);
+        await f.Handovers.CreateAsync(Handover(), default);
 
         var result = await f.Contracts.TerminateAsync(1, default);
 

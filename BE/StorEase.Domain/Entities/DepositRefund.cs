@@ -3,7 +3,7 @@ using StorEase.Domain.Enums;
 namespace StorEase.Domain.Entities;
 
 /// <summary>
-/// A deposit StorEase owes back: from a refundable cancellation before check-in, or from a return settled with a
+/// A deposit StorEase owes back: from a refundable cancellation before handover, or from a return settled with a
 /// refund. Created Pending; Business Operations mark it Paid once the money has been handed over or transferred.
 /// </summary>
 public class DepositRefund

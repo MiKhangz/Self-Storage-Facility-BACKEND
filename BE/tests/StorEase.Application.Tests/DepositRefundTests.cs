@@ -28,7 +28,7 @@ public class DepositRefundTests
             Reservation = new Reservation
             {
                 CustomerId = CustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, StorageUnitId = A101, ReservationCode = "RS-REFUND",
-                MoveInDate = today.AddDays(-30), RentalMonths = 3, Status = ReservationStatus.CheckedIn, CreatedAt = DateTime.UtcNow,
+                MoveInDate = today.AddDays(-30), RentalMonths = 3, Status = ReservationStatus.HandedOver, CreatedAt = DateTime.UtcNow,
             },
             CustomerId = CustomerId, StorageUnitId = A101, ContractNumber = "CT-REFUND", StartDate = today.AddDays(-30),
             EndDate = today.AddDays(60), MonthlyRent = 900_000m, DepositAmount = 1_000_000m, PaymentDay = 10,

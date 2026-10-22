@@ -1,61 +1,61 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.Contracts;
-using StorEase.Application.Features.CheckIns.Dtos;
+using StorEase.Application.Features.Handovers.Dtos;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
 
-namespace StorEase.Application.Features.CheckIns;
+namespace StorEase.Application.Features.Handovers;
 
-public interface ICheckInService
+public interface IHandoverService
 {
-    Task<Result<CheckInDto>> CreateAsync(CreateCheckInRequest request, CancellationToken ct);
+    Task<Result<HandoverDto>> CreateAsync(CreateHandoverRequest request, CancellationToken ct);
 
     /// <summary>
-    /// SR-02: undo a check-in. The contract is terminated and its codes revoked, the unit goes back to Available and
+    /// SR-02: undo a handover. The contract is terminated and its codes revoked, the unit goes back to Available and
     /// the reservation to Confirmed without a unit, so staff assign a unit again and redraft the contract.
     /// </summary>
-    Task<Result<bool>> CancelAsync(int checkInId, CancellationToken ct);
+    Task<Result<bool>> CancelAsync(int handoverId, CancellationToken ct);
 }
 
-/// <summary>Business rule 3: check-in, not signing, activates the contract and occupies the unit.</summary>
-public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IContractService contracts) : ICheckInService
+/// <summary>Business rule 3: handover, not signing, activates the contract and occupies the unit.</summary>
+public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser, IContractService contracts) : IHandoverService
 {
-    public Task<Result<bool>> CancelAsync(int checkInId, CancellationToken ct) =>
+    public Task<Result<bool>> CancelAsync(int handoverId, CancellationToken ct) =>
         uow.InTransactionAsync<bool>(async () =>
         {
             var facilityIds = StaffScope.FacilityIdsOf(uow, currentUser.UserId);
-            var checkIn = await uow.Repository<CheckIn>().Query()
+            var handover = await uow.Repository<Handover>().Query()
                 .Include(c => c.Reservation).Include(c => c.StorageUnit)
-                .FirstOrDefaultAsync(c => c.CheckInId == checkInId && facilityIds.Contains(c.Reservation.FacilityId), ct);
-            if (checkIn is null)
-                return Error.NotFound("Check-in not found.");
-            if (checkIn.Status == CheckInStatus.Cancelled)
-                return Error.Conflict("The check-in is already cancelled.");
+                .FirstOrDefaultAsync(c => c.HandoverId == handoverId && facilityIds.Contains(c.Reservation.FacilityId), ct);
+            if (handover is null)
+                return Error.NotFound("Handover not found.");
+            if (handover.Status == HandoverStatus.Cancelled)
+                return Error.Conflict("The handover is already cancelled.");
 
-            var contract = checkIn.ContractId is { } contractId
+            var contract = handover.ContractId is { } contractId
                 ? await uow.Repository<Contract>().Query().Include(c => c.AccessCodes).FirstOrDefaultAsync(c => c.ContractId == contractId, ct)
                 : null;
-            // Once the rental has moved on (overdue, being handed back, closed) undoing the check-in would rewrite history.
+            // Once the rental has moved on (overdue, being handed back, closed) undoing the handover would rewrite history.
             if (contract is not null && contract.Status != ContractStatus.Active)
-                return Error.Conflict($"The contract is {contract.Status}; only the check-in of an Active contract can be cancelled.");
+                return Error.Conflict($"The contract is {contract.Status}; only the handover of an Active contract can be cancelled.");
 
-            checkIn.Status = CheckInStatus.Cancelled;
+            handover.Status = HandoverStatus.Cancelled;
             if (contract is not null)
             {
                 contract.Status = ContractStatus.Terminated;
                 foreach (var code in contract.AccessCodes.Where(a => a.IsActive))
                     code.IsActive = false;
             }
-            checkIn.StorageUnit.Status = StorageUnitStatus.Available;
-            checkIn.Reservation.Status = ReservationStatus.Confirmed;
-            checkIn.Reservation.StorageUnitId = null;
+            handover.StorageUnit.Status = StorageUnitStatus.Available;
+            handover.Reservation.Status = ReservationStatus.Confirmed;
+            handover.Reservation.StorageUnitId = null;
             return true;
         }, ct);
 
-    public Task<Result<CheckInDto>> CreateAsync(CreateCheckInRequest request, CancellationToken ct) =>
-        uow.InTransactionAsync<CheckInDto>(async () =>
+    public Task<Result<HandoverDto>> CreateAsync(CreateHandoverRequest request, CancellationToken ct) =>
+        uow.InTransactionAsync<HandoverDto>(async () =>
         {
             var reservation = await uow.Repository<Reservation>().FindAsync(request.ReservationId, ct);
             // Staff hand over only at facilities they work at; elsewhere the reservation does not exist for them.
@@ -84,20 +84,20 @@ public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IContract
             if (unit.Status != StorageUnitStatus.Reserved)
                 return Error.Conflict($"Unit {unit.UnitCode} is {unit.Status}, expected Reserved.");
 
-            var checkIn = new CheckIn
+            var handover = new Handover
             {
                 ReservationId = reservation.ReservationId,
                 ContractId = contract.ContractId,
                 StorageUnitId = unit.StorageUnitId,
                 StaffId = currentUser.UserId,
-                CheckInTime = DateTime.UtcNow,
+                HandoverTime = DateTime.UtcNow,
                 LockSerial = request.LockSerial,
                 CardNumber = request.CardNumber,
                 ConditionNote = request.ConditionNote,
-                Status = CheckInStatus.Completed,
+                Status = HandoverStatus.Completed,
             };
-            uow.Repository<CheckIn>().Add(checkIn);
-            reservation.Status = ReservationStatus.CheckedIn;
+            uow.Repository<Handover>().Add(handover);
+            reservation.Status = ReservationStatus.HandedOver;
             unit.Status = StorageUnitStatus.Occupied;
 
             var accessCode = await contracts.ActivateAsync(contract.ContractId, ct);
@@ -105,9 +105,9 @@ public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IContract
                 return accessCode.Error;
 
             await uow.SaveChangesAsync(ct);
-            return new CheckInDto(
-                checkIn.CheckInId, checkIn.ReservationId, contract.ContractId, unit.StorageUnitId, unit.UnitCode,
-                checkIn.CheckInTime, request.LockSerial, request.CardNumber, request.ConditionNote,
-                checkIn.Status, accessCode.Value);
+            return new HandoverDto(
+                handover.HandoverId, handover.ReservationId, contract.ContractId, unit.StorageUnitId, unit.UnitCode,
+                handover.HandoverTime, request.LockSerial, request.CardNumber, request.ConditionNote,
+                handover.Status, accessCode.Value);
         }, ct);
 }

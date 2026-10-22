@@ -55,7 +55,7 @@ public interface IWalkInService
 
     /// <summary>
     /// A booking made at the desk: the reservation is Confirmed with the chosen unit at once, and the deposit is
-    /// recorded as paid in cash, so check-in can follow straight away.
+    /// recorded as paid in cash, so handover can follow straight away.
     /// </summary>
     Task<Result<ReservationDto>> BookAsync(WalkInReservationRequest request, CancellationToken ct);
 }

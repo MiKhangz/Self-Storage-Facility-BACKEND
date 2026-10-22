@@ -2,7 +2,7 @@ namespace StorEase.Domain.Entities;
 
 /// <summary>
 /// A customer visiting the unit they rent, recorded by staff at reception (SR-05). Independent of AccessCode and
-/// AccessLog. "Check-in" here means entering for a visit, not the start of the rental (<see cref="CheckIn"/>).
+/// AccessLog. "Check-in" here means entering for a visit, not the start of the rental (<see cref="Handover"/>).
 /// </summary>
 public class UnitVisit
 {

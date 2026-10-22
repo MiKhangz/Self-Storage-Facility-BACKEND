@@ -114,7 +114,7 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
         var invoices = await uow.Repository<Invoice>().Query().Include(i => i.InvoiceItems)
             .Where(i => (i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.Overdue)
                 && i.PaidAmount < i.TotalAmount && i.DueDate < today
-                // A closed rental (settled from the deposit) or a cancelled check-in is not chased any more.
+                // A closed rental (settled from the deposit) or a cancelled handover is not chased any more.
                 && (i.ContractId == null || (i.Contract!.Status != ContractStatus.Closed && i.Contract.Status != ContractStatus.Terminated)))
             .ToListAsync(ct);
 
@@ -139,7 +139,7 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
                 markedOverdue++;
             }
             var daysOverdue = today.DayNumber - invoice.DueDate.DayNumber;
-            // A deposit has no contract to escalate; the unpaid deposit simply blocks the check-in.
+            // A deposit has no contract to escalate; the unpaid deposit simply blocks the handover.
             if (invoice.ContractId is not { } contractId)
                 continue;
             var terms = await TermsOfAsync(contractId);

@@ -82,7 +82,7 @@ public class PricingPinTests
             Reservation = new Reservation
             {
                 CustomerId = CustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, StorageUnitId = A101, ReservationCode = "RS-OLD",
-                MoveInDate = start, RentalMonths = 3, PricingPolicyId = v1, Status = ReservationStatus.CheckedIn, CreatedAt = DateTime.UtcNow,
+                MoveInDate = start, RentalMonths = 3, PricingPolicyId = v1, Status = ReservationStatus.HandedOver, CreatedAt = DateTime.UtcNow,
             },
             CustomerId = CustomerId, StorageUnitId = A101, ContractNumber = "CT-OLD", StartDate = start, EndDate = start.AddMonths(3).AddDays(-1),
             MonthlyRent = 900_000m, DepositAmount = 900_000m, PaymentDay = 10, PricingPolicyId = v1,

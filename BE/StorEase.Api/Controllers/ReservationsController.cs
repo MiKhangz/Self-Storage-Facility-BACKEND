@@ -65,7 +65,7 @@ public class ReservationsController(IReservationService reservations, IWalkInSer
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
-    /// <summary>After the move-in date passes without a check-in: the reservation expires and the deposit is forfeited.</summary>
+    /// <summary>After the move-in date passes without a handover: the reservation expires and the deposit is forfeited.</summary>
     [HttpPost("{id:int}/no-show")]
     [Authorize(Roles = Roles.Staff)]
     public async Task<ActionResult<ReservationCancellationDto>> NoShow(int id, CancellationToken ct)
@@ -74,12 +74,12 @@ public class ReservationsController(IReservationService reservations, IWalkInSer
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
-    /// <summary>The counter checklist staff complete before check-in.</summary>
-    [HttpGet("{id:int}/check-in")]
+    /// <summary>The counter checklist staff complete before handover.</summary>
+    [HttpGet("{id:int}/handover")]
     [Authorize(Roles = Roles.Staff)]
-    public async Task<ActionResult<CheckInChecklistDto>> CheckIn(int id, CancellationToken ct)
+    public async Task<ActionResult<HandoverChecklistDto>> Handover(int id, CancellationToken ct)
     {
-        var result = await reservations.GetCheckInChecklistAsync(id, ct);
+        var result = await reservations.GetHandoverChecklistAsync(id, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 

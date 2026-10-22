@@ -27,7 +27,7 @@ public class BillingCycleTests
         var reservation = new Reservation
         {
             CustomerId = CustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, StorageUnitId = A101,
-            ReservationCode = "RS-BILL", MoveInDate = Start, RentalMonths = 3, Status = ReservationStatus.CheckedIn, CreatedAt = DateTime.UtcNow,
+            ReservationCode = "RS-BILL", MoveInDate = Start, RentalMonths = 3, Status = ReservationStatus.HandedOver, CreatedAt = DateTime.UtcNow,
         };
         var contract = new Contract
         {

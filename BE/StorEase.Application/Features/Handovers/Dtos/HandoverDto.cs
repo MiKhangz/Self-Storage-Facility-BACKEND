@@ -1,17 +1,17 @@
 using StorEase.Domain.Enums;
 
-namespace StorEase.Application.Features.CheckIns.Dtos;
+namespace StorEase.Application.Features.Handovers.Dtos;
 
 /// <summary><see cref="AccessCode"/> is plaintext and returned only here, once.</summary>
-public sealed record CheckInDto(
-    int CheckInId,
+public sealed record HandoverDto(
+    int HandoverId,
     int ReservationId,
     int ContractId,
     int StorageUnitId,
     string UnitCode,
-    DateTime CheckInTime,
+    DateTime HandoverTime,
     string LockSerial,
     string CardNumber,
     string? ConditionNote,
-    CheckInStatus Status,
+    HandoverStatus Status,
     string AccessCode);

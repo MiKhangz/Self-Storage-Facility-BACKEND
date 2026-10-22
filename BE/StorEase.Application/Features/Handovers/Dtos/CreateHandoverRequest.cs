@@ -1,6 +1,6 @@
-namespace StorEase.Application.Features.CheckIns.Dtos;
+namespace StorEase.Application.Features.Handovers.Dtos;
 
-public sealed record CreateCheckInRequest(
+public sealed record CreateHandoverRequest(
     int ReservationId,
     int ContractId,
     string LockSerial,
