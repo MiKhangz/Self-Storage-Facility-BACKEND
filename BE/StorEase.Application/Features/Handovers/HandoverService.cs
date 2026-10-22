@@ -154,8 +154,8 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser) : IHando
                 .ToListAsync(ct)).Sum(); // a contract has a handful of invoices; summing here keeps SQLite (tests) working
 
             var damage = inspection.CleaningFee + inspection.RepairCharge + inspection.OtherDeduction;
-            // The rate is the one the customer agreed to: the policy in force on the move-in date, like the rent (rule 4).
-            var policy = await RentCalculator.PolicyForAsync(uow, contract.StartDate, ct);
+            // The rate is the one the customer agreed to: the contract's own policy version, like the rent (rule 4).
+            var policy = await RentCalculator.PolicyOfAsync(uow, contract.PricingPolicyId, contract.StartDate, ct);
             var penalty = DepositSettlement.EarlyTerminationPenalty(
                 contract.DepositAmount, policy?.EarlyTerminationPercent ?? 0m, handover.PlannedHandoverDate, contract.EndDate);
             inspection.OtherDeduction += penalty;
