@@ -12,12 +12,15 @@ public class Contract
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
     public decimal MonthlyRent { get; set; }
+    /// <summary>Copied from the reservation: the terms (late fee, grace, early-return penalty) this contract was signed under.</summary>
+    public int? PricingPolicyId { get; set; }
     public decimal DepositAmount { get; set; }
     public int PaymentDay { get; set; }
     public DateTime? SignedAt { get; set; }
     public ContractStatus Status { get; set; }
 
     public Reservation Reservation { get; set; } = null!;
+    public PricingPolicy? PricingPolicy { get; set; }
     public User Customer { get; set; } = null!;
     public StorageUnit StorageUnit { get; set; } = null!;
     public ICollection<Invoice> Invoices { get; set; } = [];

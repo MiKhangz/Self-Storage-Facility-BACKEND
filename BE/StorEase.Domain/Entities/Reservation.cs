@@ -13,6 +13,8 @@ public class Reservation
     public string ReservationCode { get; set; } = string.Empty;
     public DateOnly MoveInDate { get; set; }
     public int RentalMonths { get; set; }
+    /// <summary>The policy version the booking was quoted under; its rent, deposit and rules stay with this rental.</summary>
+    public int? PricingPolicyId { get; set; }
     public DateTime? CheckInSlot { get; set; }
     public ReservationStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -22,4 +24,5 @@ public class Reservation
     public UnitType UnitType { get; set; } = null!;
     public StorageUnit? StorageUnit { get; set; }
     public User? CreatedByUser { get; set; }
+    public PricingPolicy? PricingPolicy { get; set; }
 }
