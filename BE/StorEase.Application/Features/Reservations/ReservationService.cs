@@ -205,7 +205,8 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             var refundable = false;
             if (paid > 0 && !noShow)
             {
-                var policy = await RentCalculator.PolicyForAsync(uow, reservation.MoveInDate, ct);
+                // The free-cancellation window the customer was quoted when booking.
+                var policy = await RentCalculator.PolicyOfAsync(uow, reservation.PricingPolicyId, reservation.MoveInDate, ct);
                 var freeUntil = reservation.CreatedAt.AddHours(policy?.CancelFreeHours ?? 0);
                 refundable = !currentUser.IsCustomer || DateTime.UtcNow <= freeUntil;
             }
