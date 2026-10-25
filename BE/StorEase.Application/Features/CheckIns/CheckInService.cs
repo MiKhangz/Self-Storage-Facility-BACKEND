@@ -119,9 +119,12 @@ public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IPassword
             return Error.NotFound("Visit not found.");
         if (visit.CheckOutAt is not null)
             return Error.Conflict("This visit is already checked out.");
+        // The form picks whole minutes, so a time in the minute they came in counts as that moment.
         var leftAt = VietnamTime.ToUtc(request.LeftAt);
-        if (leftAt < visit.CheckInAt || leftAt > DateTime.UtcNow.AddMinutes(1))
+        if (leftAt < visit.CheckInAt.AddMinutes(-1) || leftAt > DateTime.UtcNow.AddMinutes(1))
             return Error.Validation("The leaving time must be after they came in and not in the future.");
+        if (leftAt < visit.CheckInAt)
+            leftAt = visit.CheckInAt;
 
         visit.CheckOutAt = leftAt;
         visit.CheckOutMethod = CheckOutMethod.MarkedByStaff;
