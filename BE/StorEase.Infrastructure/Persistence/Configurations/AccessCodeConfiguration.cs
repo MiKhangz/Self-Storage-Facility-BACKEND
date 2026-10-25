@@ -13,5 +13,6 @@ public class AccessCodeConfiguration : IEntityTypeConfiguration<AccessCode>
 
         builder.HasOne(x => x.Contract).WithMany(x => x.AccessCodes).HasForeignKey(x => x.ContractId);
         builder.Property(x => x.CodeHash).HasMaxLength(255).IsUnicode(false);
+        builder.Property(x => x.CodeCipher).HasMaxLength(100).IsUnicode(false);
     }
 }

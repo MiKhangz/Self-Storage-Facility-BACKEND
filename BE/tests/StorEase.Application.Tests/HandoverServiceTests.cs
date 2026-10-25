@@ -37,7 +37,7 @@ public class HandoverServiceTests
 
     private static HandoverService RealService(TestDb t)
     {
-        var codes = new AccessCodeService(t.Uow, new FakeHasher(), Staff);
+        var codes = new AccessCodeService(t.Uow, new FakeHasher(), Staff, TestCodes.Protector);
         return new HandoverService(t.Uow, Staff, new ContractService(t.Uow, Staff, codes));
     }
 

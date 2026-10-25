@@ -30,6 +30,11 @@ namespace StorEase.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AccessCodeId"));
 
+                    b.Property<string>("CodeCipher")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
                     b.Property<string>("CodeHash")
                         .IsRequired()
                         .HasMaxLength(255)

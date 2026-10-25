@@ -8,7 +8,7 @@ using StorEase.Domain.Enums;
 
 namespace StorEase.Application.Features.AccessCodes;
 
-public class AccessCodeService(IUnitOfWork uow, IPasswordHasher hasher, ICurrentUser currentUser) : IAccessCodeService
+public class AccessCodeService(IUnitOfWork uow, IPasswordHasher hasher, ICurrentUser currentUser, ICodeProtector protector) : IAccessCodeService
 {
     // Staff may issue for any contract; a customer only for their own (someone else's is a 404).
     public Task<Result<AccessCodeDto>> IssueAsync(int contractId, CancellationToken ct) =>
@@ -51,7 +51,10 @@ public class AccessCodeService(IUnitOfWork uow, IPasswordHasher hasher, ICurrent
         // An expired code is no use to the customer even while its flag is still set.
         var active = contract.AccessCodes.Where(a => a.IsActive && a.ExpiresAt > DateTime.UtcNow)
             .OrderByDescending(a => a.IssuedAt).FirstOrDefault();
-        return active is null ? Error.NotFound("The contract has no active access code.") : ToSummary(active);
+        if (active is null)
+            return Error.NotFound("The contract has no active access code.");
+        // Only the renter reads the digits back; staff find a renter by the code the customer says.
+        return ToSummary(active) with { Code = currentUser.IsCustomer && active.CodeCipher is { } c ? protector.Unprotect(c) : null };
     }
 
     /// <summary>
@@ -69,6 +72,7 @@ public class AccessCodeService(IUnitOfWork uow, IPasswordHasher hasher, ICurrent
         {
             ContractId = contract.ContractId,
             CodeHash = hasher.Hash(code),
+            CodeCipher = protector.Protect(code),
             IssuedAt = issuedAt,
             ExpiresAt = contract.EndDate.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
             IsActive = true,

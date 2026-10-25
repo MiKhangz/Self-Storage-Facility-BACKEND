@@ -59,7 +59,7 @@ public class PricingPinTests
         t.Db.Add(reservation);
         t.Db.SaveChanges();
 
-        var drafted = await new ContractService(t.Uow, Staff, new AccessCodeService(t.Uow, new Pbkdf2PasswordHasher(), Staff))
+        var drafted = await new ContractService(t.Uow, Staff, new AccessCodeService(t.Uow, new Pbkdf2PasswordHasher(), Staff, TestCodes.Protector))
             .CreateAsync(new CreateContractRequest(reservation.ReservationId, 5), default);
         var newBooking = await new ReservationService(t.Uow, Customer, new FakeEmailService())
             .CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn, 1), default);

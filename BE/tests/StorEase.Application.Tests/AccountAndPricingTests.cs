@@ -112,7 +112,7 @@ public class AccountAndPricingTests
         };
         t.Db.Add(reservation);
         t.Db.SaveChanges();
-        var contracts = new ContractService(t.Uow, Staff, new AccessCodeService(t.Uow, new Pbkdf2PasswordHasher(), Staff));
+        var contracts = new ContractService(t.Uow, Staff, new AccessCodeService(t.Uow, new Pbkdf2PasswordHasher(), Staff, TestCodes.Protector));
 
         var drafted = await contracts.CreateAsync(new CreateContractRequest(reservation.ReservationId, 5), default);
         var again = await contracts.CreateAsync(new CreateContractRequest(reservation.ReservationId, 5), default);
