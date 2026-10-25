@@ -10,8 +10,13 @@ namespace StorEase.Api.Controllers;
 [AllowAnonymous]
 public class AuthController(IAuthService auth) : ApiControllerBase
 {
-    /// <summary>Holds the login token. HttpOnly, so page scripts never see it; it lasts as long as the token inside.</summary>
-    public const string SessionCookie = "storease_session";
+    /// <summary>
+    /// The login token lives in an HttpOnly cookie, so page scripts never see it; it lasts as long as the token inside.
+    /// The customer site and the staff portal each keep their own (the web app names its side in X-Portal), as two
+    /// sites on separate domains would, so a customer tab and a staff tab in one browser do not overwrite each other.
+    /// </summary>
+    public static string SessionCookie(HttpRequest request) =>
+        request.Headers["X-Portal"] == "staff" ? "storease_staff" : "storease_customer";
 
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request, CancellationToken ct)
@@ -20,7 +25,7 @@ public class AuthController(IAuthService auth) : ApiControllerBase
         if (!result.IsSuccess)
             return Failure(result.Error);
         // Strict: the browser never sends it on a request started by another site, which is the CSRF guard.
-        Response.Cookies.Append(SessionCookie, result.Value!.Token, new CookieOptions
+        Response.Cookies.Append(SessionCookie(Request), result.Value!.Token, new CookieOptions
         {
             HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Path = "/api",
         });
@@ -43,7 +48,7 @@ public class AuthController(IAuthService auth) : ApiControllerBase
     [HttpPost("logout")]
     public IActionResult Logout()
     {
-        Response.Cookies.Delete(SessionCookie, new CookieOptions { Secure = true, SameSite = SameSiteMode.Strict, Path = "/api" });
+        Response.Cookies.Delete(SessionCookie(Request), new CookieOptions { Secure = true, SameSite = SameSiteMode.Strict, Path = "/api" });
         return NoContent();
     }
 
