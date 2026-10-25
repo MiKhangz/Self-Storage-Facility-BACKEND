@@ -1,3 +1,5 @@
+using StorEase.Domain.Enums;
+
 namespace StorEase.Domain.Entities;
 
 /// <summary>
@@ -13,6 +15,9 @@ public class CheckIn
     public DateTime CheckInAt { get; set; }
     /// <summary>Null while the customer is still inside.</summary>
     public DateTime? CheckOutAt { get; set; }
+    public CheckOutMethod? CheckOutMethod { get; set; }
+    /// <summary>Why staff closed the visit by hand.</summary>
+    public string? CheckOutReason { get; set; }
     public string? Note { get; set; }
 
     public Contract Contract { get; set; } = null!;

@@ -1,5 +1,6 @@
 using StorEase.Application.Common;
 using StorEase.Application.Features.Billing;
+using StorEase.Application.Features.CheckIns;
 
 namespace StorEase.Api;
 
@@ -23,6 +24,11 @@ public class BillingWorker(IServiceScopeFactory scopes, ILogger<BillingWorker> l
                     logger.LogInformation("Billing run: {@Run}", result.Value);
                 else
                     logger.LogWarning("Billing run failed: {Error}", result.Error.Message);
+                // Visits nobody checked out end at closing time; hourly is close enough because each ends at its closing.
+                var closed = await scope.ServiceProvider.GetRequiredService<ICheckInService>()
+                    .CloseAtClosingTimeAsync(DateTime.UtcNow, stoppingToken);
+                if (closed > 0)
+                    logger.LogInformation("Closed {Count} visits at closing time", closed);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

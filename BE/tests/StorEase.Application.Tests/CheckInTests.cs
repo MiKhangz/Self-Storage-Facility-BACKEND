@@ -96,4 +96,47 @@ public class CheckInTests
         board.Value!.Single().Inside.Should().BeTrue();
         board.Value.Single().OpenCheckInId.Should().Be(visit.Value!.CheckInId);
     }
+
+    [Fact]
+    public async Task Staff_close_a_forgotten_visit_with_a_reason_and_a_time_after_it_began()
+    {
+        using var t = Create();
+        var contractId = SeedContract(t, ContractStatus.Active);
+        var desk = new CheckInService(t.Uow, Staff, Hasher);
+        var visit = (await desk.CheckInAsync(new CheckInRequest(contractId, null), default)).Value!;
+
+        var future = await desk.MarkLeftAsync(visit.CheckInId, new MarkLeftRequest(DateTime.UtcNow.AddHours(2), "Forgot"), default);
+        var marked = await desk.MarkLeftAsync(visit.CheckInId, new MarkLeftRequest(DateTime.UtcNow, "Forgot to check out"), default);
+
+        future.Error!.Type.Should().Be(ErrorType.Validation);
+        marked.Value!.CheckOutMethod.Should().Be(CheckOutMethod.MarkedByStaff);
+        marked.Value.CheckOutReason.Should().Be("Forgot to check out");
+        (await desk.BoardAsync(default)).Value!.Single().LeftHow.Should().Be(CheckOutMethod.MarkedByStaff);
+    }
+
+    [Fact]
+    public async Task Visits_still_open_at_closing_time_are_closed_at_closing_time()
+    {
+        // 10:00 in Vietnam closes at 22:00 that day; 23:00 (after closing) at 22:00 the next day.
+        var tenAm = new DateTime(2026, 10, 26, 3, 0, 0, DateTimeKind.Utc);
+        CheckInService.ClosingAfter(tenAm, "06:00-22:00").Should().Be(new DateTime(2026, 10, 26, 15, 0, 0, DateTimeKind.Utc));
+        CheckInService.ClosingAfter(tenAm.AddHours(13), "06:00-22:00").Should().Be(new DateTime(2026, 10, 27, 15, 0, 0, DateTimeKind.Utc));
+        CheckInService.ClosingAfter(tenAm, null).Should().Be(new DateTime(2026, 10, 26, 16, 59, 0, DateTimeKind.Utc));
+
+        using var t = Create();
+        var contractId = SeedContract(t, ContractStatus.Active);
+        t.Db.Add(new CheckIn { ContractId = contractId, StorageUnitId = A101, RecordedBy = StaffId, CheckInAt = tenAm });
+        t.Db.SaveChanges();
+        var desk = new CheckInService(t.Uow, Staff, Hasher);
+
+        var beforeClosing = await desk.CloseAtClosingTimeAsync(tenAm.AddHours(5), default);
+        var afterClosing = await desk.CloseAtClosingTimeAsync(tenAm.AddHours(14), default);
+
+        beforeClosing.Should().Be(0);
+        afterClosing.Should().Be(1);
+        t.Db.ChangeTracker.Clear();
+        var visit = t.Db.CheckIns.Single();
+        visit.CheckOutMethod.Should().Be(CheckOutMethod.AutoAtClosing);
+        visit.CheckOutAt.Should().Be(new DateTime(2026, 10, 26, 16, 59, 0, DateTimeKind.Utc), "the test facility has no hours set, so its day ends at 23:59");
+    }
 }

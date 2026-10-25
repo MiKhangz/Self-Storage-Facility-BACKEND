@@ -169,6 +169,15 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<DateTime?>("CheckOutAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("CheckOutMethod")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("CheckOutReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<int>("ContractId")
                         .HasColumnType("int");
 

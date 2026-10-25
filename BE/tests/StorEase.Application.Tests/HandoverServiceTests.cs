@@ -63,7 +63,9 @@ public class HandoverServiceTests
         t.Db.Reservations.Find(reservationId)!.Status.Should().Be(ReservationStatus.HandedOver);
         t.Db.Handovers.Should().ContainSingle().Which.StaffId.Should().Be(StaffId);
         t.Db.AccessCodes.Where(c => c.IsActive).Should().ContainSingle()
-            .Which.CodeHash.Should().Be("h:" + result.Value.AccessCode, "only the hash is stored");
+            .Which.CodeHash.Should().Be("h:" + result.Value.AccessCode, "the hash finds the renter at the desk");
+        t.Db.CheckIns.Should().ContainSingle(v => v.ContractId == contractId && v.CheckOutAt == null,
+            "the customer is standing in the facility at the handover, so they start checked in");
     }
 
     [Fact]

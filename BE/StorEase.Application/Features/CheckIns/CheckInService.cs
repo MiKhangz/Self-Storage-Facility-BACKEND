@@ -11,7 +11,16 @@ public sealed record CheckInRequest(int ContractId, string? Note);
 
 public sealed record CheckInDto(
     int CheckInId, int ContractId, string ContractNumber, string CustomerName, int StorageUnitId, string UnitCode,
-    int RecordedBy, string RecordedByName, DateTime CheckInAt, DateTime? CheckOutAt, string? Note);
+    int RecordedBy, string RecordedByName, DateTime CheckInAt, DateTime? CheckOutAt, string? Note,
+    CheckOutMethod? CheckOutMethod, string? CheckOutReason);
+
+/// <summary>Staff close a visit the customer left without checking out: when they left (Vietnam time) and why.</summary>
+public sealed record MarkLeftRequest(DateTime LeftAt, string Reason);
+
+public class MarkLeftRequestValidator : AbstractValidator<MarkLeftRequest>
+{
+    public MarkLeftRequestValidator() => RuleFor(x => x.Reason).NotEmpty().MaximumLength(200);
+}
 
 /// <summary>
 /// One renter on the check-in screen: <c>Inside</c> is green, otherwise red. <c>CanEnter</c> is false when the
@@ -19,7 +28,7 @@ public sealed record CheckInDto(
 /// </summary>
 public sealed record CheckInBoardRowDto(
     int ContractId, string ContractNumber, string CustomerName, string? CustomerPhone, int StorageUnitId, string UnitCode,
-    string FacilityName, bool Inside, int? OpenCheckInId, DateTime? Since, bool CanEnter);
+    string FacilityName, bool Inside, int? OpenCheckInId, DateTime? Since, bool CanEnter, CheckOutMethod? LeftHow);
 
 /// <summary>The access code (PIN) the customer tells staff at the desk.</summary>
 public sealed record FindByAccessCodeRequest(string AccessCode);
@@ -42,6 +51,10 @@ public interface ICheckInService
 {
     Task<Result<CheckInDto>> CheckInAsync(CheckInRequest request, CancellationToken ct);
     Task<Result<CheckInDto>> CheckOutAsync(int checkInId, CancellationToken ct);
+    Task<Result<CheckInDto>> MarkLeftAsync(int checkInId, MarkLeftRequest request, CancellationToken ct);
+
+    /// <summary>The hourly job: closes visits still open at their facility's closing time. Returns how many.</summary>
+    Task<int> CloseAtClosingTimeAsync(DateTime nowUtc, CancellationToken ct);
     Task<Result<CheckInDto>> GetAsync(int checkInId, CancellationToken ct);
     Task<Result<PagedResult<CheckInDto>>> ListAsync(int? contractId, int page, int pageSize, CancellationToken ct);
     Task<Result<IReadOnlyList<CheckInBoardRowDto>>> BoardAsync(CancellationToken ct);
@@ -94,8 +107,59 @@ public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IPassword
         if (visit.CheckOutAt is not null)
             return Error.Conflict("This visit is already checked out.");
         visit.CheckOutAt = DateTime.UtcNow;
+        visit.CheckOutMethod = CheckOutMethod.Desk;
         await uow.SaveChangesAsync(ct);
         return await GetAsync(checkInId, ct);
+    }
+
+    public async Task<Result<CheckInDto>> MarkLeftAsync(int checkInId, MarkLeftRequest request, CancellationToken ct)
+    {
+        var visit = await Visible().FirstOrDefaultAsync(v => v.CheckInId == checkInId, ct);
+        if (visit is null)
+            return Error.NotFound("Visit not found.");
+        if (visit.CheckOutAt is not null)
+            return Error.Conflict("This visit is already checked out.");
+        var leftAt = VietnamTime.ToUtc(request.LeftAt);
+        if (leftAt < visit.CheckInAt || leftAt > DateTime.UtcNow.AddMinutes(1))
+            return Error.Validation("The leaving time must be after they came in and not in the future.");
+
+        visit.CheckOutAt = leftAt;
+        visit.CheckOutMethod = CheckOutMethod.MarkedByStaff;
+        visit.CheckOutReason = request.Reason.Trim();
+        await uow.SaveChangesAsync(ct);
+        return await GetAsync(checkInId, ct);
+    }
+
+    public async Task<int> CloseAtClosingTimeAsync(DateTime nowUtc, CancellationToken ct)
+    {
+        var open = await uow.Repository<CheckIn>().Query().Where(v => v.CheckOutAt == null)
+            .Select(v => new { Visit = v, v.StorageUnit.Facility.OpeningHours }).ToListAsync(ct);
+        var closed = 0;
+        foreach (var row in open)
+        {
+            var closing = ClosingAfter(row.Visit.CheckInAt, row.OpeningHours);
+            if (closing > nowUtc)
+                continue;
+            row.Visit.CheckOutAt = closing;
+            row.Visit.CheckOutMethod = CheckOutMethod.AutoAtClosing;
+            closed++;
+        }
+        await uow.SaveChangesAsync(ct);
+        return closed;
+    }
+
+    /// <summary>
+    /// The facility's first closing time after the customer came in, in UTC. Opening hours read "06:00-22:00";
+    /// without them the day ends at 23:59, Vietnam time.
+    /// </summary>
+    public static DateTime ClosingAfter(DateTime checkInUtc, string? openingHours)
+    {
+        var close = openingHours?.Split('-') is [_, var end] && TimeOnly.TryParse(end.Trim(), out var t) ? t : new TimeOnly(23, 59);
+        var localIn = checkInUtc.AddHours(7);
+        var closing = DateOnly.FromDateTime(localIn).ToDateTime(close);
+        if (closing <= localIn)
+            closing = closing.AddDays(1);
+        return DateTime.SpecifyKind(closing.AddHours(-7), DateTimeKind.Utc);
     }
 
     public async Task<Result<CheckInDto>> GetAsync(int checkInId, CancellationToken ct)
@@ -156,17 +220,19 @@ public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IPassword
         var visits = uow.Repository<CheckIn>().Query().Where(v => ids.Contains(v.ContractId));
         var open = await visits.Where(v => v.CheckOutAt == null)
             .Select(v => new { v.ContractId, v.CheckInId, v.CheckInAt }).ToListAsync(ct);
-        var lastOut = await visits.Where(v => v.CheckOutAt != null).GroupBy(v => v.ContractId)
-            .Select(g => new { ContractId = g.Key, At = g.Max(v => v.CheckOutAt) }).ToListAsync(ct);
+        var lastTimes = await visits.Where(v => v.CheckOutAt != null).GroupBy(v => v.ContractId)
+            .Select(g => g.Max(v => v.CheckOutAt)).ToListAsync(ct);
+        var lastOut = await visits.Where(v => lastTimes.Contains(v.CheckOutAt))
+            .Select(v => new { v.ContractId, At = v.CheckOutAt, v.CheckOutMethod }).ToListAsync(ct);
         var withCode = await UsableCodes().Where(a => ids.Contains(a.ContractId)).Select(a => a.ContractId).ToListAsync(ct);
 
         return rentals.Select(r =>
         {
             var inside = open.FirstOrDefault(v => v.ContractId == r.ContractId);
+            var left = lastOut.Where(o => o.ContractId == r.ContractId).MaxBy(o => o.At);
             return new CheckInBoardRowDto(r.ContractId, r.ContractNumber, r.Customer, r.Phone, r.StorageUnitId, r.UnitCode,
-                r.Facility, inside is not null, inside?.CheckInId,
-                inside?.CheckInAt ?? lastOut.FirstOrDefault(o => o.ContractId == r.ContractId)?.At,
-                withCode.Contains(r.ContractId));
+                r.Facility, inside is not null, inside?.CheckInId, inside?.CheckInAt ?? left?.At,
+                withCode.Contains(r.ContractId), inside is null ? left?.CheckOutMethod : null);
         }).ToList();
     }
 
@@ -185,5 +251,6 @@ public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IPassword
 
     private static IQueryable<CheckInDto> Project(IQueryable<CheckIn> source) =>
         source.Select(v => new CheckInDto(v.CheckInId, v.ContractId, v.Contract.ContractNumber, v.Contract.Customer.FullName,
-            v.StorageUnitId, v.StorageUnit.UnitCode, v.RecordedBy, v.RecordedByUser.FullName, v.CheckInAt, v.CheckOutAt, v.Note));
+            v.StorageUnitId, v.StorageUnit.UnitCode, v.RecordedBy, v.RecordedByUser.FullName, v.CheckInAt, v.CheckOutAt, v.Note,
+            v.CheckOutMethod, v.CheckOutReason));
 }

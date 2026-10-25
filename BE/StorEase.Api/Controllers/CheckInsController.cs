@@ -28,6 +28,15 @@ public class CheckInsController(ICheckInService visits) : ApiControllerBase
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
+    /// <summary>The customer left without checking out: staff close the visit with when they left and why.</summary>
+    [HttpPost("{id:int}/mark-left")]
+    [Authorize(Roles = Roles.Staff)]
+    public async Task<ActionResult<CheckInDto>> MarkLeft(int id, MarkLeftRequest request, CancellationToken ct)
+    {
+        var result = await visits.MarkLeftAsync(id, request, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
     /// <summary>Staff see visits at their facilities; a customer only their own.</summary>
     [HttpGet]
     [Authorize]

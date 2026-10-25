@@ -15,6 +15,8 @@ public class CheckInConfiguration : IEntityTypeConfiguration<CheckIn>
         builder.HasOne(x => x.StorageUnit).WithMany().HasForeignKey(x => x.StorageUnitId);
         builder.HasOne(x => x.RecordedByUser).WithMany().HasForeignKey(x => x.RecordedBy);
         builder.Property(x => x.Note).HasMaxLength(200);
+        builder.Property(x => x.CheckOutMethod).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
+        builder.Property(x => x.CheckOutReason).HasMaxLength(200);
 
         builder.HasIndex(x => x.ContractId);
         builder.HasIndex(x => x.StorageUnitId);

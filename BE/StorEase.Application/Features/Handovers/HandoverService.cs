@@ -103,6 +103,12 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser, IContrac
             var accessCode = await contracts.ActivateAsync(contract.ContractId, ct);
             if (!accessCode.IsSuccess)
                 return accessCode.Error;
+            // The customer is standing in the facility as a renter now, so they start checked in.
+            uow.Repository<CheckIn>().Add(new CheckIn
+            {
+                ContractId = contract.ContractId, StorageUnitId = unit.StorageUnitId, RecordedBy = currentUser.UserId,
+                CheckInAt = handover.HandoverTime, Note = "Handover",
+            });
 
             await uow.SaveChangesAsync(ct);
             return new HandoverDto(
