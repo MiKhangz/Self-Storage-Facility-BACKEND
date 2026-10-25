@@ -90,4 +90,13 @@ public class ReservationsController(IReservationService reservations, IWalkInSer
         var result = await reservations.AssignUnitAsync(id, request, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
+
+    /// <summary>At the handover: the customer saw the unit and prefers another free one of the same size.</summary>
+    [HttpPost("{id:int}/change-unit")]
+    [Authorize(Roles = Roles.Staff)]
+    public async Task<ActionResult<ReservationDto>> ChangeUnit(int id, AssignUnitRequest request, CancellationToken ct)
+    {
+        var result = await reservations.ChangeUnitAsync(id, request, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
 }

@@ -25,6 +25,9 @@ public interface IReservationService
 
     Task<Result<ReservationDto>> AssignUnitAsync(int reservationId, AssignUnitRequest request, CancellationToken ct);
 
+    /// <summary>At the handover the customer saw the unit and wants another of the same size.</summary>
+    Task<Result<ReservationDto>> ChangeUnitAsync(int reservationId, AssignUnitRequest request, CancellationToken ct);
+
     /// <summary>Customer (own) or staff cancel a Pending/Confirmed reservation; the held unit is released.</summary>
     Task<Result<ReservationCancellationDto>> CancelAsync(int reservationId, CancelReservationRequest request, CancellationToken ct);
 
@@ -164,6 +167,52 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
                 $"Đơn {dto.Value.ReservationCode} đã được xác nhận với kho {dto.Value.UnitCode} tại {dto.Value.FacilityName}. " +
                 $"Hẹn gặp bạn ngày {dto.Value.MoveInDate:dd/MM/yyyy}.", ct);
         return dto;
+    }
+
+    /// <summary>
+    /// The old unit goes back on sale and the new one is held. A drafted contract moves with the booking; if the
+    /// customer had already signed it, the signature is cleared because it named the old unit.
+    /// </summary>
+    public async Task<Result<ReservationDto>> ChangeUnitAsync(
+        int reservationId, AssignUnitRequest request, CancellationToken ct)
+    {
+        var changed = await uow.InTransactionAsync<int>(async () =>
+        {
+            var reservation = await Visible().Include(r => r.StorageUnit)
+                .FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
+            if (reservation is null)
+                return Error.NotFound("Reservation not found.");
+            if (reservation.Status != ReservationStatus.Confirmed || reservation.StorageUnit is null)
+                return Error.Conflict("Only a confirmed booking with a unit, not yet handed over, can change its unit.");
+            if (reservation.StorageUnitId == request.StorageUnitId)
+                return Error.Conflict("The booking already holds this unit.");
+
+            var unit = await uow.Repository<StorageUnit>().FindAsync(request.StorageUnitId, ct);
+            if (unit is null)
+                return Error.NotFound("Storage unit not found.");
+            if (unit.FacilityId != reservation.FacilityId || unit.UnitTypeId != reservation.UnitTypeId)
+                return Error.Conflict("The new unit must be the same size, at the same facility.");
+            if (unit.Status != StorageUnitStatus.Available)
+                return Error.Conflict($"Unit {unit.UnitCode} is {unit.Status}, not Available.");
+            if (await uow.Repository<Contract>().Query().AnyAsync(c => c.StorageUnitId == unit.StorageUnitId &&
+                    (c.Status == ContractStatus.Active || c.Status == ContractStatus.Draft), ct))
+                return Error.Conflict($"Unit {unit.UnitCode} already has an Active or Draft contract.");
+
+            if (reservation.StorageUnit.Status == StorageUnitStatus.Reserved)
+                reservation.StorageUnit.Status = StorageUnitStatus.Available;
+            unit.Status = StorageUnitStatus.Reserved;
+            reservation.StorageUnitId = unit.StorageUnitId;
+
+            var drafts = await uow.Repository<Contract>().Query()
+                .Where(c => c.ReservationId == reservationId && c.Status == ContractStatus.Draft).ToListAsync(ct);
+            foreach (var draft in drafts)
+            {
+                draft.StorageUnitId = unit.StorageUnitId;
+                draft.SignedAt = null;
+            }
+            return reservation.ReservationId;
+        }, ct);
+        return changed.IsSuccess ? await GetAsync(changed.Value, ct) : changed.Error;
     }
 
     public Task<Result<ReservationCancellationDto>> CancelAsync(
