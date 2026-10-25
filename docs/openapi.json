@@ -559,6 +559,55 @@
         }
       }
     },
+    "/api/check-ins/{id}/mark-left": {
+      "post": {
+        "tags": [
+          "CheckIns"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkLeftRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkLeftRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkLeftRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckInDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/check-ins": {
       "get": {
         "tags": [
@@ -5573,6 +5622,10 @@
           },
           "isActive": {
             "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -5932,6 +5985,9 @@
           },
           "canEnter": {
             "type": "boolean"
+          },
+          "leftHow": {
+            "$ref": "#/components/schemas/CheckOutMethod"
           }
         },
         "additionalProperties": false
@@ -5983,6 +6039,13 @@
           "note": {
             "type": "string",
             "nullable": true
+          },
+          "checkOutMethod": {
+            "$ref": "#/components/schemas/CheckOutMethod"
+          },
+          "checkOutReason": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -6030,6 +6093,14 @@
           }
         },
         "additionalProperties": false
+      },
+      "CheckOutMethod": {
+        "enum": [
+          "Desk",
+          "MarkedByStaff",
+          "AutoAtClosing"
+        ],
+        "type": "string"
       },
       "ConditionResult": {
         "enum": [
@@ -7698,6 +7769,20 @@
             "$ref": "#/components/schemas/RefundMethod"
           },
           "referenceNo": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MarkLeftRequest": {
+        "type": "object",
+        "properties": {
+          "leftAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
             "type": "string",
             "nullable": true
           }
