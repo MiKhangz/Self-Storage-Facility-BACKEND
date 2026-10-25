@@ -606,6 +606,66 @@
         }
       }
     },
+    "/api/check-ins/board": {
+      "get": {
+        "tags": [
+          "CheckIns"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CheckInBoardRowDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/check-ins/find": {
+      "post": {
+        "tags": [
+          "CheckIns"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FindByAccessCodeRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FindByAccessCodeRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/FindByAccessCodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckInBoardRowDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/check-ins/{id}": {
       "get": {
         "tags": [
@@ -3744,6 +3804,55 @@
         }
       }
     },
+    "/api/reservations/{id}/change-unit": {
+      "post": {
+        "tags": [
+          "Reservations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignUnitRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignUnitRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignUnitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/returns": {
       "post": {
         "tags": [
@@ -5777,6 +5886,56 @@
         },
         "additionalProperties": false
       },
+      "CheckInBoardRowDto": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contractNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "storageUnitId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unitCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "facilityName": {
+            "type": "string",
+            "nullable": true
+          },
+          "inside": {
+            "type": "boolean"
+          },
+          "openCheckInId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "canEnter": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "CheckInDto": {
         "type": "object",
         "properties": {
@@ -6896,6 +7055,16 @@
           },
           "isPercentage": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FindByAccessCodeRequest": {
+        "type": "object",
+        "properties": {
+          "accessCode": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
