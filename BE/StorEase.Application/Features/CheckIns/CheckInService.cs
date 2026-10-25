@@ -13,6 +13,22 @@ public sealed record CheckInDto(
     int CheckInId, int ContractId, string ContractNumber, string CustomerName, int StorageUnitId, string UnitCode,
     int RecordedBy, string RecordedByName, DateTime CheckInAt, DateTime? CheckOutAt, string? Note);
 
+/// <summary>
+/// One renter on the check-in screen: <c>Inside</c> is green, otherwise red. <c>CanEnter</c> is false when the
+/// customer has no working access code (revoked, suspended for unpaid rent, or locked after the move-out deadline).
+/// </summary>
+public sealed record CheckInBoardRowDto(
+    int ContractId, string ContractNumber, string CustomerName, string? CustomerPhone, int StorageUnitId, string UnitCode,
+    string FacilityName, bool Inside, int? OpenCheckInId, DateTime? Since, bool CanEnter);
+
+/// <summary>The access code (PIN) the customer tells staff at the desk.</summary>
+public sealed record FindByAccessCodeRequest(string AccessCode);
+
+public class FindByAccessCodeRequestValidator : AbstractValidator<FindByAccessCodeRequest>
+{
+    public FindByAccessCodeRequestValidator() => RuleFor(x => x.AccessCode).NotEmpty().MaximumLength(20);
+}
+
 public class CheckInRequestValidator : AbstractValidator<CheckInRequest>
 {
     public CheckInRequestValidator()
@@ -28,11 +44,17 @@ public interface ICheckInService
     Task<Result<CheckInDto>> CheckOutAsync(int checkInId, CancellationToken ct);
     Task<Result<CheckInDto>> GetAsync(int checkInId, CancellationToken ct);
     Task<Result<PagedResult<CheckInDto>>> ListAsync(int? contractId, int page, int pageSize, CancellationToken ct);
+    Task<Result<IReadOnlyList<CheckInBoardRowDto>>> BoardAsync(CancellationToken ct);
+    Task<Result<CheckInBoardRowDto>> FindByAccessCodeAsync(FindByAccessCodeRequest request, CancellationToken ct);
 }
 
 /// <summary>SR-05: staff record a customer entering and leaving their unit. One open visit per contract at a time.</summary>
-public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser) : ICheckInService
+public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IPasswordHasher hasher) : ICheckInService
 {
+    /// <summary>Rentals whose customer may still hold a key: everything between handover and closing.</summary>
+    private static readonly ContractStatus[] Renting =
+        [ContractStatus.Active, ContractStatus.Overdue, ContractStatus.Suspended, ContractStatus.PendingReturn];
+
     public async Task<Result<CheckInDto>> CheckInAsync(CheckInRequest request, CancellationToken ct)
     {
         var created = await uow.InTransactionAsync<int>(async () =>
@@ -42,8 +64,10 @@ public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser) : ICheckI
                 .FirstOrDefaultAsync(c => c.ContractId == request.ContractId && facilityIds.Contains(c.StorageUnit.FacilityId), ct);
             if (contract is null)
                 return Error.NotFound("Contract not found.");
-            if (contract.Status != ContractStatus.Active)
-                return Error.Conflict($"Only an Active contract may visit its unit; this one is {contract.Status}.");
+            // The gate is the access code, not the contract status: a customer moving out (PendingReturn) still comes
+            // in, while one locked out for unpaid rent or past the move-out deadline does not.
+            if (!await UsableCodes().AnyAsync(a => a.ContractId == contract.ContractId, ct))
+                return Error.Conflict("This customer has no working access code; they cannot enter.");
             if (await uow.Repository<CheckIn>().Query().AnyAsync(v => v.ContractId == contract.ContractId && v.CheckOutAt == null, ct))
                 return Error.Conflict("This customer is already inside; check them out first.");
 
@@ -86,6 +110,64 @@ public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser) : ICheckI
         if (contractId is not null)
             query = query.Where(v => v.ContractId == contractId);
         return await Project(query.OrderByDescending(v => v.CheckInAt)).ToPagedResultAsync(page, pageSize, ct);
+    }
+
+    /// <summary>Everyone renting at the facilities this person works at; those inside first.</summary>
+    public async Task<Result<IReadOnlyList<CheckInBoardRowDto>>> BoardAsync(CancellationToken ct) =>
+        (await BoardRowsAsync(VisibleContracts(), ct)).OrderByDescending(r => r.Inside).ThenBy(r => r.CustomerName).ToList();
+
+    /// <summary>The renter whose working access code matches the PIN they said at the desk.</summary>
+    public async Task<Result<CheckInBoardRowDto>> FindByAccessCodeAsync(FindByAccessCodeRequest request, CancellationToken ct)
+    {
+        var code = request.AccessCode.Trim();
+        var candidates = await UsableCodes().Where(a => VisibleContracts().Any(c => c.ContractId == a.ContractId))
+            .Select(a => new { a.ContractId, a.CodeHash }).ToListAsync(ct);
+        // shortcut: codes are salted hashes, so each one is checked in turn; fine for a facility's few hundred renters,
+        // add a keyed lookup hash if a single desk ever serves thousands.
+        var match = candidates.FirstOrDefault(a => hasher.Verify(code, a.CodeHash));
+        if (match is null)
+            return Error.NotFound("No working access code matches. Check the code with the customer.");
+        return (await BoardRowsAsync(VisibleContracts().Where(c => c.ContractId == match.ContractId), ct)).Single();
+    }
+
+    private IQueryable<AccessCode> UsableCodes()
+    {
+        var now = DateTime.UtcNow;
+        return uow.Repository<AccessCode>().Query().Where(a => a.IsActive && a.SuspendedAt == null && a.ExpiresAt > now);
+    }
+
+    private IQueryable<Contract> VisibleContracts()
+    {
+        var query = uow.Repository<Contract>().Query().Where(c => Renting.Contains(c.Status));
+        if (StaffScope.SeesAllFacilities(currentUser.Role))
+            return query;
+        var facilityIds = StaffScope.FacilityIdsOf(uow, currentUser.UserId);
+        return query.Where(c => facilityIds.Contains(c.StorageUnit.FacilityId));
+    }
+
+    private async Task<List<CheckInBoardRowDto>> BoardRowsAsync(IQueryable<Contract> contracts, CancellationToken ct)
+    {
+        var rentals = await contracts.Select(c => new
+        {
+            c.ContractId, c.ContractNumber, Customer = c.Customer.FullName, Phone = c.Customer.PhoneNumber,
+            c.StorageUnitId, c.StorageUnit.UnitCode, Facility = c.StorageUnit.Facility.Name,
+        }).ToListAsync(ct);
+        var ids = rentals.Select(r => r.ContractId).ToList();
+        var visits = uow.Repository<CheckIn>().Query().Where(v => ids.Contains(v.ContractId));
+        var open = await visits.Where(v => v.CheckOutAt == null)
+            .Select(v => new { v.ContractId, v.CheckInId, v.CheckInAt }).ToListAsync(ct);
+        var lastOut = await visits.Where(v => v.CheckOutAt != null).GroupBy(v => v.ContractId)
+            .Select(g => new { ContractId = g.Key, At = g.Max(v => v.CheckOutAt) }).ToListAsync(ct);
+        var withCode = await UsableCodes().Where(a => ids.Contains(a.ContractId)).Select(a => a.ContractId).ToListAsync(ct);
+
+        return rentals.Select(r =>
+        {
+            var inside = open.FirstOrDefault(v => v.ContractId == r.ContractId);
+            return new CheckInBoardRowDto(r.ContractId, r.ContractNumber, r.Customer, r.Phone, r.StorageUnitId, r.UnitCode,
+                r.Facility, inside is not null, inside?.CheckInId,
+                inside?.CheckInAt ?? lastOut.FirstOrDefault(o => o.ContractId == r.ContractId)?.At,
+                withCode.Contains(r.ContractId));
+        }).ToList();
     }
 
     /// <summary>Customers see their own visits, facility staff and managers those at their facilities, admin and business ops all.</summary>
