@@ -58,11 +58,13 @@ public class BillingCycleTests
         var again = await Billing(t, email).RunAsync(new DateOnly(2026, 1, 5), default);
         var nextMonth = await Billing(t, email).RunAsync(new DateOnly(2026, 2, 3), default);
 
-        first.Value!.InvoicesIssued.Should().Be(1);
+        first.Value!.InvoicesIssued.Should().Be(0, "the first month's rent is paid in arrears");
         again.Value!.InvoicesIssued.Should().Be(0, "the job is idempotent");
         nextMonth.Value!.InvoicesIssued.Should().Be(1);
+        var followingMonth = await Billing(t, email).RunAsync(new DateOnly(2026, 3, 3), default);
+        followingMonth.Value!.InvoicesIssued.Should().Be(1);
         var invoices = await t.Db.Invoices.Include(i => i.InvoiceItems).Where(i => i.ContractId == contractId).OrderBy(i => i.DueDate).ToListAsync();
-        invoices.Select(i => i.DueDate).Should().Equal(new DateOnly(2026, 1, 10), new DateOnly(2026, 2, 10));
+        invoices.Select(i => i.DueDate).Should().Equal(new DateOnly(2026, 2, 10), new DateOnly(2026, 3, 10));
         invoices.Should().OnlyContain(i => i.InvoiceItems.First().LineAmount == 900_000m);
     }
 
@@ -71,10 +73,10 @@ public class BillingCycleTests
     {
         var (t, contractId, email) = Seed();
         using var _ = t;
-        await Billing(t, email).RunAsync(new DateOnly(2026, 1, 5), default);
+        await Billing(t, email).RunAsync(new DateOnly(2026, 2, 3), default);
 
         // 15 days past due: one full week past the 5-day grace, and past the 14-day lockout.
-        var run = await Billing(t, email).RunAsync(new DateOnly(2026, 1, 25), default);
+        var run = await Billing(t, email).RunAsync(new DateOnly(2026, 2, 25), default);
 
         run.Value!.CasesOpened.Should().Be(1);
         run.Value.ContractsLockedOut.Should().Be(1);
@@ -105,7 +107,7 @@ public class BillingCycleTests
     {
         var (t, contractId, email) = Seed();
         using var _ = t;
-        await Billing(t, email).RunAsync(new DateOnly(2026, 1, 5), default);
+        await Billing(t, email).RunAsync(new DateOnly(2026, 2, 3), default);
         var contract = await t.Db.Contracts.SingleAsync(c => c.ContractId == contractId);
         contract.Status = status;
         await t.Db.SaveChangesAsync();
@@ -123,10 +125,10 @@ public class BillingCycleTests
     {
         var (t, _, email) = Seed();
         using var __ = t;
-        await Billing(t, email).RunAsync(new DateOnly(2026, 1, 5), default);
+        await Billing(t, email).RunAsync(new DateOnly(2026, 2, 3), default);
 
-        var run = await Billing(t, email).RunAsync(new DateOnly(2026, 1, 7), default);
-        var rerun = await Billing(t, email).RunAsync(new DateOnly(2026, 1, 7), default);
+        var run = await Billing(t, email).RunAsync(new DateOnly(2026, 2, 7), default);
+        var rerun = await Billing(t, email).RunAsync(new DateOnly(2026, 2, 7), default);
 
         run.Value!.RemindersSent.Should().Be(1);
         rerun.Value!.RemindersSent.Should().Be(0);
@@ -135,7 +137,7 @@ public class BillingCycleTests
         t.Db.Reminders.RemoveRange(t.Db.Reminders);
         t.Db.NotificationPreferences.Add(new NotificationPreference { UserId = CustomerId, EmailReminders = false, UpdatedAt = DateTime.UtcNow });
         await t.Db.SaveChangesAsync();
-        var optedOut = await Billing(t, email).RunAsync(new DateOnly(2026, 1, 7), default);
+        var optedOut = await Billing(t, email).RunAsync(new DateOnly(2026, 2, 7), default);
 
         optedOut.Value!.RemindersSent.Should().Be(0);
     }

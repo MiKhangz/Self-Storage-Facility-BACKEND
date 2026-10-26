@@ -53,13 +53,13 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
 
     /// <summary>
     /// One invoice per month of the contract, the k-th covering [StartDate + k months, StartDate + k+1 months).
-    /// It falls due on the contract's payment day in that month, never before the period starts.
+    /// Rent is paid in arrears: the first month's invoice is due on the next monthly anniversary.
     /// </summary>
     public static DateOnly DueDateOf(Contract contract, DateOnly periodStart)
     {
-        var day = Math.Min(contract.PaymentDay, DateTime.DaysInMonth(periodStart.Year, periodStart.Month));
-        var due = new DateOnly(periodStart.Year, periodStart.Month, day);
-        return due < periodStart ? periodStart : due;
+        var dueMonth = periodStart.AddMonths(1);
+        var day = Math.Min(contract.PaymentDay, DateTime.DaysInMonth(dueMonth.Year, dueMonth.Month));
+        return new DateOnly(dueMonth.Year, dueMonth.Month, day);
     }
 
     private async Task<int> IssueRentInvoicesAsync(DateOnly today, CancellationToken ct)

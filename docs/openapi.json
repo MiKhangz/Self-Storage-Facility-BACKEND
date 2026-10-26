@@ -5238,6 +5238,82 @@
         }
       }
     },
+    "/api/unit-visits/pins/check-in": {
+      "post": {
+        "tags": [
+          "UnitVisits"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueVisitPinRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueVisitPinRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueVisitPinRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitPinDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/unit-visits/check-in/verify": {
+      "post": {
+        "tags": [
+          "UnitVisits"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyVisitPinRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyVisitPinRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyVisitPinRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitPinIdentityDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/unit-visits/check-in": {
       "post": {
         "tags": [
@@ -7387,6 +7463,16 @@
         ],
         "type": "string"
       },
+      "IssueVisitPinRequest": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "LoginRequest": {
         "type": "object",
         "properties": {
@@ -9485,9 +9571,9 @@
       "UnitVisitCheckInRequest": {
         "type": "object",
         "properties": {
-          "contractId": {
-            "type": "integer",
-            "format": "int32"
+          "pin": {
+            "type": "string",
+            "nullable": true
           },
           "note": {
             "type": "string",
@@ -9515,6 +9601,10 @@
             "type": "string",
             "nullable": true
           },
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
+          },
           "storageUnitId": {
             "type": "integer",
             "format": "int32"
@@ -9538,6 +9628,15 @@
           "checkOutAt": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          },
+          "checkedOutBy": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "checkedOutByName": {
+            "type": "string",
             "nullable": true
           },
           "note": {
@@ -9758,6 +9857,68 @@
         "type": "object",
         "properties": {
           "token": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VerifyVisitPinRequest": {
+        "type": "object",
+        "properties": {
+          "pin": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VisitPinDto": {
+        "type": "object",
+        "properties": {
+          "pin": {
+            "type": "string",
+            "nullable": true
+          },
+          "expiredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VisitPinIdentityDto": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contractNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "citizenId": {
+            "type": "string",
+            "nullable": true
+          },
+          "unitCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "facilityName": {
+            "type": "string",
+            "nullable": true
+          },
+          "purpose": {
             "type": "string",
             "nullable": true
           }

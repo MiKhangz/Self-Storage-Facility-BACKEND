@@ -14,6 +14,7 @@ public class UnitVisitConfiguration : IEntityTypeConfiguration<UnitVisit>
         builder.HasOne(x => x.Contract).WithMany().HasForeignKey(x => x.ContractId);
         builder.HasOne(x => x.StorageUnit).WithMany().HasForeignKey(x => x.StorageUnitId);
         builder.HasOne(x => x.RecordedByUser).WithMany().HasForeignKey(x => x.RecordedBy);
+        builder.HasOne(x => x.CheckedOutByUser).WithMany().HasForeignKey(x => x.CheckedOutBy);
         builder.Property(x => x.Note).HasMaxLength(200);
 
         builder.HasIndex(x => x.ContractId);

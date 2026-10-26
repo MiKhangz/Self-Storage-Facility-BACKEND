@@ -9,8 +9,24 @@ namespace StorEase.Api.Controllers;
 [Route("api/unit-visits")]
 public class UnitVisitsController(IUnitVisitService visits) : ApiControllerBase
 {
+    [HttpPost("pins/check-in")]
+    [Authorize(Roles = Roles.StorageCustomer)]
+    public async Task<ActionResult<VisitPinDto>> IssueCheckInPin(IssueVisitPinRequest request, CancellationToken ct)
+    {
+        var result = await visits.IssueCheckInPinAsync(request.ContractId, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    [HttpPost("check-in/verify")]
+    [Authorize(Roles = Roles.Staff + "," + Roles.BusinessOperationsManager + "," + Roles.SystemAdministrator)]
+    public async Task<ActionResult<VisitPinIdentityDto>> VerifyCheckInPin(VerifyVisitPinRequest request, CancellationToken ct)
+    {
+        var result = await visits.VerifyCheckInPinAsync(request.Pin, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
     [HttpPost("check-in")]
-    [Authorize(Roles = Roles.Staff)]
+    [Authorize(Roles = Roles.Staff + "," + Roles.BusinessOperationsManager + "," + Roles.SystemAdministrator)]
     [ProducesResponseType<UnitVisitDto>(StatusCodes.Status201Created)]
     public async Task<ActionResult<UnitVisitDto>> CheckIn(UnitVisitCheckInRequest request, CancellationToken ct)
     {
@@ -21,7 +37,7 @@ public class UnitVisitsController(IUnitVisitService visits) : ApiControllerBase
     }
 
     [HttpPost("{id:int}/check-out")]
-    [Authorize(Roles = Roles.Staff)]
+    [Authorize(Roles = Roles.Staff + "," + Roles.BusinessOperationsManager + "," + Roles.SystemAdministrator)]
     public async Task<ActionResult<UnitVisitDto>> CheckOut(int id, CancellationToken ct)
     {
         var result = await visits.CheckOutAsync(id, ct);

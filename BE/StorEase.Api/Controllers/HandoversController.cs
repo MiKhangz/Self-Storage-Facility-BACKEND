@@ -55,7 +55,7 @@ public class HandoversController(IHandoverService handovers) : ApiControllerBase
     }
 
     [HttpPost("{id:int}/settle-deposit")]
-    [Authorize(Roles = Roles.BusinessOperationsManager)]
+    [Authorize(Roles = Roles.FacilityManager + "," + Roles.BusinessOperationsManager)]
     public async Task<ActionResult<DepositSettlementDto>> SettleDeposit(int id, CancellationToken ct)
     {
         var result = await handovers.SettleAsync(id, ct);

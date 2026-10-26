@@ -10,6 +10,7 @@ public class UnitVisit
     public int ContractId { get; set; }
     public int StorageUnitId { get; set; }
     public int RecordedBy { get; set; }
+    public int? CheckedOutBy { get; set; }
     public DateTime CheckInAt { get; set; }
     /// <summary>Null while the customer is still inside.</summary>
     public DateTime? CheckOutAt { get; set; }
@@ -18,4 +19,5 @@ public class UnitVisit
     public Contract Contract { get; set; } = null!;
     public StorageUnit StorageUnit { get; set; } = null!;
     public User RecordedByUser { get; set; } = null!;
+    public User? CheckedOutByUser { get; set; }
 }

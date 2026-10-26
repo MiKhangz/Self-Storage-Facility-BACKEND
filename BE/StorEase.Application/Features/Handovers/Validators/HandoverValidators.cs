@@ -10,7 +10,8 @@ public class CreateHandoverRequestValidator : AbstractValidator<CreateHandoverRe
     {
         RuleFor(x => x.ContractId).GreaterThan(0);
         RuleFor(x => x.Reason).MaximumLength(200);
-        RuleFor(x => x.RefundMethod).IsInEnum();
+        RuleFor(x => x.RefundMethod).Equal(RefundMethod.BankTransfer)
+            .WithMessage("Deposit refunds are processed by bank transfer only.");
         RuleFor(x => x.RefundAccount).MaximumLength(50);
         RuleFor(x => x.RefundAccount).NotEmpty()
             .When(x => x.RefundMethod == RefundMethod.BankTransfer)

@@ -22,7 +22,7 @@ public class DepositRefundsController(IDepositRefundService refunds) : ApiContro
 
     /// <summary>Business operations record that the customer has the money back; 409 if already paid.</summary>
     [HttpPost("{id:int}/paid")]
-    [Authorize(Roles = Roles.BusinessOperationsManager)]
+    [Authorize(Roles = Roles.FacilityManager + "," + Roles.BusinessOperationsManager)]
     public async Task<ActionResult<DepositRefundDto>> MarkPaid(int id, MarkDepositRefundPaidRequest request, CancellationToken ct)
     {
         var result = await refunds.MarkPaidAsync(id, request, ct);

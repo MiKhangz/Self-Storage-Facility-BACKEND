@@ -57,6 +57,10 @@ public class DepositRefundService(IUnitOfWork uow, ICurrentUser currentUser) : I
             return Error.NotFound("Deposit refund not found.");
         if (refund.Status == DepositRefundStatus.Paid)
             return Error.Conflict("This deposit refund is already paid.");
+        if (request.Method != RefundMethod.BankTransfer)
+            return Error.Validation("Deposit refunds are processed by bank transfer only.");
+        if (string.IsNullOrWhiteSpace(request.ReferenceNo))
+            return Error.Validation("A sandbox bank account or transfer reference is required.");
 
         refund.Status = DepositRefundStatus.Paid;
         refund.Method = request.Method;
