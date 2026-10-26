@@ -27,6 +27,10 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
         var query = uow.Repository<Facility>().Query();
         if (!(includeInactive && currentUser.Role == Roles.SystemAdministrator))
             query = query.Where(f => f.Status == FacilityStatus.Active);
+        var staffed = StaffScope.StaffedFacilityIds(uow);
+        // Customers see only facilities someone works at; staff see all, flagged, so an admin can fix it.
+        if (currentUser.Role is "" or Roles.StorageCustomer)
+            query = query.Where(f => staffed.Contains(f.FacilityId));
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
@@ -39,7 +43,8 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
             .OrderBy(f => f.Name)
             .Select(f => new FacilityListItemDto(
                 f.FacilityId, f.Code, f.Name, f.Address, f.District, f.Phone, f.OpeningHours,
-                f.StorageUnits.Count(u => u.Status == StorageUnitStatus.Available)))
+                f.StorageUnits.Count(u => u.Status == StorageUnitStatus.Available),
+                staffed.Contains(f.FacilityId)))
             .ToPagedResultAsync(page, pageSize, ct);
     }
 
@@ -52,6 +57,9 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
             .FirstOrDefaultAsync(f => f.FacilityId == facilityId, ct);
         // An inactive facility is only visible to staff, so customers cannot book it from a stale link.
         if (facility is null || (facility.Status != FacilityStatus.Active && currentUser.Role is "" or Roles.StorageCustomer))
+            return Error.NotFound("Facility not found.");
+        if (currentUser.Role is "" or Roles.StorageCustomer
+            && !await StaffScope.StaffedFacilityIds(uow).AnyAsync(id => id == facilityId, ct))
             return Error.NotFound("Facility not found.");
 
         var prices = await ActivePricesAsync(ct);

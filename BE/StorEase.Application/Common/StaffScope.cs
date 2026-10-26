@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
+using StorEase.Domain.Enums;
 
 namespace StorEase.Application.Common;
 
@@ -21,6 +22,22 @@ public static class StaffScope
             .Where(f => f.ManagerId == userId)
             .Select(f => f.FacilityId);
         return assigned.Union(managed);
+    }
+
+    /// <summary>
+    /// Facilities someone actually works at: an active manager, or an active facility staff member or manager
+    /// assigned there. Elsewhere a customer's booking, handover or ticket would reach nobody.
+    /// </summary>
+    public static IQueryable<int> StaffedFacilityIds(IUnitOfWork uow)
+    {
+        var managed = uow.Repository<Facility>().Query()
+            .Where(f => f.Manager != null && f.Manager.Status == UserStatus.Active)
+            .Select(f => f.FacilityId);
+        var assigned = uow.Repository<StaffFacility>().Query()
+            .Where(s => s.User.Status == UserStatus.Active
+                && (s.User.Role.RoleName == Roles.FacilityStaff || s.User.Role.RoleName == Roles.FacilityManager))
+            .Select(s => s.FacilityId);
+        return managed.Union(assigned);
     }
 
     /// <summary>

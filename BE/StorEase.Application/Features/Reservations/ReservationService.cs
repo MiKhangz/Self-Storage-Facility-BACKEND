@@ -45,6 +45,9 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             .FirstOrDefaultAsync(f => f.FacilityId == request.FacilityId && f.Status == FacilityStatus.Active, ct);
         if (facility is null)
             return Error.NotFound("Facility not found.");
+        // Nobody would assign the unit, hand it over or answer the customer there.
+        if (!await StaffScope.StaffedFacilityIds(uow).AnyAsync(id => id == facility.FacilityId, ct))
+            return Error.Conflict("This facility is not taking bookings yet: no staff work there.");
 
         if (!await uow.Repository<UnitType>().Query().AnyAsync(t => t.UnitTypeId == request.UnitTypeId, ct))
             return Error.NotFound("Unit type not found.");
