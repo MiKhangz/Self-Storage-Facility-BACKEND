@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.AccessCodes;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
@@ -62,7 +63,7 @@ public interface ICheckInService
 }
 
 /// <summary>SR-05: staff record a customer entering and leaving their unit. One open visit per contract at a time.</summary>
-public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IPasswordHasher hasher) : ICheckInService
+public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IPasswordHasher hasher, IAccessCodeService accessCodes) : ICheckInService
 {
     /// <summary>Rentals whose customer may still hold a key: everything between handover and closing.</summary>
     private static readonly ContractStatus[] Renting =
@@ -108,6 +109,7 @@ public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IPassword
             return Error.Conflict("This visit is already checked out.");
         visit.CheckOutAt = DateTime.UtcNow;
         visit.CheckOutMethod = CheckOutMethod.Desk;
+        await RotateCodeAsync(visit.ContractId, ct);
         await uow.SaveChangesAsync(ct);
         return await GetAsync(checkInId, ct);
     }
@@ -129,6 +131,7 @@ public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IPassword
         visit.CheckOutAt = leftAt;
         visit.CheckOutMethod = CheckOutMethod.MarkedByStaff;
         visit.CheckOutReason = request.Reason.Trim();
+        await RotateCodeAsync(visit.ContractId, ct);
         await uow.SaveChangesAsync(ct);
         return await GetAsync(checkInId, ct);
     }
@@ -145,10 +148,25 @@ public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IPassword
                 continue;
             row.Visit.CheckOutAt = closing;
             row.Visit.CheckOutMethod = CheckOutMethod.AutoAtClosing;
+            await RotateCodeAsync(row.Visit.ContractId, ct);
             closed++;
         }
         await uow.SaveChangesAsync(ct);
         return closed;
+    }
+
+    /// <summary>
+    /// A code works for one visit: once the visit ends it is replaced, so a code someone overheard, or gave a friend,
+    /// cannot open the unit again. The renter reads the new one in their account. A code locked for unpaid rent or a
+    /// passed move-out deadline is left locked, not renewed.
+    /// </summary>
+    private async Task RotateCodeAsync(int contractId, CancellationToken ct)
+    {
+        var contract = await uow.Repository<Contract>().Query().Include(c => c.AccessCodes)
+            .FirstAsync(c => c.ContractId == contractId, ct);
+        var now = DateTime.UtcNow;
+        if (contract.AccessCodes.Any(a => a.IsActive && a.SuspendedAt == null && a.ExpiresAt > now))
+            accessCodes.Issue(contract);
     }
 
     /// <summary>

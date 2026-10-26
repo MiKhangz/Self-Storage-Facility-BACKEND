@@ -1,5 +1,6 @@
 using FluentAssertions;
 using StorEase.Application.Common;
+using StorEase.Application.Features.AccessCodes;
 using StorEase.Application.Features.CheckIns;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
@@ -16,6 +17,8 @@ public class CheckInTests
 {
     private static readonly Pbkdf2PasswordHasher Hasher = new();
     private const string Pin = "482915";
+
+    private static AccessCodeService Codes(TestDb t) => new(t.Uow, Hasher, Staff, TestCodes.Protector);
 
     private static int SeedContract(TestDb t, ContractStatus status, bool codeWorks = true)
     {
@@ -45,16 +48,16 @@ public class CheckInTests
     {
         using var t = Create();
         var contractId = SeedContract(t, ContractStatus.Active);
-        var staff = new CheckInService(t.Uow, Staff, Hasher);
+        var staff = new CheckInService(t.Uow, Staff, Hasher, Codes(t));
 
         var first = await staff.CheckInAsync(new CheckInRequest(contractId, "Lấy đồ"), default);
         var second = await staff.CheckInAsync(new CheckInRequest(contractId, null), default);
         var outOnce = await staff.CheckOutAsync(first.Value!.CheckInId, default);
         var outTwice = await staff.CheckOutAsync(first.Value.CheckInId, default);
         var afterLeaving = await staff.CheckInAsync(new CheckInRequest(contractId, null), default);
-        var outsider = await new CheckInService(t.Uow, new FakeCurrentUser(77, Roles.FacilityStaff), Hasher)
+        var outsider = await new CheckInService(t.Uow, new FakeCurrentUser(77, Roles.FacilityStaff), Hasher, Codes(t))
             .CheckInAsync(new CheckInRequest(contractId, null), default);
-        var customerSees = await new CheckInService(t.Uow, Customer, Hasher).ListAsync(contractId, 1, 20, default);
+        var customerSees = await new CheckInService(t.Uow, Customer, Hasher, Codes(t)).ListAsync(contractId, 1, 20, default);
 
         first.IsSuccess.Should().BeTrue(first.Error?.Message);
         first.Value.UnitCode.Should().Be("A-101");
@@ -72,7 +75,7 @@ public class CheckInTests
         using var t = Create();
         var contractId = SeedContract(t, ContractStatus.Suspended, codeWorks: false);
 
-        var result = await new CheckInService(t.Uow, Staff, Hasher).CheckInAsync(new CheckInRequest(contractId, null), default);
+        var result = await new CheckInService(t.Uow, Staff, Hasher, Codes(t)).CheckInAsync(new CheckInRequest(contractId, null), default);
 
         result.Error!.Type.Should().Be(ErrorType.Conflict);
     }
@@ -82,7 +85,7 @@ public class CheckInTests
     {
         using var t = Create();
         var contractId = SeedContract(t, ContractStatus.PendingReturn); // moving out: still allowed in
-        var desk = new CheckInService(t.Uow, Staff, Hasher);
+        var desk = new CheckInService(t.Uow, Staff, Hasher, Codes(t));
 
         var wrong = await desk.FindByAccessCodeAsync(new FindByAccessCodeRequest("000000"), default);
         var found = await desk.FindByAccessCodeAsync(new FindByAccessCodeRequest(Pin), default);
@@ -102,7 +105,7 @@ public class CheckInTests
     {
         using var t = Create();
         var contractId = SeedContract(t, ContractStatus.Active);
-        var desk = new CheckInService(t.Uow, Staff, Hasher);
+        var desk = new CheckInService(t.Uow, Staff, Hasher, Codes(t));
         var visit = (await desk.CheckInAsync(new CheckInRequest(contractId, null), default)).Value!;
 
         var future = await desk.MarkLeftAsync(visit.CheckInId, new MarkLeftRequest(DateTime.UtcNow.AddHours(2), "Forgot"), default);
@@ -127,7 +130,7 @@ public class CheckInTests
         var contractId = SeedContract(t, ContractStatus.Active);
         t.Db.Add(new CheckIn { ContractId = contractId, StorageUnitId = A101, RecordedBy = StaffId, CheckInAt = tenAm });
         t.Db.SaveChanges();
-        var desk = new CheckInService(t.Uow, Staff, Hasher);
+        var desk = new CheckInService(t.Uow, Staff, Hasher, Codes(t));
 
         var beforeClosing = await desk.CloseAtClosingTimeAsync(tenAm.AddHours(5), default);
         var afterClosing = await desk.CloseAtClosingTimeAsync(tenAm.AddHours(14), default);
@@ -138,5 +141,38 @@ public class CheckInTests
         var visit = t.Db.CheckIns.Single();
         visit.CheckOutMethod.Should().Be(CheckOutMethod.AutoAtClosing);
         visit.CheckOutAt.Should().Be(new DateTime(2026, 10, 26, 16, 59, 0, DateTimeKind.Utc), "the test facility has no hours set, so its day ends at 23:59");
+    }
+
+    [Fact]
+    public async Task Each_visit_ends_with_a_new_code_so_an_overheard_one_stops_working()
+    {
+        using var t = Create();
+        var contractId = SeedContract(t, ContractStatus.Active);
+        var desk = new CheckInService(t.Uow, Staff, Hasher, Codes(t));
+        var renter = new AccessCodeService(t.Uow, Hasher, Customer, TestCodes.Protector);
+        var visit = (await desk.CheckInAsync(new CheckInRequest(contractId, null), default)).Value!;
+
+        (await desk.FindByAccessCodeAsync(new FindByAccessCodeRequest(Pin), default)).IsSuccess.Should().BeTrue("the code still works during the visit");
+        await desk.CheckOutAsync(visit.CheckInId, default);
+
+        (await desk.FindByAccessCodeAsync(new FindByAccessCodeRequest(Pin), default)).Error!.Type.Should().Be(ErrorType.NotFound, "the old code died with the visit");
+        var fresh = (await renter.GetActiveAsync(contractId, default)).Value!.Code;
+        fresh.Should().NotBeNull().And.NotBe(Pin);
+        (await desk.FindByAccessCodeAsync(new FindByAccessCodeRequest(fresh!), default)).Value!.ContractId.Should().Be(contractId);
+    }
+
+    [Fact]
+    public async Task A_code_locked_for_unpaid_rent_is_not_renewed_when_a_visit_closes()
+    {
+        using var t = Create();
+        var contractId = SeedContract(t, ContractStatus.Suspended, codeWorks: false);
+        t.Db.Add(new CheckIn { ContractId = contractId, StorageUnitId = A101, RecordedBy = StaffId, CheckInAt = DateTime.UtcNow.AddHours(-1) });
+        t.Db.SaveChanges();
+        var desk = new CheckInService(t.Uow, Staff, Hasher, Codes(t));
+
+        await desk.MarkLeftAsync(t.Db.CheckIns.Single().CheckInId, new MarkLeftRequest(DateTime.UtcNow, "Left"), default);
+
+        t.Db.ChangeTracker.Clear();
+        t.Db.AccessCodes.Where(a => a.ContractId == contractId).Should().ContainSingle().Which.SuspendedAt.Should().NotBeNull();
     }
 }
