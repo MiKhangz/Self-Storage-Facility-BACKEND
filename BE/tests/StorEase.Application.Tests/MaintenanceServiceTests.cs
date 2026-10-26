@@ -135,12 +135,19 @@ public class MaintenanceServiceTests
     }
 
     [Fact]
-    public async Task Occupied_unit_keeps_its_status_through_the_whole_order()
+    public async Task A_rented_unit_gets_an_order_only_from_its_customers_ticket_and_keeps_its_status()
     {
         var w = await SeedAsync();
         using var _ = w.Db;
         var svc = w.As(w.Staff);
-        var id = (await svc.CreateAsync(Req(w.OccupiedUnit), default)).Value.MaintenanceOrderId;
+        var customer = NewUser(new Role { RoleName = Roles.StorageCustomer }, "renter@x.vn");
+        var ticket = NewTicket(customer, new TicketCategory { Name = "Leak", DefaultPriority = Priority.High }, w.Facility, w.OccupiedUnit, "TK9");
+        w.Db.Db.Add(ticket);
+        await w.Db.Db.SaveChangesAsync();
+
+        var direct = await svc.CreateAsync(Req(w.OccupiedUnit), default);
+        direct.Error!.Type.Should().Be(ErrorType.Conflict, "staff cannot open work on a customer's unit on their own");
+        var id = (await svc.CreateAsync(new("Fix the leak", null, ticket.TicketId, null, null), default)).Value.MaintenanceOrderId;
 
         await svc.ChangeStatusAsync(id, To(MaintenanceOrderStatus.InProgress), default);
         (await w.UnitStatus(w.OccupiedUnit)).Should().Be(StorageUnitStatus.Occupied);

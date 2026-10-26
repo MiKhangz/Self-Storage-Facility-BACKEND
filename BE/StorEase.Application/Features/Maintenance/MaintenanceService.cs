@@ -42,10 +42,15 @@ public class MaintenanceService(IUnitOfWork uow, ICurrentUser currentUser) : IMa
 
         var unit = await uow.Repository<StorageUnit>().Query()
             .Where(u => u.StorageUnitId == unitId && (scope == null || scope.Contains(u.FacilityId)))
-            .Select(u => new { u.StorageUnitId, u.FacilityId })
+            .Select(u => new { u.StorageUnitId, u.FacilityId, u.UnitCode, u.Status })
             .FirstOrDefaultAsync(ct);
         if (unit is null)
             return Error.NotFound("Storage unit not found.");
+        if (unit.Status == StorageUnitStatus.Retired)
+            return Error.Conflict($"Unit {unit.UnitCode} is retired; restore it before ordering work on it.");
+        // A customer's unit is worked on only when that customer asked for it, through their support ticket.
+        if (unit.Status is StorageUnitStatus.Reserved or StorageUnitStatus.Occupied && request.TicketId is null)
+            return Error.Conflict($"Unit {unit.UnitCode} is {unit.Status}: a customer holds it. Order work on it from their support ticket.");
 
         if (request.AssignedTo is { } assignee)
         {
