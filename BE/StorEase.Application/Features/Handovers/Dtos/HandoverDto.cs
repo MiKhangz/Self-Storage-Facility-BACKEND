@@ -11,7 +11,7 @@ public sealed record HandoverDto(
     string UnitCode,
     DateTime HandoverTime,
     string LockSerial,
-    string CardNumber,
+    string? CardNumber,
     string? ConditionNote,
     HandoverStatus Status,
     string AccessCode);
