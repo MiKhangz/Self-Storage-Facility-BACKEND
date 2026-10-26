@@ -6966,6 +6966,9 @@
           "availableUnits": {
             "type": "integer",
             "format": "int32"
+          },
+          "staffed": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
