@@ -140,13 +140,30 @@ public class MaintenanceServiceTests
         var w = await SeedAsync();
         using var _ = w.Db;
         var svc = w.As(w.Staff);
-        var customer = NewUser(new Role { RoleName = Roles.StorageCustomer }, "renter@x.vn");
-        var ticket = NewTicket(customer, new TicketCategory { Name = "Leak", DefaultPriority = Priority.High }, w.Facility, w.OccupiedUnit, "TK9");
-        w.Db.Db.Add(ticket);
+        var customerRole = new Role { RoleName = Roles.StorageCustomer };
+        var renter = NewUser(customerRole, "renter@x.vn");
+        var previous = NewUser(customerRole, "previous@x.vn");
+        var leak = new TicketCategory { Name = "Leak", DefaultPriority = Priority.High };
+        var ticket = NewTicket(renter, leak, w.Facility, w.OccupiedUnit, "TK9");
+        var oldTicket = NewTicket(previous, leak, w.Facility, w.OccupiedUnit, "TK1");
+        oldTicket.Status = SupportTicketStatus.Closed;
+        w.Db.Db.AddRange(ticket, oldTicket, new Contract
+        {
+            Reservation = new Reservation
+            {
+                Customer = renter, Facility = w.Facility, UnitType = w.OccupiedUnit.UnitType, StorageUnit = w.OccupiedUnit,
+                ReservationCode = "RS-A2", MoveInDate = new DateOnly(2026, 10, 1), RentalMonths = 3,
+                Status = ReservationStatus.HandedOver, CreatedAt = DateTime.UtcNow,
+            },
+            Customer = renter, StorageUnit = w.OccupiedUnit, ContractNumber = "CT-A2", StartDate = new DateOnly(2026, 10, 1),
+            EndDate = new DateOnly(2027, 1, 1), MonthlyRent = 1m, DepositAmount = 1m, PaymentDay = 1, Status = ContractStatus.Active,
+        });
         await w.Db.Db.SaveChangesAsync();
 
         var direct = await svc.CreateAsync(Req(w.OccupiedUnit), default);
         direct.Error!.Type.Should().Be(ErrorType.Conflict, "staff cannot open work on a customer's unit on their own");
+        var fromOldRenter = await svc.CreateAsync(new("Fix", null, oldTicket.TicketId, null, null), default);
+        fromOldRenter.Error!.Type.Should().Be(ErrorType.Conflict, "the previous renter's closed ticket does not speak for the new one");
         var id = (await svc.CreateAsync(new("Fix the leak", null, ticket.TicketId, null, null), default)).Value.MaintenanceOrderId;
 
         await svc.ChangeStatusAsync(id, To(MaintenanceOrderStatus.InProgress), default);

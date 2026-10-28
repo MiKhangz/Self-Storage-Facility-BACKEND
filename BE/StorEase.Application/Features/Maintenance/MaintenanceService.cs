@@ -25,11 +25,12 @@ public class MaintenanceService(IUnitOfWork uow, ICurrentUser currentUser) : IMa
     {
         var scope = Scope();
         var unitId = request.StorageUnitId;
+        int? ticketCustomer = null;
         if (request.TicketId is { } ticketId)
         {
             var ticket = await uow.Repository<SupportTicket>().Query()
                 .Where(t => t.TicketId == ticketId && (scope == null || scope.Contains(t.FacilityId)))
-                .Select(t => new { t.StorageUnitId })
+                .Select(t => new { t.StorageUnitId, t.CustomerId, t.Status })
                 .FirstOrDefaultAsync(ct);
             if (ticket is null)
                 return Error.NotFound("Ticket not found.");
@@ -38,6 +39,8 @@ public class MaintenanceService(IUnitOfWork uow, ICurrentUser currentUser) : IMa
             if (unitId is not null && unitId != ticket.StorageUnitId)
                 return Error.Validation("The storage unit does not match the ticket.");
             unitId = ticket.StorageUnitId;
+            if (ticket.Status != SupportTicketStatus.Closed)
+                ticketCustomer = ticket.CustomerId;
         }
 
         var unit = await uow.Repository<StorageUnit>().Query()
@@ -48,9 +51,11 @@ public class MaintenanceService(IUnitOfWork uow, ICurrentUser currentUser) : IMa
             return Error.NotFound("Storage unit not found.");
         if (unit.Status == StorageUnitStatus.Retired)
             return Error.Conflict($"Unit {unit.UnitCode} is retired; restore it before ordering work on it.");
-        // A customer's unit is worked on only when that customer asked for it, through their support ticket.
-        if (unit.Status is StorageUnitStatus.Reserved or StorageUnitStatus.Occupied && request.TicketId is null)
-            return Error.Conflict($"Unit {unit.UnitCode} is {unit.Status}: a customer holds it. Order work on it from their support ticket.");
+        // A customer's unit is worked on only when that customer asked for it, through their own open ticket; a closed
+        // ticket, or one from the unit's previous renter, does not count.
+        if (unit.Status is StorageUnitStatus.Reserved or StorageUnitStatus.Occupied
+            && (ticketCustomer is not { } asker || !await HoldsUnitAsync(asker, unit.StorageUnitId, ct)))
+            return Error.Conflict($"Unit {unit.UnitCode} is {unit.Status}: a customer holds it. Order work on it from their open support ticket.");
 
         if (request.AssignedTo is { } assignee)
         {
@@ -176,4 +181,12 @@ public class MaintenanceService(IUnitOfWork uow, ICurrentUser currentUser) : IMa
         query.Select(o => new MaintenanceOrderDto(
             o.MaintenanceOrderId, o.StorageUnitId, o.StorageUnit.UnitCode, o.StorageUnit.FacilityId,
             o.TicketId, o.AssignedTo, o.Description, o.ScheduledAt, o.CompletedAt, o.Cost, o.WorkNote, o.Status));
+
+    /// <summary>Whether the customer holds the unit now: a confirmed booking of it, or a rental not yet closed.</summary>
+    private async Task<bool> HoldsUnitAsync(int customerId, int storageUnitId, CancellationToken ct) =>
+        await uow.Repository<Contract>().Query().AnyAsync(c => c.CustomerId == customerId && c.StorageUnitId == storageUnitId
+            && (c.Status == ContractStatus.Active || c.Status == ContractStatus.Overdue || c.Status == ContractStatus.Suspended
+                || c.Status == ContractStatus.PendingReturn), ct)
+        || await uow.Repository<Reservation>().Query().AnyAsync(r => r.CustomerId == customerId && r.StorageUnitId == storageUnitId
+            && r.Status == ReservationStatus.Confirmed, ct);
 }
