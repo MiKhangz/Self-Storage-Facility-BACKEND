@@ -66,7 +66,16 @@ public class AccessCodeService(IUnitOfWork uow, IPasswordHasher hasher, ICurrent
         foreach (var old in contract.AccessCodes.Where(a => a.IsActive))
             old.IsActive = false;
 
-        var code = RandomNumberGenerator.GetInt32(100_000, 1_000_000).ToString();
+        // The desk finds a renter by code alone, so two renters at one facility must never share one.
+        var facilityId = uow.Repository<StorageUnit>().Query()
+            .Where(u => u.StorageUnitId == contract.StorageUnitId).Select(u => u.FacilityId).First();
+        var taken = uow.Repository<AccessCode>().Query()
+            .Where(a => a.IsActive && a.CodeCipher != null && a.ContractId != contract.ContractId
+                && a.Contract.StorageUnit.FacilityId == facilityId)
+            .Select(a => a.CodeCipher!).AsEnumerable().Select(protector.Unprotect).ToHashSet();
+        string code;
+        do code = RandomNumberGenerator.GetInt32(100_000, 1_000_000).ToString();
+        while (taken.Contains(code));
         var issuedAt = DateTime.UtcNow;
         var entity = new AccessCode
         {

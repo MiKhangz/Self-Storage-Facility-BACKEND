@@ -48,16 +48,16 @@ public class CheckInTests
     {
         using var t = Create();
         var contractId = SeedContract(t, ContractStatus.Active);
-        var staff = new CheckInService(t.Uow, Staff, Hasher, Codes(t));
+        var staff = new CheckInService(t.Uow, Staff, Hasher, TestCodes.Protector, Codes(t));
 
         var first = await staff.CheckInAsync(new CheckInRequest(contractId, "Lấy đồ"), default);
         var second = await staff.CheckInAsync(new CheckInRequest(contractId, null), default);
         var outOnce = await staff.CheckOutAsync(first.Value!.CheckInId, default);
         var outTwice = await staff.CheckOutAsync(first.Value.CheckInId, default);
         var afterLeaving = await staff.CheckInAsync(new CheckInRequest(contractId, null), default);
-        var outsider = await new CheckInService(t.Uow, new FakeCurrentUser(77, Roles.FacilityStaff), Hasher, Codes(t))
+        var outsider = await new CheckInService(t.Uow, new FakeCurrentUser(77, Roles.FacilityStaff), Hasher, TestCodes.Protector, Codes(t))
             .CheckInAsync(new CheckInRequest(contractId, null), default);
-        var customerSees = await new CheckInService(t.Uow, Customer, Hasher, Codes(t)).ListAsync(contractId, 1, 20, default);
+        var customerSees = await new CheckInService(t.Uow, Customer, Hasher, TestCodes.Protector, Codes(t)).ListAsync(contractId, 1, 20, default);
 
         first.IsSuccess.Should().BeTrue(first.Error?.Message);
         first.Value.UnitCode.Should().Be("A-101");
@@ -75,7 +75,7 @@ public class CheckInTests
         using var t = Create();
         var contractId = SeedContract(t, ContractStatus.Suspended, codeWorks: false);
 
-        var result = await new CheckInService(t.Uow, Staff, Hasher, Codes(t)).CheckInAsync(new CheckInRequest(contractId, null), default);
+        var result = await new CheckInService(t.Uow, Staff, Hasher, TestCodes.Protector, Codes(t)).CheckInAsync(new CheckInRequest(contractId, null), default);
 
         result.Error!.Type.Should().Be(ErrorType.Conflict);
     }
@@ -85,7 +85,7 @@ public class CheckInTests
     {
         using var t = Create();
         var contractId = SeedContract(t, ContractStatus.PendingReturn); // moving out: still allowed in
-        var desk = new CheckInService(t.Uow, Staff, Hasher, Codes(t));
+        var desk = new CheckInService(t.Uow, Staff, Hasher, TestCodes.Protector, Codes(t));
 
         var wrong = await desk.FindByAccessCodeAsync(new FindByAccessCodeRequest("000000"), default);
         var found = await desk.FindByAccessCodeAsync(new FindByAccessCodeRequest(Pin), default);
@@ -105,7 +105,7 @@ public class CheckInTests
     {
         using var t = Create();
         var contractId = SeedContract(t, ContractStatus.Active);
-        var desk = new CheckInService(t.Uow, Staff, Hasher, Codes(t));
+        var desk = new CheckInService(t.Uow, Staff, Hasher, TestCodes.Protector, Codes(t));
         var visit = (await desk.CheckInAsync(new CheckInRequest(contractId, null), default)).Value!;
 
         var future = await desk.MarkLeftAsync(visit.CheckInId, new MarkLeftRequest(DateTime.UtcNow.AddHours(2), "Forgot"), default);
@@ -130,7 +130,7 @@ public class CheckInTests
         var contractId = SeedContract(t, ContractStatus.Active);
         t.Db.Add(new CheckIn { ContractId = contractId, StorageUnitId = A101, RecordedBy = StaffId, CheckInAt = tenAm });
         t.Db.SaveChanges();
-        var desk = new CheckInService(t.Uow, Staff, Hasher, Codes(t));
+        var desk = new CheckInService(t.Uow, Staff, Hasher, TestCodes.Protector, Codes(t));
 
         var beforeClosing = await desk.CloseAtClosingTimeAsync(tenAm.AddHours(5), default);
         var afterClosing = await desk.CloseAtClosingTimeAsync(tenAm.AddHours(14), default);
@@ -148,7 +148,7 @@ public class CheckInTests
     {
         using var t = Create();
         var contractId = SeedContract(t, ContractStatus.Active);
-        var desk = new CheckInService(t.Uow, Staff, Hasher, Codes(t));
+        var desk = new CheckInService(t.Uow, Staff, Hasher, TestCodes.Protector, Codes(t));
         var renter = new AccessCodeService(t.Uow, Hasher, Customer, TestCodes.Protector);
         var visit = (await desk.CheckInAsync(new CheckInRequest(contractId, null), default)).Value!;
 
@@ -168,11 +168,40 @@ public class CheckInTests
         var contractId = SeedContract(t, ContractStatus.Suspended, codeWorks: false);
         t.Db.Add(new CheckIn { ContractId = contractId, StorageUnitId = A101, RecordedBy = StaffId, CheckInAt = DateTime.UtcNow.AddHours(-1) });
         t.Db.SaveChanges();
-        var desk = new CheckInService(t.Uow, Staff, Hasher, Codes(t));
+        var desk = new CheckInService(t.Uow, Staff, Hasher, TestCodes.Protector, Codes(t));
 
         await desk.MarkLeftAsync(t.Db.CheckIns.Single().CheckInId, new MarkLeftRequest(DateTime.UtcNow, "Left"), default);
 
         t.Db.ChangeTracker.Clear();
         t.Db.AccessCodes.Where(a => a.ContractId == contractId).Should().ContainSingle().Which.SuspendedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Two_renters_with_the_same_code_are_never_guessed_between()
+    {
+        using var t = Create();
+        SeedContract(t, ContractStatus.Active);
+        var other = new Contract
+        {
+            Reservation = new Reservation
+            {
+                CustomerId = OtherCustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, StorageUnitId = A102, ReservationCode = "RS-TWIN",
+                MoveInDate = MoveIn, RentalMonths = 1, Status = ReservationStatus.HandedOver, CreatedAt = DateTime.UtcNow,
+            },
+            CustomerId = OtherCustomerId, StorageUnitId = A102, ContractNumber = "CT-TWIN", StartDate = MoveIn, EndDate = MoveIn.AddMonths(1),
+            MonthlyRent = 1m, DepositAmount = 1m, PaymentDay = 10, SignedAt = DateTime.UtcNow, Status = ContractStatus.Active,
+        };
+        other.AccessCodes.Add(new AccessCode
+        {
+            CodeHash = Hasher.Hash(Pin), CodeCipher = TestCodes.Protector.Protect(Pin), IssuedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddDays(30), IsActive = true,
+        });
+        t.Db.Add(other);
+        t.Db.SaveChanges();
+
+        var found = await new CheckInService(t.Uow, Staff, Hasher, TestCodes.Protector, Codes(t))
+            .FindByAccessCodeAsync(new FindByAccessCodeRequest(Pin), default);
+
+        found.Error!.Type.Should().Be(ErrorType.Conflict, "the desk must not pick one of two renters at random");
     }
 }

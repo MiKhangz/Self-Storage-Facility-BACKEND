@@ -63,7 +63,9 @@ public interface ICheckInService
 }
 
 /// <summary>SR-05: staff record a customer entering and leaving their unit. One open visit per contract at a time.</summary>
-public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IPasswordHasher hasher, IAccessCodeService accessCodes) : ICheckInService
+public class CheckInService(
+    IUnitOfWork uow, ICurrentUser currentUser, IPasswordHasher hasher, ICodeProtector protector, IAccessCodeService accessCodes)
+    : ICheckInService
 {
     /// <summary>Rentals whose customer may still hold a key: everything between handover and closing.</summary>
     private static readonly ContractStatus[] Renting =
@@ -206,13 +208,16 @@ public class CheckInService(IUnitOfWork uow, ICurrentUser currentUser, IPassword
     {
         var code = request.AccessCode.Trim();
         var candidates = await UsableCodes().Where(a => VisibleContracts().Any(c => c.ContractId == a.ContractId))
-            .Select(a => new { a.ContractId, a.CodeHash }).ToListAsync(ct);
-        // shortcut: codes are salted hashes, so each one is checked in turn; fine for a facility's few hundred renters,
-        // add a keyed lookup hash if a single desk ever serves thousands.
-        var match = candidates.FirstOrDefault(a => hasher.Verify(code, a.CodeHash));
-        if (match is null)
+            .Select(a => new { a.ContractId, a.CodeHash, a.CodeCipher }).ToListAsync(ct);
+        // Decrypting is microseconds; the slow password hash is only for codes issued before codes were kept encrypted.
+        var matches = candidates
+            .Where(a => a.CodeCipher is { } cipher ? protector.Unprotect(cipher) == code : hasher.Verify(code, a.CodeHash))
+            .Select(a => a.ContractId).Distinct().ToList();
+        if (matches.Count == 0)
             return Error.NotFound("No working access code matches. Check the code with the customer.");
-        return (await BoardRowsAsync(VisibleContracts().Where(c => c.ContractId == match.ContractId), ct)).Single();
+        if (matches.Count > 1)
+            return Error.Conflict("More than one renter has this code. Check the customer's ID and give them a new code.");
+        return (await BoardRowsAsync(VisibleContracts().Where(c => c.ContractId == matches[0]), ct)).Single();
     }
 
     private IQueryable<AccessCode> UsableCodes()
