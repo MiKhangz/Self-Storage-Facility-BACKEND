@@ -197,6 +197,13 @@
             }
           },
           {
+            "name": "areas",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "from",
             "in": "query",
             "schema": {

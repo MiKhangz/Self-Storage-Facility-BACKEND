@@ -21,9 +21,10 @@ public interface IActivityLogService
 
     /// <param name="search">Part of the user's name or email.</param>
     /// <param name="signIns">False leaves out sign-in attempts.</param>
+    /// <param name="areas">Comma-separated parts of the system (Reservations,Contracts), as recorded in EntityName.</param>
     Task<Result<PagedResult<ActivityLogDto>>> ListAsync(
         int? userId, string? role, string? search, string? action, bool signIns, DateOnly? from, DateOnly? to,
-        int page, int pageSize, CancellationToken ct);
+        int page, int pageSize, CancellationToken ct, string? areas = null);
 }
 
 public class ActivityLogService(IUnitOfWork uow) : IActivityLogService
@@ -55,7 +56,7 @@ public class ActivityLogService(IUnitOfWork uow) : IActivityLogService
 
     public async Task<Result<PagedResult<ActivityLogDto>>> ListAsync(
         int? userId, string? role, string? search, string? action, bool signIns, DateOnly? from, DateOnly? to,
-        int page, int pageSize, CancellationToken ct)
+        int page, int pageSize, CancellationToken ct, string? areas = null)
     {
         var query = uow.Repository<ActivityLog>().Query();
         var visits = uow.Repository<CheckIn>().Query();
@@ -69,6 +70,9 @@ public class ActivityLogService(IUnitOfWork uow) : IActivityLogService
             var term = search.Trim();
             query = query.Where(l => l.User.FullName.Contains(term) || l.User.Email.Contains(term));
         }
+        var areaList = (areas ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (areaList.Length > 0)
+            query = query.Where(l => l.EntityName != null && areaList.Contains(l.EntityName));
         if (!signIns)
             query = query.Where(l => l.Action != SignIn && l.Action != LegacySignIn);
         if (!string.IsNullOrWhiteSpace(action))

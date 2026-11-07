@@ -55,6 +55,20 @@ public class ActivityLogServiceTests
     }
 
     [Fact]
+    public async Task Areas_narrow_the_log_to_those_parts_of_the_system()
+    {
+        var (t, staff, _) = WithLogs();
+        using var _db = t;
+        var service = new ActivityLogService(t.Uow);
+        await service.RecordAsync(new ActivityEntry(staff, null, "POST Reservations.Create", "Reservations", "9", null, true), default);
+        await service.RecordAsync(new ActivityEntry(staff, null, "POST Returns.Create", "Returns", "4", null, true), default);
+
+        var rows = (await service.ListAsync(null, null, null, null, true, null, null, 1, 50, default, "Reservations, Returns")).Value!.Items;
+
+        rows.Select(r => r.EntityName).Should().BeEquivalentTo("Reservations", "Returns");
+    }
+
+    [Fact]
     public async Task Leaving_out_sign_ins_also_hides_the_older_duplicate_sign_in_rows()
     {
         var (t, staff, _) = WithLogs();

@@ -11,10 +11,10 @@ public sealed class ActivityLogsController(IActivityLogService logs) : ApiContro
 {
     [HttpGet]
     public async Task<ActionResult<PagedResult<ActivityLogDto>>> List(
-        int? userId, string? role, string? search, string? action, DateOnly? from, DateOnly? to, bool signIns = true,
-        int page = 1, int pageSize = 50, CancellationToken ct = default)
+        int? userId, string? role, string? search, string? action, string? areas, DateOnly? from, DateOnly? to,
+        bool signIns = true, int page = 1, int pageSize = 50, CancellationToken ct = default)
     {
-        var result = await logs.ListAsync(userId, role, search, action, signIns, from, to, page, pageSize, ct);
+        var result = await logs.ListAsync(userId, role, search, action, signIns, from, to, page, pageSize, ct, areas);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 }
