@@ -20,6 +20,9 @@ public class ActivityLogFilter(IServiceScopeFactory scopes, ILogger<ActivityLogF
             return;
 
         var action = context.ActionDescriptor as ControllerActionDescriptor;
+        // A sign-in is logged once, by the service; here it would repeat whenever the browser still held a session.
+        if (action is { ControllerName: "Auth", ActionName: "Login" })
+            return;
         var entry = new ActivityEntry(
             userId,
             null,

@@ -10,7 +10,7 @@ public sealed record ActivityEntry(
     int UserId, int? FacilityId, string Action, string? EntityName, string? EntityId, string? IpAddress, bool Succeeded);
 
 public sealed record ActivityLogDto(
-    long LogId, int UserId, string UserName, string UserEmail, int? FacilityId, string Action,
+    long LogId, int UserId, string UserName, string UserEmail, string UserRole, int? FacilityId, string Action,
     string? EntityName, string? EntityId, string? IpAddress, ActivityResult Result, DateTime CreatedAt);
 
 public interface IActivityLogService
@@ -18,12 +18,21 @@ public interface IActivityLogService
     /// <summary>Saves one audit row. Called by the API's activity filter after every write, and by login.</summary>
     Task RecordAsync(ActivityEntry entry, CancellationToken ct);
 
+    /// <param name="search">Part of the user's name or email.</param>
+    /// <param name="signIns">False leaves out sign-in attempts.</param>
     Task<Result<PagedResult<ActivityLogDto>>> ListAsync(
-        int? userId, string? action, DateOnly? from, DateOnly? to, int page, int pageSize, CancellationToken ct);
+        int? userId, string? role, string? search, string? action, bool signIns, DateOnly? from, DateOnly? to,
+        int page, int pageSize, CancellationToken ct);
 }
 
 public class ActivityLogService(IUnitOfWork uow) : IActivityLogService
 {
+    /// <summary>The action AuthService records for every sign-in attempt.</summary>
+    public const string SignIn = "LOGIN";
+
+    /// <summary>The duplicate the activity filter wrote for a sign-in made while already signed in, before it stopped.</summary>
+    private const string LegacySignIn = "POST Auth.Login";
+
     public async Task RecordAsync(ActivityEntry entry, CancellationToken ct)
     {
         uow.Repository<ActivityLog>().Add(new ActivityLog
@@ -41,11 +50,21 @@ public class ActivityLogService(IUnitOfWork uow) : IActivityLogService
     }
 
     public async Task<Result<PagedResult<ActivityLogDto>>> ListAsync(
-        int? userId, string? action, DateOnly? from, DateOnly? to, int page, int pageSize, CancellationToken ct)
+        int? userId, string? role, string? search, string? action, bool signIns, DateOnly? from, DateOnly? to,
+        int page, int pageSize, CancellationToken ct)
     {
         var query = uow.Repository<ActivityLog>().Query();
         if (userId is not null)
             query = query.Where(l => l.UserId == userId);
+        if (!string.IsNullOrWhiteSpace(role))
+            query = query.Where(l => l.User.Role.RoleName == role);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(l => l.User.FullName.Contains(term) || l.User.Email.Contains(term));
+        }
+        if (!signIns)
+            query = query.Where(l => l.Action != SignIn && l.Action != LegacySignIn);
         if (!string.IsNullOrWhiteSpace(action))
             query = query.Where(l => l.Action.Contains(action));
         if (from is not null)
@@ -60,7 +79,7 @@ public class ActivityLogService(IUnitOfWork uow) : IActivityLogService
         }
 
         return await query.OrderByDescending(l => l.LogId)
-            .Select(l => new ActivityLogDto(l.LogId, l.UserId, l.User.FullName, l.User.Email, l.FacilityId, l.Action,
+            .Select(l => new ActivityLogDto(l.LogId, l.UserId, l.User.FullName, l.User.Email, l.User.Role.RoleName, l.FacilityId, l.Action,
                 l.EntityName, l.EntityId, l.IpAddress, l.Result, l.CreatedAt))
             .ToPagedResultAsync(page, pageSize, ct);
     }

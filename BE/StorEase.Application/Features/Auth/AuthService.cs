@@ -38,7 +38,7 @@ public class AuthService(
         if (user is null || !hasher.Verify(request.Password, user.PasswordHash))
         {
             if (user is not null)
-                await activity.RecordAsync(new ActivityEntry(user.UserId, null, "LOGIN", "User", user.UserId.ToString(), ipAddress, false), ct);
+                await activity.RecordAsync(new ActivityEntry(user.UserId, null, ActivityLogService.SignIn, "User", user.UserId.ToString(), ipAddress, false), ct);
             return Error.Unauthorized("Invalid email or password.");
         }
 
@@ -47,7 +47,7 @@ public class AuthService(
         if (user.Status != UserStatus.Active)
             return Error.Forbidden("This account is not active.");
 
-        await activity.RecordAsync(new ActivityEntry(user.UserId, null, "LOGIN", "User", user.UserId.ToString(), ipAddress, true), ct);
+        await activity.RecordAsync(new ActivityEntry(user.UserId, null, ActivityLogService.SignIn, "User", user.UserId.ToString(), ipAddress, true), ct);
         var token = jwt.CreateToken(user.UserId, user.FullName, user.Email, user.RoleName);
         return new LoginResponse(token, user.UserId, user.FullName, user.RoleName);
     }
