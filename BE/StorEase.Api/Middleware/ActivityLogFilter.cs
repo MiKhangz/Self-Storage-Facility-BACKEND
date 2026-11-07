@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc;
 using StorEase.Application.Features.ActivityLogs;
+using StorEase.Application.Features.CheckIns;
 
 namespace StorEase.Api.Middleware;
 
@@ -28,7 +30,8 @@ public class ActivityLogFilter(IServiceScopeFactory scopes, ILogger<ActivityLogF
             null,
             $"{http.Request.Method} {action?.ControllerName}.{action?.ActionName}",
             action?.ControllerName,
-            context.RouteData.Values.TryGetValue("id", out var id) ? id?.ToString() : null,
+            context.RouteData.Values.TryGetValue("id", out var id) ? id?.ToString()
+                : context.Result is ObjectResult { Value: CheckInDto visit } ? visit.CheckInId.ToString() : null,
             http.Connection.RemoteIpAddress?.ToString(),
             http.Response.StatusCode < 400);
         try

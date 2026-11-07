@@ -11,7 +11,8 @@ public sealed record ActivityEntry(
 
 public sealed record ActivityLogDto(
     long LogId, int UserId, string UserName, string UserEmail, string UserRole, int? FacilityId, string Action,
-    string? EntityName, string? EntityId, string? IpAddress, ActivityResult Result, DateTime CreatedAt);
+    string? EntityName, string? EntityId, string? IpAddress, ActivityResult Result, DateTime CreatedAt,
+    int? SubjectUserId = null, string? Subject = null);
 
 public interface IActivityLogService
 {
@@ -29,6 +30,9 @@ public class ActivityLogService(IUnitOfWork uow) : IActivityLogService
 {
     /// <summary>The action AuthService records for every sign-in attempt.</summary>
     public const string SignIn = "LOGIN";
+
+    /// <summary>The controller name the activity filter records for check-ins and check-outs.</summary>
+    private const string Visits = "CheckIns";
 
     /// <summary>The duplicate the activity filter wrote for a sign-in made while already signed in, before it stopped.</summary>
     private const string LegacySignIn = "POST Auth.Login";
@@ -54,8 +58,10 @@ public class ActivityLogService(IUnitOfWork uow) : IActivityLogService
         int page, int pageSize, CancellationToken ct)
     {
         var query = uow.Repository<ActivityLog>().Query();
+        var visits = uow.Repository<CheckIn>().Query();
         if (userId is not null)
-            query = query.Where(l => l.UserId == userId);
+            query = query.Where(l => l.UserId == userId
+                || (l.EntityName == Visits && visits.Any(v => v.CheckInId.ToString() == l.EntityId && v.Contract.CustomerId == userId)));
         if (!string.IsNullOrWhiteSpace(role))
             query = query.Where(l => l.User.Role.RoleName == role);
         if (!string.IsNullOrWhiteSpace(search))
@@ -80,7 +86,10 @@ public class ActivityLogService(IUnitOfWork uow) : IActivityLogService
 
         return await query.OrderByDescending(l => l.LogId)
             .Select(l => new ActivityLogDto(l.LogId, l.UserId, l.User.FullName, l.User.Email, l.User.Role.RoleName, l.FacilityId, l.Action,
-                l.EntityName, l.EntityId, l.IpAddress, l.Result, l.CreatedAt))
+                l.EntityName, l.EntityId, l.IpAddress, l.Result, l.CreatedAt,
+                l.EntityName == Visits ? visits.Where(v => v.CheckInId.ToString() == l.EntityId).Select(v => (int?)v.Contract.CustomerId).FirstOrDefault() : null,
+                l.EntityName == Visits ? visits.Where(v => v.CheckInId.ToString() == l.EntityId)
+                    .Select(v => v.Contract.Customer.FullName + " · " + v.StorageUnit.UnitCode).FirstOrDefault() : null))
             .ToPagedResultAsync(page, pageSize, ct);
     }
 

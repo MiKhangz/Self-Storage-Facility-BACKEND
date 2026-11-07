@@ -40,9 +40,9 @@ public class CheckInsController(ICheckInService visits) : ApiControllerBase
     /// <summary>Staff see visits at their facilities; a customer only their own.</summary>
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<PagedResult<CheckInDto>>> List(int? contractId, int page = 1, int pageSize = 20, CancellationToken ct = default)
+    public async Task<ActionResult<PagedResult<CheckInDto>>> List(int? contractId, int? customerId, int page = 1, int pageSize = 20, CancellationToken ct = default)
     {
-        var result = await visits.ListAsync(contractId, page, pageSize, ct);
+        var result = await visits.ListAsync(contractId, customerId, page, pageSize, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 

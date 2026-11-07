@@ -57,7 +57,7 @@ public interface ICheckInService
     /// <summary>The hourly job: closes visits still open at their facility's closing time. Returns how many.</summary>
     Task<int> CloseAtClosingTimeAsync(DateTime nowUtc, CancellationToken ct);
     Task<Result<CheckInDto>> GetAsync(int checkInId, CancellationToken ct);
-    Task<Result<PagedResult<CheckInDto>>> ListAsync(int? contractId, int page, int pageSize, CancellationToken ct);
+    Task<Result<PagedResult<CheckInDto>>> ListAsync(int? contractId, int? customerId, int page, int pageSize, CancellationToken ct);
     Task<Result<IReadOnlyList<CheckInBoardRowDto>>> BoardAsync(CancellationToken ct);
     Task<Result<CheckInBoardRowDto>> FindByAccessCodeAsync(FindByAccessCodeRequest request, CancellationToken ct);
 }
@@ -191,11 +191,13 @@ public class CheckInService(
         return dto is null ? Error.NotFound("Visit not found.") : dto;
     }
 
-    public async Task<Result<PagedResult<CheckInDto>>> ListAsync(int? contractId, int page, int pageSize, CancellationToken ct)
+    public async Task<Result<PagedResult<CheckInDto>>> ListAsync(int? contractId, int? customerId, int page, int pageSize, CancellationToken ct)
     {
         var query = Visible();
         if (contractId is not null)
             query = query.Where(v => v.ContractId == contractId);
+        if (customerId is not null)
+            query = query.Where(v => v.Contract.CustomerId == customerId);
         return await Project(query.OrderByDescending(v => v.CheckInAt)).ToPagedResultAsync(page, pageSize, ct);
     }
 

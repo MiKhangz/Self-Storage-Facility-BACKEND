@@ -645,6 +645,14 @@
             }
           },
           {
+            "name": "customerId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
             "name": "page",
             "in": "query",
             "schema": {
@@ -5778,6 +5786,15 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "subjectUserId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "subject": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

@@ -57,7 +57,7 @@ public class CheckInTests
         var afterLeaving = await staff.CheckInAsync(new CheckInRequest(contractId, null), default);
         var outsider = await new CheckInService(t.Uow, new FakeCurrentUser(77, Roles.FacilityStaff), Hasher, TestCodes.Protector, Codes(t))
             .CheckInAsync(new CheckInRequest(contractId, null), default);
-        var customerSees = await new CheckInService(t.Uow, Customer, Hasher, TestCodes.Protector, Codes(t)).ListAsync(contractId, 1, 20, default);
+        var customerSees = await new CheckInService(t.Uow, Customer, Hasher, TestCodes.Protector, Codes(t)).ListAsync(contractId, null, 1, 20, default);
 
         first.IsSuccess.Should().BeTrue(first.Error?.Message);
         first.Value.UnitCode.Should().Be("A-101");
@@ -230,5 +230,29 @@ public class CheckInTests
         left.IsSuccess.Should().BeTrue(left.Error?.Message);
         renterReads.IsSuccess.Should().BeTrue(renterReads.Error?.Message);
         renterReads.Value!.Code.Should().BeNull("the digits are lost; the customer issues a new code");
+    }
+
+    [Fact]
+    public async Task A_customers_visits_are_listed_for_them_and_show_in_their_activity_log()
+    {
+        using var t = Create();
+        var contractId = SeedContract(t, ContractStatus.Active);
+        var desk = new CheckInService(t.Uow, Staff, Hasher, TestCodes.Protector, Codes(t));
+        var visit = (await desk.CheckInAsync(new CheckInRequest(contractId, null), default)).Value!;
+        var log = new Features.ActivityLogs.ActivityLogService(t.Uow);
+        // What the API's activity filter records for the staff member's request.
+        await log.RecordAsync(new(StaffId, null, "POST CheckIns.CheckIn", "CheckIns", visit.CheckInId.ToString(), null, true), default);
+
+        var forCustomer = await new CheckInService(t.Uow, new FakeCurrentUser(99, Roles.SystemAdministrator), Hasher, TestCodes.Protector, Codes(t))
+            .ListAsync(null, CustomerId, 1, 20, default);
+        var forOther = await desk.ListAsync(null, OtherCustomerId, 1, 20, default);
+        var customerLog = (await log.ListAsync(CustomerId, null, null, null, true, null, null, 1, 20, default)).Value!.Items;
+
+        forCustomer.Value!.Items.Should().ContainSingle(v => v.CheckInId == visit.CheckInId);
+        forOther.Value!.TotalCount.Should().Be(0);
+        var row = customerLog.Should().ContainSingle(r => r.Action == "POST CheckIns.CheckIn").Subject;
+        row.UserId.Should().Be(StaffId, "staff recorded the visit");
+        row.SubjectUserId.Should().Be(CustomerId);
+        row.Subject.Should().EndWith("A-101");
     }
 }
