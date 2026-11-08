@@ -1,6 +1,6 @@
 # Code map: who owns which file
 
-Generated from the real folders by `code_map.py` (the same rules draw the "Code map" tab in `docs/flows.drawio`).
+Generated from the real folders by `python scripts/code_map.py --write` (the same rules draw the "Code map" tab in `docs/flows.drawio`).
 Each file has one owner, who answers for it, writes its tests and reviews changes to it. **Shared** files: anyone
 edits, Khang reviews. Flow owners are in `docs/TEAM_FLOWS.md`.
 
@@ -414,4 +414,4 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 1. Open your flow tab in `docs/flows.drawio`; each step names the screen or job.
 2. Find the controller above for the route the screen calls (the browser Network tab shows it), then its service in `Features/`.
 3. Run your E2E tests: `npx playwright test -g "E06"`; backend tests: `dotnet test --filter <TestClass>`.
-4. A new file? Add it to the rules in `code_map.py` (scratchpad copy in Khang's session) or tell Khang, so the map stays complete.
+4. A new file? Add it to `RULES` in `scripts/code_map.py` and run `python scripts/code_map.py --write`, so the map stays complete.
