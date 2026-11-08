@@ -9,7 +9,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 | Person | Flows | Backend files | Frontend files | E2E tests |
 |---|---|---|---|---|
 | **Khang** | F01, F02, F03, F04, F05, F12, F14 | 57 | 38 | E01, E02, E03, E04, E09, E10, E12, E13, E14, E17, E18, E20, E21, E22 |
-| **Trường** | F07, F08, F09, F10 | 48 | 9 | E06, E07, E08, E15, E16 |
+| **Trường** | F07, F08, F09, F10 | 49 | 9 | E06, E07, E08, E15, E16 |
 | **Thiện** | F06, F11, F13 | 58 | 22 | E05, E05b, E05c, E11, E19 |
 
 ## Khang
@@ -209,7 +209,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 - **Controllers and routes**
   - `BE/StorEase.Api/Controllers/InvoicesController.cs`: `GET /api/invoices`, `GET /api/invoices/{id}`, `POST /api/invoices/{id}/payments/online`, `POST /api/invoices/{id}/payments/manual`, `POST /api/invoices/{id}/adjustments`, `GET /api/invoices/{id}/reminders`, `POST /api/invoices/{id}/reminders`
   - `BE/StorEase.Api/Controllers/PaymentsController.cs`: `GET /api/payments`, `POST /api/payments/{id}/refund`, `POST /api/payments/gateway-callback`, `GET /api/payments/vnpay-ipn`, `GET /api/payments/vnpay-return`, `POST /api/payments/{paymentCode}/simulate-success`
-  - `BE/StorEase.Api/Controllers/PricingPoliciesController.cs`: `GET /api/pricing-policies`, `GET /api/pricing-policies/current-terms`, `GET /api/pricing-policies/{id}`, `POST /api/pricing-policies`, `PUT /api/pricing-policies/{id}`, `POST /api/pricing-policies/{id}/copy`, `DELETE /api/pricing-policies/{id}`, `POST /api/pricing-policies/{id}/activate`, `PUT /api/pricing-policies/{id}/unit-prices/{unitTypeId}`, `POST /api/pricing-policies/{id}/fee-types`, `PUT /api/fee-types/{feeTypeId}`, `DELETE /api/fee-types/{feeTypeId}`
+  - `BE/StorEase.Api/Controllers/PricingPoliciesController.cs`: `GET /api/pricing-policies`, `GET /api/pricing-policies/current-terms`, `GET /api/pricing-policies/{id}`, `POST /api/pricing-policies`, `PUT /api/pricing-policies/{id}`, `POST /api/pricing-policies/{id}/copy`, `DELETE /api/pricing-policies/{id}`, `POST /api/pricing-policies/{id}/activate`, `PUT /api/pricing-policies/{id}/unit-prices/{unitTypeId}`, `PUT /api/pricing-policies/{id}/facilities/{facilityId}/unit-prices/{unitTypeId}`, `DELETE /api/pricing-policies/{id}/facilities/{facilityId}/unit-prices/{unitTypeId}`, `POST /api/pricing-policies/{id}/fee-types`, `PUT /api/fee-types/{feeTypeId}`, `DELETE /api/fee-types/{feeTypeId}`
 - **Services, DTOs, validators, jobs**
   - `BE/StorEase.Application/Features/Invoices/Dtos/InvoiceDtos.cs`
   - `BE/StorEase.Application/Features/Invoices/InvoiceBook.cs`
@@ -222,6 +222,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `BE/StorEase.Application/Features/Pricing/RentCalculator.cs`
   - `BE/StorEase.Application/Features/Pricing/Validators/PricingValidators.cs`
 - **Backend tests**
+  - `BE/tests/StorEase.Application.Tests/FacilityPriceTests.cs`
   - `BE/tests/StorEase.Application.Tests/PricingDraftTests.cs`
   - `BE/tests/StorEase.Application.Tests/PricingPinTests.cs`
   - `BE/tests/StorEase.Application.Tests/StorageUnitPricingTests.cs`
@@ -397,7 +398,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `src/staff/queries.js`
 - **Frontend tests**
   - `e2e/02-rental.spec.js`; also holds E02 (Khang), E03 (Khang), E04 (Khang), E05 (Thiện), E05b (Thiện), E05c (Thiện), E06 (Trường), E07 (Trường), E08 (Trường)
-  - `e2e/04-admin.spec.js`; also holds E11 (Thiện), E12 (Khang), E16 (Trường), E19 (Thiện), E22 (Khang)
+  - `e2e/04-admin.spec.js`; also holds E11 (Thiện), E12 (Khang), E16 (Trường), E19 (Thiện), E22 (Khang), E23 (?)
   - `e2e/05-cancel.spec.js`; also holds E13 (Khang), E14 (Khang), E15 (Trường)
   - `e2e/helpers.js`
   - `e2e/start-backend.mjs`
