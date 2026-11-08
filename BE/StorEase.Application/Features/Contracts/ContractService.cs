@@ -45,7 +45,7 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
 
             // The rent and deposit the customer was quoted when booking, even if a new price was published since.
             var terms = await RentCalculator.TermsAsync(uow, reservation.FacilityId, reservation.UnitTypeId, reservation.MoveInDate, reservation.RentalMonths, ct,
-                reservation.PricingPolicyId);
+                new PricePin(reservation.PricingPolicyId, reservation.FacilityPriceVersionId));
             if (!terms.IsSuccess)
                 return terms.Error;
 

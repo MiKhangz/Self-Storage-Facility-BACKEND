@@ -133,7 +133,7 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
         var terms = await RentCalculator.TermsAsync(uow, facilityId, unitTypeId, moveInDate, rentalMonths, ct);
         if (!terms.IsSuccess)
             return terms.Error;
-        var (policy, monthlyRent, deposit) = terms.Value;
+        var (policy, monthlyRent, deposit, _) = terms.Value;
         var rentSubtotal = Money.Round(monthlyRent * rentalMonths);
         var fees = await uow.Repository<FeeType>().Query()
             .Where(f => f.PricingPolicyId == policy.PricingPolicyId)
@@ -158,7 +158,7 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
         var policy = await RentCalculator.PolicyForAsync(uow, VietnamTime.Today, ct);
         if (policy is null)
             return [];
-        var prices = await RentCalculator.PricesAsync(uow, policy.PricingPolicyId, null, ct);
+        var prices = await RentCalculator.PricesAsync(uow, policy.PricingPolicyId, null, VietnamTime.Today, ct);
         return prices.ToDictionary(p => p.Key, p => (decimal?)p.Value);
     }
 }

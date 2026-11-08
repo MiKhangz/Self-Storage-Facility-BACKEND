@@ -145,7 +145,7 @@ public class StorageUnitService(IUnitOfWork uow, ICurrentUser currentUser) : ISt
         var policy = await RentCalculator.PolicyForAsync(uow, VietnamTime.Today, ct);
         if (policy is null)
             return 0m;
-        return (await RentCalculator.PriceAsync(uow, policy.PricingPolicyId, unitTypeId, facilityId, ct))?.BasePricePerMonth ?? 0m;
+        return (await RentCalculator.PriceAtAsync(uow, policy.PricingPolicyId, facilityId, unitTypeId, VietnamTime.Today, ct))?.BasePricePerMonth ?? 0m;
     }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

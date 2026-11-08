@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<IStorageUnitService, StorageUnitService>();
         services.AddScoped<IUnitCatalogService, UnitCatalogService>();
         services.AddScoped<IPricingService, PricingService>();
+        services.AddScoped<IFacilityPricingService, FacilityPricingService>();
         services.AddScoped<IInvoiceService, InvoiceService>();
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<IHandoverService, HandoverService>();

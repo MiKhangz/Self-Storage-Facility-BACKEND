@@ -24,10 +24,6 @@ public interface IPricingService
     /// <summary>T-03: changes the dates and terms of a Draft policy; an Active or Expired one is history and stays.</summary>
     Task<Result<PricingPolicyDto>> UpdatePolicyAsync(int policyId, UpdatePricingPolicyRequest request, CancellationToken ct);
     Task<Result<UnitPriceDto>> UpsertUnitPriceAsync(int policyId, int unitTypeId, UpsertUnitPriceRequest request, CancellationToken ct);
-    /// <summary>Sets one facility's own price for a size in a Draft; it wins over the company price there.</summary>
-    Task<Result<UnitPriceDto>> UpsertFacilityPriceAsync(int policyId, int facilityId, int unitTypeId, UpsertUnitPriceRequest request, CancellationToken ct);
-    /// <summary>The facility goes back to the company price for that size (Draft only).</summary>
-    Task<Result<bool>> DeleteFacilityPriceAsync(int policyId, int facilityId, int unitTypeId, CancellationToken ct);
     Task<Result<FeeTypeDto>> CreateFeeTypeAsync(int policyId, FeeTypeRequest request, CancellationToken ct);
     Task<Result<FeeTypeDto>> UpdateFeeTypeAsync(int feeTypeId, FeeTypeRequest request, CancellationToken ct);
     Task<Result<bool>> DeleteFeeTypeAsync(int feeTypeId, CancellationToken ct);
@@ -53,7 +49,7 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
         if (policy is null)
             return Error.NotFound("No pricing policy is in force today.");
         var discounts = await uow.Repository<UnitPrice>().Query()
-            .Where(p => p.PricingPolicyId == policy.PricingPolicyId && p.FacilityId == null)
+            .Where(p => p.PricingPolicyId == policy.PricingPolicyId)
             .OrderBy(p => p.UnitTypeId)
             .Select(p => new SizeDiscountDto(p.UnitTypeId, p.Discount3Month, p.Discount6Month, p.Discount12Month))
             .ToListAsync(ct);
@@ -157,7 +153,7 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
         foreach (var price in source.UnitPrices)
             draft.UnitPrices.Add(new UnitPrice
             {
-                UnitTypeId = price.UnitTypeId, FacilityId = price.FacilityId, BasePricePerMonth = price.BasePricePerMonth,
+                UnitTypeId = price.UnitTypeId, BasePricePerMonth = price.BasePricePerMonth,
                 Discount3Month = price.Discount3Month, Discount6Month = price.Discount6Month, Discount12Month = price.Discount12Month,
             });
         foreach (var fee in source.FeeTypes)
@@ -202,8 +198,8 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
                 && p.EffectiveFrom >= policy.EffectiveFrom, ct);
             if (futureActive)
                 return Error.Conflict("A later active pricing policy already exists.");
-            if (!await uow.Repository<UnitPrice>().Query().AnyAsync(p => p.PricingPolicyId == policyId && p.FacilityId == null, ct))
-                return Error.Conflict("A pricing policy must have at least one company unit price before activation.");
+            if (!await uow.Repository<UnitPrice>().Query().AnyAsync(p => p.PricingPolicyId == policyId, ct))
+                return Error.Conflict("A pricing policy must have at least one unit price before activation.");
 
             var active = await uow.Repository<PricingPolicy>().Query()
                 .Where(p => p.Status == PricingPolicyStatus.Active && p.PricingPolicyId != policyId)
@@ -220,37 +216,8 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
         return activated.IsSuccess ? await GetPolicyAsync(activated.Value, ct) : activated.Error;
     }
 
-    public Task<Result<UnitPriceDto>> UpsertUnitPriceAsync(
-        int policyId, int unitTypeId, UpsertUnitPriceRequest request, CancellationToken ct) =>
-        SetPriceAsync(policyId, null, unitTypeId, request, ct);
-
-    public async Task<Result<UnitPriceDto>> UpsertFacilityPriceAsync(
-        int policyId, int facilityId, int unitTypeId, UpsertUnitPriceRequest request, CancellationToken ct)
-    {
-        if (!await uow.Repository<Facility>().Query().AnyAsync(f => f.FacilityId == facilityId, ct))
-            return Error.NotFound("Facility not found.");
-        return await SetPriceAsync(policyId, facilityId, unitTypeId, request, ct);
-    }
-
-    public async Task<Result<bool>> DeleteFacilityPriceAsync(int policyId, int facilityId, int unitTypeId, CancellationToken ct)
-    {
-        var policy = await uow.Repository<PricingPolicy>().FindAsync(policyId, ct);
-        if (policy is null)
-            return Error.NotFound("Pricing policy not found.");
-        if (policy.Status != PricingPolicyStatus.Draft)
-            return Error.Conflict("Only a Draft pricing policy can be edited.");
-        var price = await uow.Repository<UnitPrice>().Query()
-            .FirstOrDefaultAsync(p => p.PricingPolicyId == policyId && p.FacilityId == facilityId && p.UnitTypeId == unitTypeId, ct);
-        if (price is null)
-            return Error.NotFound("This facility has no own price for that size.");
-        uow.Repository<UnitPrice>().Remove(price);
-        await uow.SaveChangesAsync(ct);
-        return true;
-    }
-
-    /// <summary>The company price (no facility) or one facility's own price for a size, in a Draft.</summary>
-    private async Task<Result<UnitPriceDto>> SetPriceAsync(
-        int policyId, int? facilityId, int unitTypeId, UpsertUnitPriceRequest request, CancellationToken ct)
+    public async Task<Result<UnitPriceDto>> UpsertUnitPriceAsync(
+        int policyId, int unitTypeId, UpsertUnitPriceRequest request, CancellationToken ct)
     {
         var policy = await uow.Repository<PricingPolicy>().FindAsync(policyId, ct);
         if (policy is null)
@@ -262,10 +229,10 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
             return Error.NotFound("Unit type not found.");
 
         var price = await uow.Repository<UnitPrice>().Query()
-            .FirstOrDefaultAsync(p => p.PricingPolicyId == policyId && p.UnitTypeId == unitTypeId && p.FacilityId == facilityId, ct);
+            .FirstOrDefaultAsync(p => p.PricingPolicyId == policyId && p.UnitTypeId == unitTypeId, ct);
         if (price is null)
         {
-            price = new UnitPrice { PricingPolicyId = policyId, UnitTypeId = unitTypeId, FacilityId = facilityId };
+            price = new UnitPrice { PricingPolicyId = policyId, UnitTypeId = unitTypeId };
             uow.Repository<UnitPrice>().Add(price);
         }
         price.BasePricePerMonth = request.BasePricePerMonth;
@@ -273,10 +240,8 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
         price.Discount6Month = request.Discount6Month;
         price.Discount12Month = request.Discount12Month;
         await uow.SaveChangesAsync(ct);
-        var facilityName = facilityId is null ? null
-            : await uow.Repository<Facility>().Query().Where(f => f.FacilityId == facilityId).Select(f => f.Name).FirstOrDefaultAsync(ct);
         return new UnitPriceDto(price.UnitPriceId, policyId, unitTypeId, type.Code, type.Name,
-            price.BasePricePerMonth, price.Discount3Month, price.Discount6Month, price.Discount12Month, facilityId, facilityName);
+            price.BasePricePerMonth, price.Discount3Month, price.Discount6Month, price.Discount12Month);
     }
 
     public async Task<Result<FeeTypeDto>> CreateFeeTypeAsync(int policyId, FeeTypeRequest request, CancellationToken ct)
@@ -341,18 +306,15 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
 
     private IQueryable<PricingPolicy> WithPrices() => uow.Repository<PricingPolicy>().Query().AsNoTracking()
         .Include(p => p.UnitPrices).ThenInclude(u => u.UnitType)
-        .Include(p => p.UnitPrices).ThenInclude(u => u.Facility)
         .Include(p => p.FeeTypes);
 
     private static PricingPolicyDto ToDto(PricingPolicy policy) => new(
         policy.PricingPolicyId, policy.Version, policy.EffectiveFrom, policy.EffectiveTo,
         policy.DepositMonths, policy.GraceDays, policy.NoticeDays, policy.LateFeePercentPerWeek, policy.EarlyTerminationPercent,
         policy.SuspendAfterDays, policy.ClearOutAfterDays, policy.CancelFreeHours, policy.Status,
-        policy.UnitPrices.Where(p => p.FacilityId == null).OrderBy(p => p.UnitType.Code).Select(ToDto).ToList(),
+        policy.UnitPrices.OrderBy(p => p.UnitType.Code)
+            .Select(p => new UnitPriceDto(p.UnitPriceId, p.PricingPolicyId, p.UnitTypeId, p.UnitType.Code, p.UnitType.Name,
+                p.BasePricePerMonth, p.Discount3Month, p.Discount6Month, p.Discount12Month)).ToList(),
         policy.FeeTypes.OrderBy(f => f.Code)
-            .Select(ToDto).ToList(),
-        policy.UnitPrices.Where(p => p.FacilityId != null).OrderBy(p => p.Facility!.Name).ThenBy(p => p.UnitType.Code).Select(ToDto).ToList());
-
-    private static UnitPriceDto ToDto(UnitPrice p) => new(p.UnitPriceId, p.PricingPolicyId, p.UnitTypeId, p.UnitType.Code, p.UnitType.Name,
-        p.BasePricePerMonth, p.Discount3Month, p.Discount6Month, p.Discount12Month, p.FacilityId, p.Facility?.Name);
+            .Select(ToDto).ToList());
 }

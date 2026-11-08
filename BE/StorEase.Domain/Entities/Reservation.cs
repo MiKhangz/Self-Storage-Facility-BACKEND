@@ -15,6 +15,8 @@ public class Reservation
     public int RentalMonths { get; set; }
     /// <summary>The policy version the booking was quoted under; its rent, deposit and rules stay with this rental.</summary>
     public int? PricingPolicyId { get; set; }
+    /// <summary>The facility price version the rent was quoted from; null when the company standard price applied.</summary>
+    public int? FacilityPriceVersionId { get; set; }
     public DateTime? HandoverSlot { get; set; }
     public ReservationStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -25,4 +27,5 @@ public class Reservation
     public StorageUnit? StorageUnit { get; set; }
     public User? CreatedByUser { get; set; }
     public PricingPolicy? PricingPolicy { get; set; }
+    public FacilityPriceVersion? FacilityPriceVersion { get; set; }
 }

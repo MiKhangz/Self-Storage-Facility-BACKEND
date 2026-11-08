@@ -1,5 +1,9 @@
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.AccessCodes;
+using StorEase.Application.Features.Contracts;
+using StorEase.Application.Features.Contracts.Dtos;
 using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.Pricing.Dtos;
 using StorEase.Application.Features.Reservations;
@@ -7,23 +11,23 @@ using StorEase.Application.Features.Reservations.Dtos;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
+using StorEase.Infrastructure.Services;
 using static StorEase.Application.Tests.CoreFlowSeed;
 
 namespace StorEase.Application.Tests;
 
 /// <summary>
-/// A facility may set its own price for a size inside a price version; everywhere else the company price applies.
+/// Each facility keeps its own price list in versions. A size it prices costs that there; every other size, and every
+/// rental rule, comes from the company standard. A booking keeps the price it was quoted.
 /// </summary>
 public class FacilityPriceTests
 {
     private const int OtherFacilityId = 2;
     private static readonly ICurrentUser Ops = new FakeCurrentUser(StaffId, Roles.BusinessOperationsManager);
+    private static UpsertUnitPriceRequest Price(decimal amount, decimal d3 = 0) => new(amount, d3, 0, 0);
 
-    /// <summary>
-    /// Live version: 5 m² costs 500k company-wide (10 % off 3 months); Gò Vấp charges 800k (5 % off 3 months).
-    /// A second facility has a free 5 m² unit and no price of its own.
-    /// </summary>
-    private static (TestDb T, int PolicyId) Priced()
+    /// <summary>Standard: 5 m² at 500k (10 % off 3 months). Gò Vấp publishes its own 800k (5 % off 3 months).</summary>
+    private static async Task<TestDb> PricedAsync()
     {
         var t = Create();
         t.Db.AddRange(
@@ -38,60 +42,95 @@ public class FacilityPriceTests
             LateFeePercentPerWeek = 2, SuspendAfterDays = 14, ClearOutAfterDays = 60, CancelFreeHours = 24, Status = PricingPolicyStatus.Active,
         };
         policy.UnitPrices.Add(new UnitPrice { UnitTypeId = SmallTypeId, BasePricePerMonth = 500_000m, Discount3Month = 10 });
-        policy.UnitPrices.Add(new UnitPrice { UnitTypeId = SmallTypeId, FacilityId = FacilityId, BasePricePerMonth = 800_000m, Discount3Month = 5 });
         t.Db.Add(policy);
         t.Db.SaveChanges();
         t.Db.ChangeTracker.Clear();
-        return (t, policy.PricingPolicyId);
+
+        await PublishAsync(t, FacilityId, 800_000m, 5);
+        return t;
+    }
+
+    private static async Task<FacilityPriceVersionDto> PublishAsync(TestDb t, int facilityId, decimal price, decimal d3 = 0)
+    {
+        var prices = new FacilityPricingService(t.Uow, Ops);
+        var draft = (await prices.CreateDraftAsync(facilityId, default)).Value!;
+        (await prices.SetPriceAsync(facilityId, draft.FacilityPriceVersionId, SmallTypeId, Price(price, d3), default)).IsSuccess.Should().BeTrue();
+        return (await prices.PublishAsync(facilityId, draft.FacilityPriceVersionId, default)).Value!;
     }
 
     [Fact]
-    public async Task A_booking_is_priced_at_its_facility_and_falls_back_to_the_company_price_elsewhere()
+    public async Task A_booking_uses_its_facilitys_own_price_and_other_facilities_use_the_standard()
     {
-        var (t, _) = Priced();
-        using var _db = t;
-        var bookings = new ReservationService(t.Uow, Customer, new FakeEmailService());
+        using var t = await PricedAsync();
 
-        var ownPrice = await bookings.CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn, 3), default);
-        var companyPrice = await new ReservationService(t.Uow, OtherCustomer, new FakeEmailService())
+        var own = await new ReservationService(t.Uow, Customer, new FakeEmailService())
+            .CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn, 3), default);
+        var standard = await new ReservationService(t.Uow, OtherCustomer, new FakeEmailService())
             .CreateAsync(new CreateReservationRequest(OtherFacilityId, SmallTypeId, MoveIn, 3), default);
 
-        ownPrice.IsSuccess.Should().BeTrue(ownPrice.Error?.Message);
-        companyPrice.IsSuccess.Should().BeTrue(companyPrice.Error?.Message);
-        ownPrice.Value!.DepositAmount.Should().Be(760_000m, "one month's deposit at Gò Vấp's own 800k with its own 5 % off for 3 months");
-        companyPrice.Value!.DepositAmount.Should().Be(450_000m, "Thủ Đức has no own price: 500k with the company's 10 % off");
+        own.IsSuccess.Should().BeTrue(own.Error?.Message);
+        standard.IsSuccess.Should().BeTrue(standard.Error?.Message);
+        own.Value!.DepositAmount.Should().Be(760_000m, "one month's deposit at Gò Vấp's own 800k, 5 % off for 3 months");
+        standard.Value!.DepositAmount.Should().Be(450_000m, "Thủ Đức has no list: the standard 500k, 10 % off");
+        (await t.Db.Reservations.SingleAsync(r => r.ReservationId == own.Value.ReservationId)).FacilityPriceVersionId.Should().NotBeNull();
+        (await t.Db.Reservations.SingleAsync(r => r.ReservationId == standard.Value.ReservationId)).FacilityPriceVersionId.Should().BeNull();
     }
 
     [Fact]
-    public async Task From_prices_take_the_lowest_anywhere_and_a_facility_sees_its_own()
+    public async Task A_booking_keeps_its_quoted_price_when_the_facility_publishes_a_new_one()
     {
-        var (t, policyId) = Priced();
-        using var _db = t;
+        using var t = await PricedAsync();
+        var booked = (await new ReservationService(t.Uow, Customer, new FakeEmailService())
+            .CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn, 1), default)).Value!;
+        await PublishAsync(t, FacilityId, 1_000_000m);
+        var reservation = await t.Db.Reservations.SingleAsync(r => r.ReservationId == booked.ReservationId);
+        reservation.StorageUnitId = A101;
+        reservation.Status = ReservationStatus.Confirmed;
+        t.Db.SaveChanges();
 
-        (await RentCalculator.PricesAsync(t.Uow, policyId, null, default))[SmallTypeId].Should().Be(500_000m);
-        (await RentCalculator.PricesAsync(t.Uow, policyId, FacilityId, default))[SmallTypeId].Should().Be(800_000m);
-        (await RentCalculator.PricesAsync(t.Uow, policyId, OtherFacilityId, default))[SmallTypeId].Should().Be(500_000m);
-        (await RentCalculator.PriceAsync(t.Uow, policyId, SmallTypeId, OtherFacilityId, default))!.FacilityId.Should().BeNull();
+        var contract = await new ContractService(t.Uow, Staff, new AccessCodeService(t.Uow, new Pbkdf2PasswordHasher(), Staff, TestCodes.Protector))
+            .CreateAsync(new CreateContractRequest(booked.ReservationId, 5), default);
+
+        contract.IsSuccess.Should().BeTrue(contract.Error?.Message);
+        contract.Value!.MonthlyRent.Should().Be(800_000m, "the customer was quoted Gò Vấp's version 1");
+        (await RentCalculator.PriceAtAsync(t.Uow, (await t.Db.PricingPolicies.SingleAsync()).PricingPolicyId, FacilityId, SmallTypeId, VietnamTime.Today, default))!
+            .BasePricePerMonth.Should().Be(1_000_000m, "new bookings get version 2");
     }
 
     [Fact]
-    public async Task A_draft_copies_facility_prices_which_ops_can_change_or_remove_but_a_live_version_stays()
+    public async Task Publishing_supersedes_only_that_facilitys_version_and_live_versions_cannot_be_edited()
     {
-        var (t, policyId) = Priced();
-        using var _db = t;
-        var pricing = new PricingService(t.Uow, Ops);
+        using var t = await PricedAsync();
+        var prices = new FacilityPricingService(t.Uow, Ops);
+        var first = (await prices.GetAsync(FacilityId, default)).Value!.Versions.Single();
 
-        var draft = (await pricing.CopyToDraftAsync(policyId, default)).Value!;
-        var onLive = await pricing.UpsertFacilityPriceAsync(policyId, OtherFacilityId, SmallTypeId, new UpsertUnitPriceRequest(600_000m, 0, 0, 0), default);
-        var set = await pricing.UpsertFacilityPriceAsync(draft.PricingPolicyId, OtherFacilityId, SmallTypeId, new UpsertUnitPriceRequest(600_000m, 0, 0, 0), default);
-        var removed = await pricing.DeleteFacilityPriceAsync(draft.PricingPolicyId, FacilityId, SmallTypeId, default);
-        var after = (await pricing.GetPolicyAsync(draft.PricingPolicyId, default)).Value!;
+        var draft = (await prices.CreateDraftAsync(FacilityId, default)).Value!;
+        var second = await prices.CreateDraftAsync(FacilityId, default);
+        var editLive = await prices.SetPriceAsync(FacilityId, first.FacilityPriceVersionId, SmallTypeId, Price(1), default);
+        await prices.RemovePriceAsync(FacilityId, draft.FacilityPriceVersionId, SmallTypeId, default);
+        await prices.PublishAsync(FacilityId, draft.FacilityPriceVersionId, default);
+        var list = (await prices.GetAsync(FacilityId, default)).Value!;
+        var policyId = (await t.Db.PricingPolicies.SingleAsync()).PricingPolicyId;
 
-        draft.FacilityPrices.Should().ContainSingle(p => p.FacilityId == FacilityId && p.BasePricePerMonth == 800_000m && p.FacilityName == "Gò Vấp");
-        draft.UnitPrices.Should().ContainSingle(p => p.BasePricePerMonth == 500_000m, "company prices are listed apart from facility prices");
-        onLive.Error!.Type.Should().Be(ErrorType.Conflict, "a live version is history");
-        set.Value!.FacilityName.Should().Be("Thủ Đức");
-        removed.IsSuccess.Should().BeTrue();
-        after.FacilityPrices.Should().ContainSingle(p => p.FacilityId == OtherFacilityId && p.BasePricePerMonth == 600_000m);
+        draft.Prices.Should().ContainSingle(p => p.BasePricePerMonth == 800_000m, "a draft starts from the live version");
+        second.Error!.Type.Should().Be(ErrorType.Conflict, "one draft at a time");
+        editLive.Error!.Type.Should().Be(ErrorType.Conflict, "a live version is history");
+        list.Versions.Select(v => (v.Version, v.Status)).Should().Equal((2, PricingPolicyStatus.Active), (1, PricingPolicyStatus.Superseded));
+        list.Standard.Should().ContainSingle(p => p.BasePricePerMonth == 500_000m);
+        (await RentCalculator.PriceAtAsync(t.Uow, policyId, FacilityId, SmallTypeId, VietnamTime.Today, default))!
+            .BasePricePerMonth.Should().Be(500_000m, "version 2 prices nothing itself, so the standard applies again");
+        (await new FacilityPricingService(t.Uow, new FakeCurrentUser(77, Roles.FacilityManager)).GetAsync(FacilityId, default))
+            .Error!.Type.Should().Be(ErrorType.NotFound, "a manager reads only the facilities they manage");
+    }
+
+    [Fact]
+    public async Task From_prices_are_the_lowest_anywhere_and_a_facility_sees_its_own()
+    {
+        using var t = await PricedAsync();
+        await PublishAsync(t, OtherFacilityId, 300_000m);
+        var policyId = (await t.Db.PricingPolicies.SingleAsync()).PricingPolicyId;
+
+        (await RentCalculator.PricesAsync(t.Uow, policyId, null, VietnamTime.Today, default))[SmallTypeId].Should().Be(300_000m);
+        (await RentCalculator.PricesAsync(t.Uow, policyId, FacilityId, VietnamTime.Today, default))[SmallTypeId].Should().Be(800_000m);
     }
 }

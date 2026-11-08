@@ -50,7 +50,7 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
                 .Select(p => (int?)p.PricingPolicyId).FirstOrDefaultAsync(ct);
             // The facility's own price for the size, else the company price.
             var price = active is { } policyId
-                ? await RentCalculator.PriceAsync(uow, policyId, contract.StorageUnit.UnitTypeId, contract.StorageUnit.FacilityId, ct)
+                ? await RentCalculator.PriceAtAsync(uow, policyId, contract.StorageUnit.FacilityId, contract.StorageUnit.UnitTypeId, VietnamTime.Today, ct)
                 : null;
             var newRent = price is null
                 ? contract.MonthlyRent

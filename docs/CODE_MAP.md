@@ -9,7 +9,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 | Person | Flows | Backend files | Frontend files | E2E tests |
 |---|---|---|---|---|
 | **Khang** | F01, F02, F03, F04, F05, F12, F14 | 57 | 38 | E01, E02, E03, E04, E09, E10, E12, E13, E14, E17, E18, E20, E21, E22 |
-| **Trường** | F07, F08, F09, F10 | 49 | 9 | E06, E07, E08, E15, E16 |
+| **Trường** | F07, F08, F09, F10 | 52 | 10 | E06, E07, E08, E15, E16 |
 | **Thiện** | F06, F11, F13 | 58 | 22 | E05, E05b, E05c, E11, E19 |
 
 ## Khang
@@ -207,9 +207,10 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 ### Invoices, payments & pricing (F07)
 
 - **Controllers and routes**
+  - `BE/StorEase.Api/Controllers/FacilityPricesController.cs`: `GET /api/facilities/{facilityId:int}/price-versions`, `POST /api/facilities/{facilityId:int}/price-versions`, `PUT /api/facilities/{facilityId:int}/price-versions/{versionId}/unit-prices/{unitTypeId}`, `DELETE /api/facilities/{facilityId:int}/price-versions/{versionId}/unit-prices/{unitTypeId}`, `POST /api/facilities/{facilityId:int}/price-versions/{versionId}/publish`, `DELETE /api/facilities/{facilityId:int}/price-versions/{versionId}`
   - `BE/StorEase.Api/Controllers/InvoicesController.cs`: `GET /api/invoices`, `GET /api/invoices/{id}`, `POST /api/invoices/{id}/payments/online`, `POST /api/invoices/{id}/payments/manual`, `POST /api/invoices/{id}/adjustments`, `GET /api/invoices/{id}/reminders`, `POST /api/invoices/{id}/reminders`
   - `BE/StorEase.Api/Controllers/PaymentsController.cs`: `GET /api/payments`, `POST /api/payments/{id}/refund`, `POST /api/payments/gateway-callback`, `GET /api/payments/vnpay-ipn`, `GET /api/payments/vnpay-return`, `POST /api/payments/{paymentCode}/simulate-success`
-  - `BE/StorEase.Api/Controllers/PricingPoliciesController.cs`: `GET /api/pricing-policies`, `GET /api/pricing-policies/current-terms`, `GET /api/pricing-policies/{id}`, `POST /api/pricing-policies`, `PUT /api/pricing-policies/{id}`, `POST /api/pricing-policies/{id}/copy`, `DELETE /api/pricing-policies/{id}`, `POST /api/pricing-policies/{id}/activate`, `PUT /api/pricing-policies/{id}/unit-prices/{unitTypeId}`, `PUT /api/pricing-policies/{id}/facilities/{facilityId}/unit-prices/{unitTypeId}`, `DELETE /api/pricing-policies/{id}/facilities/{facilityId}/unit-prices/{unitTypeId}`, `POST /api/pricing-policies/{id}/fee-types`, `PUT /api/fee-types/{feeTypeId}`, `DELETE /api/fee-types/{feeTypeId}`
+  - `BE/StorEase.Api/Controllers/PricingPoliciesController.cs`: `GET /api/pricing-policies`, `GET /api/pricing-policies/current-terms`, `GET /api/pricing-policies/{id}`, `POST /api/pricing-policies`, `PUT /api/pricing-policies/{id}`, `POST /api/pricing-policies/{id}/copy`, `DELETE /api/pricing-policies/{id}`, `POST /api/pricing-policies/{id}/activate`, `PUT /api/pricing-policies/{id}/unit-prices/{unitTypeId}`, `POST /api/pricing-policies/{id}/fee-types`, `PUT /api/fee-types/{feeTypeId}`, `DELETE /api/fee-types/{feeTypeId}`
 - **Services, DTOs, validators, jobs**
   - `BE/StorEase.Application/Features/Invoices/Dtos/InvoiceDtos.cs`
   - `BE/StorEase.Application/Features/Invoices/InvoiceBook.cs`
@@ -217,7 +218,9 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `BE/StorEase.Application/Features/Invoices/Validators/InvoiceAdjustmentValidators.cs`
   - `BE/StorEase.Application/Features/Invoices/Validators/PaymentValidators.cs`
   - `BE/StorEase.Application/Features/Invoices/VnPay.cs`
+  - `BE/StorEase.Application/Features/Pricing/Dtos/FacilityPriceDtos.cs`
   - `BE/StorEase.Application/Features/Pricing/Dtos/PricingDtos.cs`
+  - `BE/StorEase.Application/Features/Pricing/FacilityPricingService.cs`
   - `BE/StorEase.Application/Features/Pricing/PricingService.cs`
   - `BE/StorEase.Application/Features/Pricing/RentCalculator.cs`
   - `BE/StorEase.Application/Features/Pricing/Validators/PricingValidators.cs`
@@ -234,6 +237,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `src/customer/account/PayInvoiceButton.jsx`
   - `src/customer/account/PaymentsPage.jsx`
   - `src/customer/account/VnPayReturnPage.jsx`
+  - `src/staff/pages/FacilityPriceList.jsx`
   - `src/staff/pages/PricingPage.jsx`
   - `src/staff/pages/RecordPaymentPage.jsx`
 

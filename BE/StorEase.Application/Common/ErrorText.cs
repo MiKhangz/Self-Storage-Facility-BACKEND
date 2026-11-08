@@ -161,8 +161,10 @@ public static class ErrorText
 
         // Pricing
         ["A later active pricing policy already exists."] = "Đã có chính sách giá áp dụng muộn hơn.",
-        ["A pricing policy must have at least one company unit price before activation."] = "Chính sách giá phải có ít nhất một giá kho chung của công ty trước khi áp dụng.",
+        ["Publish or delete this facility's current draft first."] = "Hãy áp dụng hoặc xoá bản nháp giá hiện tại của cơ sở này trước.",
+        ["Price version not found."] = "Không tìm thấy phiên bản giá.",
         ["This facility has no own price for that size."] = "Cơ sở này chưa có giá riêng cho kích thước đó.",
+        ["A pricing policy must have at least one unit price before activation."] = "Chính sách giá phải có ít nhất một giá kho trước khi áp dụng.",
         ["No active pricing policy applies to the move-in date."] = "Không có chính sách giá áp dụng cho ngày nhận kho.",
         ["No price is configured for this unit type in the active policy."] = "Chính sách đang áp dụng chưa có giá cho loại kho này.",
         ["No pricing policy is in force today."] = "Hôm nay không có chính sách giá nào đang áp dụng.",

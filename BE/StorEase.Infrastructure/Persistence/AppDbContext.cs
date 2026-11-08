@@ -19,6 +19,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MaintenanceOrder> MaintenanceOrders => Set<MaintenanceOrder>();
     public DbSet<PricingPolicy> PricingPolicies => Set<PricingPolicy>();
     public DbSet<UnitPrice> UnitPrices => Set<UnitPrice>();
+    public DbSet<FacilityPriceVersion> FacilityPriceVersions => Set<FacilityPriceVersion>();
+    public DbSet<FacilityUnitPrice> FacilityUnitPrices => Set<FacilityUnitPrice>();
     public DbSet<FeeType> FeeTypes => Set<FeeType>();
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<Handover> Handovers => Set<Handover>();

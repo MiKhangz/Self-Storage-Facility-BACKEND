@@ -204,6 +204,6 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
         var active = await uow.Repository<PricingPolicy>().Query()
             .Where(p => p.Status == PricingPolicyStatus.Active).OrderByDescending(p => p.Version)
             .Select(p => (int?)p.PricingPolicyId).FirstOrDefaultAsync(ct);
-        return active is { } policyId ? await RentCalculator.PricesAsync(uow, policyId, facilityId, ct) : [];
+        return active is { } policyId ? await RentCalculator.PricesAsync(uow, policyId, facilityId, VietnamTime.Today, ct) : [];
     }
 }

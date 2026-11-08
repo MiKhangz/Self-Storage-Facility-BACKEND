@@ -17,9 +17,7 @@ public sealed record PricingPolicyDto(
     int CancelFreeHours,
     PricingPolicyStatus Status,
     IReadOnlyList<UnitPriceDto> UnitPrices,
-    IReadOnlyList<FeeTypeDto> Fees,
-    /// <summary>Facilities' own prices for some sizes; every other size and facility uses UnitPrices.</summary>
-    IReadOnlyList<UnitPriceDto> FacilityPrices);
+    IReadOnlyList<FeeTypeDto> Fees);
 
 public sealed record UnitPriceDto(
     int UnitPriceId,
@@ -30,9 +28,7 @@ public sealed record UnitPriceDto(
     decimal BasePricePerMonth,
     decimal Discount3Month,
     decimal Discount6Month,
-    decimal Discount12Month,
-    int? FacilityId = null,
-    string? FacilityName = null);
+    decimal Discount12Month);
 
 public sealed record FeeTypeDto(int FeeTypeId, int PricingPolicyId, string Code, string Name, decimal Amount, bool IsPercentage);
 

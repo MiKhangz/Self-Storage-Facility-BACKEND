@@ -410,6 +410,84 @@ namespace StorEase.Infrastructure.Migrations
                     b.ToTable("Facility", (string)null);
                 });
 
+            modelBuilder.Entity("StorEase.Domain.Entities.FacilityPriceVersion", b =>
+                {
+                    b.Property<int>("FacilityPriceVersionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("FacilityPriceVersionId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("EffectiveTo")
+                        .HasColumnType("date");
+
+                    b.Property<int>("FacilityId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("FacilityPriceVersionId");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("FacilityId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("FacilityPriceVersion", (string)null);
+                });
+
+            modelBuilder.Entity("StorEase.Domain.Entities.FacilityUnitPrice", b =>
+                {
+                    b.Property<int>("FacilityUnitPriceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("FacilityUnitPriceId"));
+
+                    b.Property<decimal>("BasePricePerMonth")
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<decimal>("Discount12Month")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("Discount3Month")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("Discount6Month")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("FacilityPriceVersionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnitTypeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("FacilityUnitPriceId");
+
+                    b.HasIndex("UnitTypeId");
+
+                    b.HasIndex("FacilityPriceVersionId", "UnitTypeId")
+                        .IsUnique();
+
+                    b.ToTable("FacilityUnitPrice", (string)null);
+                });
+
             modelBuilder.Entity("StorEase.Domain.Entities.FeeType", b =>
                 {
                     b.Property<int>("FeeTypeId")
@@ -1028,6 +1106,9 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<int>("FacilityId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("FacilityPriceVersionId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("HandoverSlot")
                         .HasColumnType("datetime2");
 
@@ -1065,6 +1146,8 @@ namespace StorEase.Infrastructure.Migrations
                     b.HasIndex("CustomerId");
 
                     b.HasIndex("FacilityId");
+
+                    b.HasIndex("FacilityPriceVersionId");
 
                     b.HasIndex("MoveInDate");
 
@@ -1487,9 +1570,6 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<decimal>("Discount6Month")
                         .HasColumnType("decimal(5,2)");
 
-                    b.Property<int?>("FacilityId")
-                        .HasColumnType("int");
-
                     b.Property<int>("PricingPolicyId")
                         .HasColumnType("int");
 
@@ -1498,11 +1578,9 @@ namespace StorEase.Infrastructure.Migrations
 
                     b.HasKey("UnitPriceId");
 
-                    b.HasIndex("FacilityId");
-
                     b.HasIndex("UnitTypeId");
 
-                    b.HasIndex("PricingPolicyId", "UnitTypeId", "FacilityId");
+                    b.HasIndex("PricingPolicyId", "UnitTypeId");
 
                     b.ToTable("UnitPrice", (string)null);
                 });
@@ -1828,6 +1906,44 @@ namespace StorEase.Infrastructure.Migrations
                     b.Navigation("Manager");
                 });
 
+            modelBuilder.Entity("StorEase.Domain.Entities.FacilityPriceVersion", b =>
+                {
+                    b.HasOne("StorEase.Domain.Entities.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("StorEase.Domain.Entities.Facility", "Facility")
+                        .WithMany()
+                        .HasForeignKey("FacilityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Facility");
+                });
+
+            modelBuilder.Entity("StorEase.Domain.Entities.FacilityUnitPrice", b =>
+                {
+                    b.HasOne("StorEase.Domain.Entities.FacilityPriceVersion", "FacilityPriceVersion")
+                        .WithMany("Prices")
+                        .HasForeignKey("FacilityPriceVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("StorEase.Domain.Entities.UnitType", "UnitType")
+                        .WithMany()
+                        .HasForeignKey("UnitTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FacilityPriceVersion");
+
+                    b.Navigation("UnitType");
+                });
+
             modelBuilder.Entity("StorEase.Domain.Entities.FeeType", b =>
                 {
                     b.HasOne("StorEase.Domain.Entities.PricingPolicy", "PricingPolicy")
@@ -2077,6 +2193,11 @@ namespace StorEase.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("StorEase.Domain.Entities.FacilityPriceVersion", "FacilityPriceVersion")
+                        .WithMany()
+                        .HasForeignKey("FacilityPriceVersionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("StorEase.Domain.Entities.PricingPolicy", "PricingPolicy")
                         .WithMany()
                         .HasForeignKey("PricingPolicyId")
@@ -2098,6 +2219,8 @@ namespace StorEase.Infrastructure.Migrations
                     b.Navigation("Customer");
 
                     b.Navigation("Facility");
+
+                    b.Navigation("FacilityPriceVersion");
 
                     b.Navigation("PricingPolicy");
 
@@ -2278,11 +2401,6 @@ namespace StorEase.Infrastructure.Migrations
 
             modelBuilder.Entity("StorEase.Domain.Entities.UnitPrice", b =>
                 {
-                    b.HasOne("StorEase.Domain.Entities.Facility", "Facility")
-                        .WithMany()
-                        .HasForeignKey("FacilityId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("StorEase.Domain.Entities.PricingPolicy", "PricingPolicy")
                         .WithMany("UnitPrices")
                         .HasForeignKey("PricingPolicyId")
@@ -2294,8 +2412,6 @@ namespace StorEase.Infrastructure.Migrations
                         .HasForeignKey("UnitTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("Facility");
 
                     b.Navigation("PricingPolicy");
 
@@ -2338,6 +2454,11 @@ namespace StorEase.Infrastructure.Migrations
                     b.Navigation("Floors");
 
                     b.Navigation("StorageUnits");
+                });
+
+            modelBuilder.Entity("StorEase.Domain.Entities.FacilityPriceVersion", b =>
+                {
+                    b.Navigation("Prices");
                 });
 
             modelBuilder.Entity("StorEase.Domain.Entities.Invoice", b =>

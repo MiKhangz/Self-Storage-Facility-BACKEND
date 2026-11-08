@@ -75,6 +75,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
                 RentalMonths = request.RentalMonths,
                 // The version this quote came from; the contract is drafted from it even if prices change before move-in.
                 PricingPolicyId = terms.IsSuccess ? terms.Value.Policy.PricingPolicyId : null,
+                FacilityPriceVersionId = terms.IsSuccess ? terms.Value.FacilityPriceVersionId : null,
                 Status = ReservationStatus.Pending,
                 CreatedAt = DateTime.UtcNow,
             };
