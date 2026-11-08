@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.Facilities.Dtos;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
@@ -62,7 +63,7 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
             && !await StaffScope.StaffedFacilityIds(uow).AnyAsync(id => id == facilityId, ct))
             return Error.NotFound("Facility not found.");
 
-        var prices = await ActivePricesAsync(ct);
+        var prices = await ActivePricesAsync(facility.FacilityId, ct);
         var units = facility.StorageUnits.Where(u => u.Status != StorageUnitStatus.Retired).ToList();
         return new FacilityDetailDto(
             facility.FacilityId, facility.Code, facility.Name, facility.Address, facility.District, facility.Phone,
@@ -197,11 +198,12 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
         facility.ManagerId = request.ManagerId;
     }
 
-    // "From" price per unit type in the active policy, before any long-stay discount.
-    private async Task<Dictionary<int, decimal>> ActivePricesAsync(CancellationToken ct) =>
-        await uow.Repository<UnitPrice>().Query()
-            .Where(p => p.PricingPolicy.Status == PricingPolicyStatus.Active)
-            .GroupBy(p => p.UnitTypeId)
-            .Select(g => new { g.Key, Price = g.Min(p => p.BasePricePerMonth) })
-            .ToDictionaryAsync(x => x.Key, x => x.Price, ct);
+    // This facility's monthly price per unit type in the active policy (its own, else the company's), before long-stay discounts.
+    private async Task<Dictionary<int, decimal>> ActivePricesAsync(int facilityId, CancellationToken ct)
+    {
+        var active = await uow.Repository<PricingPolicy>().Query()
+            .Where(p => p.Status == PricingPolicyStatus.Active).OrderByDescending(p => p.Version)
+            .Select(p => (int?)p.PricingPolicyId).FirstOrDefaultAsync(ct);
+        return active is { } policyId ? await RentCalculator.PricesAsync(uow, policyId, facilityId, ct) : [];
+    }
 }

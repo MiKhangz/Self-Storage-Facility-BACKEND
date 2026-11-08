@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.Renewals.Dtos;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
@@ -44,11 +45,13 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
                 return Error.Conflict("This contract already has a renewal waiting for approval.");
 
             // Priced from the active policy; the contract keeps its signed rent until the renewal is approved.
-            var price = await uow.Repository<UnitPrice>().Query()
-                .Where(p => p.PricingPolicy.Status == PricingPolicyStatus.Active &&
-                            p.UnitTypeId == contract.StorageUnit.UnitTypeId)
-                .OrderByDescending(p => p.PricingPolicy.Version)
-                .FirstOrDefaultAsync(ct);
+            var active = await uow.Repository<PricingPolicy>().Query()
+                .Where(p => p.Status == PricingPolicyStatus.Active).OrderByDescending(p => p.Version)
+                .Select(p => (int?)p.PricingPolicyId).FirstOrDefaultAsync(ct);
+            // The facility's own price for the size, else the company price.
+            var price = active is { } policyId
+                ? await RentCalculator.PriceAsync(uow, policyId, contract.StorageUnit.UnitTypeId, contract.StorageUnit.FacilityId, ct)
+                : null;
             var newRent = price is null
                 ? contract.MonthlyRent
                 : RenewalPricing.Rent(price.BasePricePerMonth, request.ExtendMonths,

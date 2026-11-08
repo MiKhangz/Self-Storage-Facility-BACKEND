@@ -22,6 +22,28 @@ public static class RentCalculator
             .OrderByDescending(p => p.EffectiveFrom)
             .FirstOrDefaultAsync(ct);
 
+    /// <summary>The price of a size at a facility in one version: the facility's own price, else the company price.</summary>
+    public static Task<UnitPrice?> PriceAsync(IUnitOfWork uow, int pricingPolicyId, int unitTypeId, int? facilityId, CancellationToken ct) =>
+        uow.Repository<UnitPrice>().Query()
+            .Where(p => p.PricingPolicyId == pricingPolicyId && p.UnitTypeId == unitTypeId && (p.FacilityId == null || p.FacilityId == facilityId))
+            .OrderBy(p => p.FacilityId == null ? 1 : 0)
+            .FirstOrDefaultAsync(ct);
+
+    /// <summary>
+    /// Base monthly price per size in one version. At a facility its own prices win; with no facility, each size's
+    /// lowest price anywhere, for "from" prices.
+    /// </summary>
+    public static async Task<Dictionary<int, decimal>> PricesAsync(IUnitOfWork uow, int pricingPolicyId, int? facilityId, CancellationToken ct)
+    {
+        var rows = await uow.Repository<UnitPrice>().Query()
+            .Where(p => p.PricingPolicyId == pricingPolicyId && (facilityId == null || p.FacilityId == null || p.FacilityId == facilityId))
+            .Select(p => new { p.UnitTypeId, p.FacilityId, p.BasePricePerMonth })
+            .ToListAsync(ct);
+        return rows.GroupBy(p => p.UnitTypeId).ToDictionary(g => g.Key, g => facilityId is null
+            ? g.Min(p => p.BasePricePerMonth)
+            : (g.FirstOrDefault(p => p.FacilityId == facilityId) ?? g.First()).BasePricePerMonth);
+    }
+
     /// <summary>
     /// A rental's own policy version (pinned when it was booked), or for rentals from before pinning, the one in force
     /// on <paramref name="date"/>.
@@ -37,14 +59,13 @@ public static class RentCalculator
     /// under, so a price change in between does not reach it.
     /// </summary>
     public static async Task<Result<RentTerms>> TermsAsync(
-        IUnitOfWork uow, int unitTypeId, DateOnly moveInDate, int rentalMonths, CancellationToken ct, int? pricingPolicyId = null)
+        IUnitOfWork uow, int facilityId, int unitTypeId, DateOnly moveInDate, int rentalMonths, CancellationToken ct, int? pricingPolicyId = null)
     {
         var policy = await PolicyOfAsync(uow, pricingPolicyId, moveInDate, ct);
         if (policy is null)
             return Error.NotFound("No active pricing policy applies to the move-in date.");
 
-        var price = await uow.Repository<UnitPrice>().Query()
-            .FirstOrDefaultAsync(p => p.PricingPolicyId == policy.PricingPolicyId && p.UnitTypeId == unitTypeId, ct);
+        var price = await PriceAsync(uow, policy.PricingPolicyId, unitTypeId, facilityId, ct);
         if (price is null)
             return Error.NotFound("No price is configured for this unit type in the active policy.");
 

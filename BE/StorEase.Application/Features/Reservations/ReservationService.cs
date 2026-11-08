@@ -61,7 +61,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             return Error.Conflict("No unit of this type is available at this facility.");
 
         // Without a policy there is no price, so the deposit is skipped rather than blocking the booking.
-        var terms = await RentCalculator.TermsAsync(uow, request.UnitTypeId, request.MoveInDate, request.RentalMonths, ct);
+        var terms = await RentCalculator.TermsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, request.RentalMonths, ct);
 
         var created = await uow.InTransactionAsync<int>(async () =>
         {

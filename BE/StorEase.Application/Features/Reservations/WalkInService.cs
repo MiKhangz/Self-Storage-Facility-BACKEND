@@ -107,7 +107,7 @@ public class WalkInService(
             if (!customer.IsSuccess)
                 return customer.Error;
 
-            var terms = await RentCalculator.TermsAsync(uow, request.UnitTypeId, request.MoveInDate, request.RentalMonths, ct);
+            var terms = await RentCalculator.TermsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, request.RentalMonths, ct);
             if (!terms.IsSuccess)
                 return terms.Error;
 

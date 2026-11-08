@@ -130,7 +130,7 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
         if (availability.Value.AvailableUnits == 0)
             return Error.Conflict("No unit of this type is available at this facility.");
 
-        var terms = await RentCalculator.TermsAsync(uow, unitTypeId, moveInDate, rentalMonths, ct);
+        var terms = await RentCalculator.TermsAsync(uow, facilityId, unitTypeId, moveInDate, rentalMonths, ct);
         if (!terms.IsSuccess)
             return terms.Error;
         var (policy, monthlyRent, deposit) = terms.Value;
@@ -149,14 +149,16 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
     private static Expression<Func<UnitType, UnitTypeDto>> ProjectUnitType() =>
         t => new UnitTypeDto(t.UnitTypeId, t.Code, t.Name, t.AreaM2, t.Width, t.Depth, t.Height, t.IsClimateControlled, null);
 
-    /// <summary>Base monthly rent per unit type in the policy in force today; empty when no policy is active.</summary>
+    /// <summary>
+    /// "From" monthly rent per unit type in the policy in force today: the lowest at any facility, since facilities may
+    /// price a size differently. Empty when no policy is active.
+    /// </summary>
     private async Task<Dictionary<int, decimal?>> PolicyPricesAsync(CancellationToken ct)
     {
         var policy = await RentCalculator.PolicyForAsync(uow, VietnamTime.Today, ct);
         if (policy is null)
             return [];
-        return await uow.Repository<UnitPrice>().Query()
-            .Where(p => p.PricingPolicyId == policy.PricingPolicyId)
-            .ToDictionaryAsync(p => p.UnitTypeId, p => (decimal?)p.BasePricePerMonth, ct);
+        var prices = await RentCalculator.PricesAsync(uow, policy.PricingPolicyId, null, ct);
+        return prices.ToDictionary(p => p.Key, p => (decimal?)p.Value);
     }
 }

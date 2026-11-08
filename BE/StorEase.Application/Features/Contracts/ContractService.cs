@@ -44,7 +44,7 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
                 return Error.Conflict("The unit already has an Active or Draft contract.");
 
             // The rent and deposit the customer was quoted when booking, even if a new price was published since.
-            var terms = await RentCalculator.TermsAsync(uow, reservation.UnitTypeId, reservation.MoveInDate, reservation.RentalMonths, ct,
+            var terms = await RentCalculator.TermsAsync(uow, reservation.FacilityId, reservation.UnitTypeId, reservation.MoveInDate, reservation.RentalMonths, ct,
                 reservation.PricingPolicyId);
             if (!terms.IsSuccess)
                 return terms.Error;

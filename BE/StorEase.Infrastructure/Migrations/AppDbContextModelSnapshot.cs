@@ -1487,6 +1487,9 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<decimal>("Discount6Month")
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<int?>("FacilityId")
+                        .HasColumnType("int");
+
                     b.Property<int>("PricingPolicyId")
                         .HasColumnType("int");
 
@@ -1495,9 +1498,11 @@ namespace StorEase.Infrastructure.Migrations
 
                     b.HasKey("UnitPriceId");
 
-                    b.HasIndex("PricingPolicyId");
+                    b.HasIndex("FacilityId");
 
                     b.HasIndex("UnitTypeId");
+
+                    b.HasIndex("PricingPolicyId", "UnitTypeId", "FacilityId");
 
                     b.ToTable("UnitPrice", (string)null);
                 });
@@ -2273,6 +2278,11 @@ namespace StorEase.Infrastructure.Migrations
 
             modelBuilder.Entity("StorEase.Domain.Entities.UnitPrice", b =>
                 {
+                    b.HasOne("StorEase.Domain.Entities.Facility", "Facility")
+                        .WithMany()
+                        .HasForeignKey("FacilityId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("StorEase.Domain.Entities.PricingPolicy", "PricingPolicy")
                         .WithMany("UnitPrices")
                         .HasForeignKey("PricingPolicyId")
@@ -2284,6 +2294,8 @@ namespace StorEase.Infrastructure.Migrations
                         .HasForeignKey("UnitTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Facility");
 
                     b.Navigation("PricingPolicy");
 

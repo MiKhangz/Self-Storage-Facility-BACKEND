@@ -61,7 +61,7 @@ public class StorageUnitService(IUnitOfWork uow, ICurrentUser currentUser) : ISt
             UnitTypeId = request.UnitTypeId,
             UnitCode = request.UnitCode.Trim().ToUpperInvariant(),
             Zone = Clean(request.Zone),
-            CurrentPrice = request.CurrentPrice is { } price ? Money.Round(price) : await PolicyPriceAsync(request.UnitTypeId, ct),
+            CurrentPrice = request.CurrentPrice is { } price ? Money.Round(price) : await PolicyPriceAsync(request.FacilityId, request.UnitTypeId, ct),
             Note = Clean(request.Note),
             // A unit added to a floor under construction or renovation goes on sale when the floor reopens.
             Status = await uow.Repository<Floor>().Query().AnyAsync(f => f.FloorId == request.FloorId && f.Status == FloorStatus.Open, ct)
@@ -89,7 +89,7 @@ public class StorageUnitService(IUnitOfWork uow, ICurrentUser currentUser) : ISt
         if (request.CurrentPrice is { } price)
             unit.CurrentPrice = Money.Round(price);
         else if (unit.UnitTypeId != request.UnitTypeId)
-            unit.CurrentPrice = await PolicyPriceAsync(request.UnitTypeId, ct);
+            unit.CurrentPrice = await PolicyPriceAsync(unit.FacilityId, request.UnitTypeId, ct);
         unit.FloorId = request.FloorId;
         unit.UnitTypeId = request.UnitTypeId;
         unit.UnitCode = request.UnitCode.Trim().ToUpperInvariant();
@@ -140,14 +140,12 @@ public class StorageUnitService(IUnitOfWork uow, ICurrentUser currentUser) : ISt
     /// The active policy's monthly base price for a unit type, or 0 when none is set. Display only: quotes, deposits and
     /// contracts read the policy through RentCalculator, never the unit's own price.
     /// </summary>
-    private async Task<decimal> PolicyPriceAsync(int unitTypeId, CancellationToken ct)
+    private async Task<decimal> PolicyPriceAsync(int facilityId, int unitTypeId, CancellationToken ct)
     {
         var policy = await RentCalculator.PolicyForAsync(uow, VietnamTime.Today, ct);
         if (policy is null)
             return 0m;
-        return await uow.Repository<UnitPrice>().Query()
-            .Where(p => p.PricingPolicyId == policy.PricingPolicyId && p.UnitTypeId == unitTypeId)
-            .Select(p => p.BasePricePerMonth).FirstOrDefaultAsync(ct);
+        return (await RentCalculator.PriceAsync(uow, policy.PricingPolicyId, unitTypeId, facilityId, ct))?.BasePricePerMonth ?? 0m;
     }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
