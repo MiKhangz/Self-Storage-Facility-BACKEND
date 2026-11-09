@@ -8,45 +8,11 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 
 | Person | Flows | Backend files | Frontend files | E2E tests |
 |---|---|---|---|---|
-| **Khang** | F01, F02, F03, F04, F05, F12, F14 | 57 | 38 | E01, E02, E03, E04, E09, E10, E12, E13, E14, E17, E18, E20, E21, E22 |
-| **Trường** | F07, F08, F09, F10 | 52 | 10 | E06, E07, E08, E15, E16 |
-| **Thiện** | F06, F11, F13 | 58 | 22 | E05, E05b, E05c, E11, E19 |
+| **Khang** | F01, F02, F03, F04, F14 | 40 | 32 | E01, E02, E03, E04, E09, E10, E13, E14, E17, E18, E20, E21 |
+| **Trường** | F05, F07, F08, F09, F13 | 52 | 12 | E06, E07, E16, E23 |
+| **Thiện** | F06, F10, F11, F12 | 75 | 26 | E05, E05b, E05c, E08, E11, E12, E15, E19, E22 |
 
 ## Khang
-
-### Access logs (no flow tab)
-
-- **Controllers and routes**
-  - `BE/StorEase.Api/Controllers/AccessLogsController.cs`: `GET /api/access-logs`, `GET /api/access-logs/mine`
-- **Services, DTOs, validators, jobs**
-  - `BE/StorEase.Application/Features/AccessCodes/AccessLogService.cs`
-  - `BE/StorEase.Application/Features/AccessCodes/IAccessLogService.cs`
-
-### Staff accounts & audit (F12)
-
-- **Controllers and routes**
-  - `BE/StorEase.Api/Controllers/ActivityLogsController.cs`: `GET /api/activity-logs`
-  - `BE/StorEase.Api/Controllers/StaffController.cs`: `GET /api/staff`, `GET /api/staff/{id}`, `POST /api/staff`, `PUT /api/staff/{id}`, `PUT /api/staff/{id}/facilities`
-- **Services, DTOs, validators, jobs**
-  - `BE/StorEase.Api/Middleware/ActivityLogFilter.cs`
-  - `BE/StorEase.Application/Features/ActivityLogs/ActivityLogService.cs`
-  - `BE/StorEase.Application/Features/Staff/Dtos/StaffAccountDtos.cs`
-  - `BE/StorEase.Application/Features/Staff/StaffAccountService.cs`
-  - `BE/StorEase.Application/Features/Staff/Validators/StaffAccountValidators.cs`
-- **Backend tests**
-  - `BE/tests/StorEase.Api.Tests/ActivityLogFilterTests.cs`
-  - `BE/tests/StorEase.Application.Tests/ActivityLogServiceTests.cs`
-  - `BE/tests/StorEase.Application.Tests/StaffAccountServiceTests.cs`
-  - `BE/tests/StorEase.Application.Tests/StaffScopeTests.cs`
-- **Frontend**
-  - `src/staff/activityLabels.js`
-  - `src/staff/components/FacilityPicker.jsx`
-  - `src/staff/pages/InviteUserPage.jsx`
-  - `src/staff/pages/PendingBackendPages.jsx`
-  - `src/staff/pages/UsersPage.jsx`
-  - `src/staff/permissions.js`
-- **Frontend tests**
-  - `tests/activityLabels.test.mjs`
 
 ### Account & sign-in (F01)
 
@@ -77,25 +43,6 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `src/staff/AdminLoginPage.jsx`
 - **Frontend tests**
   - `e2e/01-account.spec.js`: E01, E20, E21
-
-### Contracts & customers (F05)
-
-- **Controllers and routes**
-  - `BE/StorEase.Api/Controllers/ContractsController.cs`: `POST /api/contracts`, `GET /api/contracts`, `GET /api/contracts/{id}`, `POST /api/contracts/{id}/sign`, `POST /api/contracts/{id}/sign-at-desk`, `GET /api/contracts/export`, `POST /api/contracts/{id}/terminate`, `POST /api/contracts/{id}/access-codes`, `GET /api/contracts/{id}/access-code`, `POST /api/contracts/{id}/access-codes/request`
-  - `BE/StorEase.Api/Controllers/CustomersController.cs`: `GET /api/customers`, `GET /api/customers/{id}`
-- **Services, DTOs, validators, jobs**
-  - `BE/StorEase.Application/Features/Contracts/ContractQueries.cs`
-  - `BE/StorEase.Application/Features/Contracts/ContractService.cs`
-  - `BE/StorEase.Application/Features/Contracts/Dtos/ContractDto.cs`
-  - `BE/StorEase.Application/Features/Contracts/IContractService.cs`
-  - `BE/StorEase.Application/Features/Contracts/Validators/CreateContractRequestValidator.cs`
-- **Backend tests**
-  - `BE/tests/StorEase.Application.Tests/ContractLifecycleTests.cs`
-  - `BE/tests/StorEase.Application.Tests/ContractServiceTests.cs`
-- **Frontend**
-  - `src/staff/pages/ContractsPage.jsx`
-  - `src/staff/pages/CustomerPage.jsx`
-  - `src/staff/print.js`
 
 ### Profile & settings (F02)
 
@@ -134,23 +81,33 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 - **Frontend tests**
   - `e2e/03-desk.spec.js`: E09, E10
 
-### Shifts & staff tasks (no flow tab)
+### Support tickets (no flow tab)
 
 - **Controllers and routes**
-  - `BE/StorEase.Api/Controllers/ShiftsController.cs`: `POST /api/shifts`, `GET /api/shifts`, `GET /api/shifts/{id}`, `PUT /api/shifts/{id}`, `DELETE /api/shifts/{id}`
-  - `BE/StorEase.Api/Controllers/StaffTasksController.cs`: `POST /api/staff-tasks`, `GET /api/staff-tasks`, `GET /api/staff-tasks/{id}`, `POST /api/staff-tasks/{id}/status`
+  - `BE/StorEase.Api/Controllers/SupportTicketsController.cs`: `POST /api/support-tickets`, `GET /api/support-tickets/{id}`, `GET /api/support-tickets/{id}/messages`, `POST /api/support-tickets/{id}/messages`
+  - `BE/StorEase.Api/Controllers/TicketCategoriesController.cs`: `GET /api/ticket-categories`
+  - `BE/StorEase.Api/Controllers/TicketQueueController.cs`: `GET /api/support-tickets`, `POST /api/support-tickets/{id}/assign`, `POST /api/support-tickets/{id}/status`
 - **Services, DTOs, validators, jobs**
-  - `BE/StorEase.Application/Features/Staff/Dtos/ShiftDtos.cs`
-  - `BE/StorEase.Application/Features/Staff/Dtos/StaffTaskDtos.cs`
-  - `BE/StorEase.Application/Features/Staff/ShiftService.cs`
-  - `BE/StorEase.Application/Features/Staff/StaffTaskService.cs`
-  - `BE/StorEase.Application/Features/Staff/Validators/ShiftValidators.cs`
-  - `BE/StorEase.Application/Features/Staff/Validators/StaffTaskValidators.cs`
+  - `BE/StorEase.Application/Features/SupportTickets/Dtos/CreateTicketRequest.cs`
+  - `BE/StorEase.Application/Features/SupportTickets/Dtos/PostTicketMessageRequest.cs`
+  - `BE/StorEase.Application/Features/SupportTickets/Dtos/TicketDto.cs`
+  - `BE/StorEase.Application/Features/SupportTickets/Dtos/TicketQueueItemDto.cs`
+  - `BE/StorEase.Application/Features/SupportTickets/Dtos/TicketQueueRequests.cs`
+  - `BE/StorEase.Application/Features/SupportTickets/SupportTicketService.cs`
+  - `BE/StorEase.Application/Features/SupportTickets/TicketQueueService.cs`
+  - `BE/StorEase.Application/Features/SupportTickets/TicketStatusRules.cs`
+  - `BE/StorEase.Application/Features/SupportTickets/Validators/CreateTicketRequestValidator.cs`
+  - `BE/StorEase.Application/Features/SupportTickets/Validators/PostTicketMessageRequestValidator.cs`
+  - `BE/StorEase.Application/Features/SupportTickets/Validators/TicketQueueValidators.cs`
 - **Backend tests**
-  - `BE/tests/StorEase.Application.Tests/ShiftServiceTests.cs`
-  - `BE/tests/StorEase.Application.Tests/StaffTaskServiceTests.cs`
+  - `BE/tests/StorEase.Application.Tests/SupportTicketServiceTests.cs`
+  - `BE/tests/StorEase.Application.Tests/TicketQueueServiceTests.cs`
 - **Frontend**
-  - `src/staff/pages/ShiftsPage.jsx`
+  - `src/customer/support/SupportRequestPage.jsx`
+  - `src/customer/support/TicketDetailPage.jsx`
+  - `src/customer/support/support.js`
+  - `src/staff/pages/TicketDetailPage.jsx`
+  - `src/staff/pages/TicketsPage.jsx`
 
 ### Language (F14)
 
@@ -183,26 +140,24 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 - **Frontend**
   - `src/staff/pages/OverdueCasesPage.jsx`
 
-### Hand-back & deposit settlement (F10)
+### Contracts & customers (F05)
 
 - **Controllers and routes**
-  - `BE/StorEase.Api/Controllers/DepositRefundsController.cs`: `GET /api/deposit-refunds`, `POST /api/deposit-refunds/{id}/paid`
-  - `BE/StorEase.Api/Controllers/ReturnsController.cs`: `POST /api/returns`, `GET /api/returns`, `GET /api/returns/{id}`, `POST /api/returns/{id}/approve`, `POST /api/returns/{id}/inspection`, `POST /api/returns/{id}/settle-deposit`
+  - `BE/StorEase.Api/Controllers/ContractsController.cs`: `POST /api/contracts`, `GET /api/contracts`, `GET /api/contracts/{id}`, `POST /api/contracts/{id}/sign`, `POST /api/contracts/{id}/sign-at-desk`, `GET /api/contracts/export`, `POST /api/contracts/{id}/terminate`, `POST /api/contracts/{id}/access-codes`, `GET /api/contracts/{id}/access-code`, `POST /api/contracts/{id}/access-codes/request`
+  - `BE/StorEase.Api/Controllers/CustomersController.cs`: `GET /api/customers`, `GET /api/customers/{id}`
 - **Services, DTOs, validators, jobs**
-  - `BE/StorEase.Application/Features/DepositRefunds/DepositRefundService.cs`
-  - `BE/StorEase.Application/Features/Returns/DepositSettlement.cs`
-  - `BE/StorEase.Application/Features/Returns/Dtos/ReturnDtos.cs`
-  - `BE/StorEase.Application/Features/Returns/ReturnService.cs`
-  - `BE/StorEase.Application/Features/Returns/Validators/ReturnValidators.cs`
+  - `BE/StorEase.Application/Features/Contracts/ContractQueries.cs`
+  - `BE/StorEase.Application/Features/Contracts/ContractService.cs`
+  - `BE/StorEase.Application/Features/Contracts/Dtos/ContractDto.cs`
+  - `BE/StorEase.Application/Features/Contracts/IContractService.cs`
+  - `BE/StorEase.Application/Features/Contracts/Validators/CreateContractRequestValidator.cs`
 - **Backend tests**
-  - `BE/tests/StorEase.Application.Tests/DepositRefundTests.cs`
-  - `BE/tests/StorEase.Application.Tests/DepositSettlementTests.cs`
-  - `BE/tests/StorEase.Application.Tests/MoveOutDeadlineTests.cs`
-  - `BE/tests/StorEase.Application.Tests/ReturnSettlementTests.cs`
+  - `BE/tests/StorEase.Application.Tests/ContractLifecycleTests.cs`
+  - `BE/tests/StorEase.Application.Tests/ContractServiceTests.cs`
 - **Frontend**
-  - `src/customer/account/ReturnPage.jsx`
-  - `src/staff/pages/DepositRefundsPage.jsx`
-  - `src/staff/pages/ReturnsPage.jsx`
+  - `src/staff/pages/ContractsPage.jsx`
+  - `src/staff/pages/CustomerPage.jsx`
+  - `src/staff/print.js`
 
 ### Invoices, payments & pricing (F07)
 
@@ -255,6 +210,16 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `BE/tests/StorEase.Application.Tests/RenewalDecisionTests.cs`
   - `BE/tests/StorEase.Application.Tests/RenewalPricingTests.cs`
 
+### Reports & dashboard (F13)
+
+- **Controllers and routes**
+  - `BE/StorEase.Api/Controllers/ReportsController.cs`: `GET /api/reports/dashboard`, `GET /api/reports/occupancy`, `GET /api/reports/revenue`
+- **Services, DTOs, validators, jobs**
+  - `BE/StorEase.Application/Features/Reports/ReportService.cs`
+- **Frontend**
+  - `src/staff/pages/DashboardPage.jsx`
+  - `src/staff/pages/ReportsPage.jsx`
+
 
 ## Thiện
 
@@ -289,6 +254,61 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `src/staff/photoRules.js`
 - **Frontend tests**
   - `tests/photoRules.test.mjs`
+
+### Access logs (no flow tab)
+
+- **Controllers and routes**
+  - `BE/StorEase.Api/Controllers/AccessLogsController.cs`: `GET /api/access-logs`, `GET /api/access-logs/mine`
+- **Services, DTOs, validators, jobs**
+  - `BE/StorEase.Application/Features/AccessCodes/AccessLogService.cs`
+  - `BE/StorEase.Application/Features/AccessCodes/IAccessLogService.cs`
+
+### Staff accounts & audit (F12)
+
+- **Controllers and routes**
+  - `BE/StorEase.Api/Controllers/ActivityLogsController.cs`: `GET /api/activity-logs`
+  - `BE/StorEase.Api/Controllers/StaffController.cs`: `GET /api/staff`, `GET /api/staff/{id}`, `POST /api/staff`, `PUT /api/staff/{id}`, `PUT /api/staff/{id}/facilities`
+- **Services, DTOs, validators, jobs**
+  - `BE/StorEase.Api/Middleware/ActivityLogFilter.cs`
+  - `BE/StorEase.Application/Features/ActivityLogs/ActivityLogService.cs`
+  - `BE/StorEase.Application/Features/Staff/Dtos/StaffAccountDtos.cs`
+  - `BE/StorEase.Application/Features/Staff/StaffAccountService.cs`
+  - `BE/StorEase.Application/Features/Staff/Validators/StaffAccountValidators.cs`
+- **Backend tests**
+  - `BE/tests/StorEase.Api.Tests/ActivityLogFilterTests.cs`
+  - `BE/tests/StorEase.Application.Tests/ActivityLogServiceTests.cs`
+  - `BE/tests/StorEase.Application.Tests/StaffAccountServiceTests.cs`
+  - `BE/tests/StorEase.Application.Tests/StaffScopeTests.cs`
+- **Frontend**
+  - `src/staff/activityLabels.js`
+  - `src/staff/components/FacilityPicker.jsx`
+  - `src/staff/pages/InviteUserPage.jsx`
+  - `src/staff/pages/PendingBackendPages.jsx`
+  - `src/staff/pages/UsersPage.jsx`
+  - `src/staff/permissions.js`
+- **Frontend tests**
+  - `tests/activityLabels.test.mjs`
+
+### Hand-back & deposit settlement (F10)
+
+- **Controllers and routes**
+  - `BE/StorEase.Api/Controllers/DepositRefundsController.cs`: `GET /api/deposit-refunds`, `POST /api/deposit-refunds/{id}/paid`
+  - `BE/StorEase.Api/Controllers/ReturnsController.cs`: `POST /api/returns`, `GET /api/returns`, `GET /api/returns/{id}`, `POST /api/returns/{id}/approve`, `POST /api/returns/{id}/inspection`, `POST /api/returns/{id}/settle-deposit`
+- **Services, DTOs, validators, jobs**
+  - `BE/StorEase.Application/Features/DepositRefunds/DepositRefundService.cs`
+  - `BE/StorEase.Application/Features/Returns/DepositSettlement.cs`
+  - `BE/StorEase.Application/Features/Returns/Dtos/ReturnDtos.cs`
+  - `BE/StorEase.Application/Features/Returns/ReturnService.cs`
+  - `BE/StorEase.Application/Features/Returns/Validators/ReturnValidators.cs`
+- **Backend tests**
+  - `BE/tests/StorEase.Application.Tests/DepositRefundTests.cs`
+  - `BE/tests/StorEase.Application.Tests/DepositSettlementTests.cs`
+  - `BE/tests/StorEase.Application.Tests/MoveOutDeadlineTests.cs`
+  - `BE/tests/StorEase.Application.Tests/ReturnSettlementTests.cs`
+- **Frontend**
+  - `src/customer/account/ReturnPage.jsx`
+  - `src/staff/pages/DepositRefundsPage.jsx`
+  - `src/staff/pages/ReturnsPage.jsx`
 
 ### Facilities, units & maintenance (F11)
 
@@ -329,43 +349,23 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 - **Frontend tests**
   - `tests/management-csv.test.mjs`
 
-### Reports & dashboard (F13)
+### Shifts & staff tasks (no flow tab)
 
 - **Controllers and routes**
-  - `BE/StorEase.Api/Controllers/ReportsController.cs`: `GET /api/reports/dashboard`, `GET /api/reports/occupancy`, `GET /api/reports/revenue`
+  - `BE/StorEase.Api/Controllers/ShiftsController.cs`: `POST /api/shifts`, `GET /api/shifts`, `GET /api/shifts/{id}`, `PUT /api/shifts/{id}`, `DELETE /api/shifts/{id}`
+  - `BE/StorEase.Api/Controllers/StaffTasksController.cs`: `POST /api/staff-tasks`, `GET /api/staff-tasks`, `GET /api/staff-tasks/{id}`, `POST /api/staff-tasks/{id}/status`
 - **Services, DTOs, validators, jobs**
-  - `BE/StorEase.Application/Features/Reports/ReportService.cs`
-- **Frontend**
-  - `src/staff/pages/DashboardPage.jsx`
-  - `src/staff/pages/ReportsPage.jsx`
-
-### Support tickets (no flow tab)
-
-- **Controllers and routes**
-  - `BE/StorEase.Api/Controllers/SupportTicketsController.cs`: `POST /api/support-tickets`, `GET /api/support-tickets/{id}`, `GET /api/support-tickets/{id}/messages`, `POST /api/support-tickets/{id}/messages`
-  - `BE/StorEase.Api/Controllers/TicketCategoriesController.cs`: `GET /api/ticket-categories`
-  - `BE/StorEase.Api/Controllers/TicketQueueController.cs`: `GET /api/support-tickets`, `POST /api/support-tickets/{id}/assign`, `POST /api/support-tickets/{id}/status`
-- **Services, DTOs, validators, jobs**
-  - `BE/StorEase.Application/Features/SupportTickets/Dtos/CreateTicketRequest.cs`
-  - `BE/StorEase.Application/Features/SupportTickets/Dtos/PostTicketMessageRequest.cs`
-  - `BE/StorEase.Application/Features/SupportTickets/Dtos/TicketDto.cs`
-  - `BE/StorEase.Application/Features/SupportTickets/Dtos/TicketQueueItemDto.cs`
-  - `BE/StorEase.Application/Features/SupportTickets/Dtos/TicketQueueRequests.cs`
-  - `BE/StorEase.Application/Features/SupportTickets/SupportTicketService.cs`
-  - `BE/StorEase.Application/Features/SupportTickets/TicketQueueService.cs`
-  - `BE/StorEase.Application/Features/SupportTickets/TicketStatusRules.cs`
-  - `BE/StorEase.Application/Features/SupportTickets/Validators/CreateTicketRequestValidator.cs`
-  - `BE/StorEase.Application/Features/SupportTickets/Validators/PostTicketMessageRequestValidator.cs`
-  - `BE/StorEase.Application/Features/SupportTickets/Validators/TicketQueueValidators.cs`
+  - `BE/StorEase.Application/Features/Staff/Dtos/ShiftDtos.cs`
+  - `BE/StorEase.Application/Features/Staff/Dtos/StaffTaskDtos.cs`
+  - `BE/StorEase.Application/Features/Staff/ShiftService.cs`
+  - `BE/StorEase.Application/Features/Staff/StaffTaskService.cs`
+  - `BE/StorEase.Application/Features/Staff/Validators/ShiftValidators.cs`
+  - `BE/StorEase.Application/Features/Staff/Validators/StaffTaskValidators.cs`
 - **Backend tests**
-  - `BE/tests/StorEase.Application.Tests/SupportTicketServiceTests.cs`
-  - `BE/tests/StorEase.Application.Tests/TicketQueueServiceTests.cs`
+  - `BE/tests/StorEase.Application.Tests/ShiftServiceTests.cs`
+  - `BE/tests/StorEase.Application.Tests/StaffTaskServiceTests.cs`
 - **Frontend**
-  - `src/customer/support/SupportRequestPage.jsx`
-  - `src/customer/support/TicketDetailPage.jsx`
-  - `src/customer/support/support.js`
-  - `src/staff/pages/TicketDetailPage.jsx`
-  - `src/staff/pages/TicketsPage.jsx`
+  - `src/staff/pages/ShiftsPage.jsx`
 
 
 ## Shared
@@ -392,6 +392,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `src/customer/account/queries.js`
   - `src/customer/components/Icon.jsx`
   - `src/customer/components/PageHead.jsx`
+  - `src/customer/components/confirm.js`
   - `src/customer/components/format.js`
   - `src/customer/components/terms.js`
   - `src/customer/home/HomePage.jsx`
@@ -401,9 +402,9 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `src/staff/components/ui.jsx`
   - `src/staff/queries.js`
 - **Frontend tests**
-  - `e2e/02-rental.spec.js`; also holds E02 (Khang), E03 (Khang), E04 (Khang), E05 (Thiện), E05b (Thiện), E05c (Thiện), E06 (Trường), E07 (Trường), E08 (Trường)
-  - `e2e/04-admin.spec.js`; also holds E11 (Thiện), E12 (Khang), E16 (Trường), E19 (Thiện), E22 (Khang), E23 (?)
-  - `e2e/05-cancel.spec.js`; also holds E13 (Khang), E14 (Khang), E15 (Trường)
+  - `e2e/02-rental.spec.js`; also holds E02 (Khang), E03 (Khang), E04 (Khang), E05 (Thiện), E05b (Thiện), E05c (Thiện), E06 (Trường), E07 (Trường), E08 (Thiện)
+  - `e2e/04-admin.spec.js`; also holds E11 (Thiện), E12 (Thiện), E16 (Trường), E19 (Thiện), E22 (Thiện), E23 (Trường)
+  - `e2e/05-cancel.spec.js`; also holds E13 (Khang), E14 (Khang), E15 (Thiện)
   - `e2e/helpers.js`
   - `e2e/start-backend.mjs`
 

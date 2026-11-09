@@ -18,6 +18,7 @@ FE = os.environ.get('STOREASE_FRONTEND') or os.path.join(os.path.dirname(REPO), 
 COLORS = {'Khang': ('#dae8fc', '#6c8ebf'), 'Trường': ('#d5e8d4', '#82b366'), 'Thiện': ('#ffe6cc', '#d79b00'), 'Shared': ('#f5f5f5', '#999999')}
 
 # (area, owner, flows, patterns). First match wins, so specific files come before their folder.
+# Owners follow docs/TEAM_FLOWS.md (one owner per assignment flow); the person headers below are historical.
 RULES = [
     # ---- Khang
     ('Account & sign-in', 'Khang', 'F01', [
@@ -31,14 +32,14 @@ RULES = [
         'BE:tests/*/ReservationServiceTests.cs', 'BE:tests/*/WalkInTests.cs',
         'FE:src/customer/booking/*', 'FE:src/staff/pages/ReservationsPage.jsx', 'FE:src/staff/pages/WalkInBookingPage.jsx',
         'FE:e2e/03-desk.spec.js']),
-    ('Contracts & customers', 'Khang', 'F05', [
+    ('Contracts & customers', 'Trường', 'F05', [
         'BE:StorEase.Api/Controllers/ContractsController.cs', 'BE:StorEase.Api/Controllers/CustomersController.cs',
         'BE:StorEase.Application/Features/Contracts/*', 'BE:tests/*/ContractServiceTests.cs', 'BE:tests/*/ContractLifecycleTests.cs',
         'FE:src/staff/pages/ContractsPage.jsx', 'FE:src/staff/pages/CustomerPage.jsx', 'FE:src/staff/print.js']),
-    ('Access logs', 'Khang', '—', [
+    ('Access logs', 'Thiện', '—', [
         'BE:StorEase.Api/Controllers/AccessLogsController.cs', 'BE:StorEase.Application/Features/AccessCodes/AccessLogService.cs',
         'BE:StorEase.Application/Features/AccessCodes/IAccessLogService.cs']),
-    ('Staff accounts & audit', 'Khang', 'F12', [
+    ('Staff accounts & audit', 'Thiện', 'F12', [
         'BE:StorEase.Api/Controllers/StaffController.cs', 'BE:StorEase.Api/Controllers/ActivityLogsController.cs',
         'BE:StorEase.Api/Middleware/ActivityLogFilter.cs', 'BE:StorEase.Application/Features/ActivityLogs/*',
         'BE:StorEase.Application/Features/Staff/StaffAccount*', 'BE:StorEase.Application/Features/Staff/*/StaffAccount*',
@@ -46,7 +47,7 @@ RULES = [
         'FE:src/staff/pages/UsersPage.jsx', 'FE:src/staff/pages/InviteUserPage.jsx', 'FE:src/staff/pages/PendingBackendPages.jsx',
         'FE:src/staff/activityLabels.js', 'FE:src/staff/permissions.js', 'FE:src/staff/components/FacilityPicker.jsx',
         'FE:tests/activityLabels.test.mjs']),
-    ('Shifts & staff tasks', 'Khang', '—', [
+    ('Shifts & staff tasks', 'Thiện', '—', [
         'BE:StorEase.Api/Controllers/ShiftsController.cs', 'BE:StorEase.Api/Controllers/StaffTasksController.cs',
         'BE:StorEase.Application/Features/Staff/*', 'BE:tests/*/ShiftServiceTests.cs', 'BE:tests/*/StaffTaskServiceTests.cs',
         'FE:src/staff/pages/ShiftsPage.jsx']),
@@ -66,7 +67,7 @@ RULES = [
         'BE:tests/*/BillingCycleTests.cs', 'BE:tests/*/ScopeTermsAndBillingTests.cs', 'FE:src/staff/pages/OverdueCasesPage.jsx']),
     ('Renewals', 'Trường', 'F09', [
         'BE:StorEase.Api/Controllers/RenewalsController.cs', 'BE:StorEase.Application/Features/Renewals/*', 'BE:tests/*/Renewal*Tests.cs']),
-    ('Hand-back & deposit settlement', 'Trường', 'F10', [
+    ('Hand-back & deposit settlement', 'Thiện', 'F10', [
         'BE:StorEase.Api/Controllers/ReturnsController.cs', 'BE:StorEase.Api/Controllers/DepositRefundsController.cs',
         'BE:StorEase.Application/Features/Returns/*', 'BE:StorEase.Application/Features/DepositRefunds/*',
         'BE:tests/*/DepositRefundTests.cs', 'BE:tests/*/DepositSettlementTests.cs', 'BE:tests/*/ReturnSettlementTests.cs', 'BE:tests/*/MoveOutDeadlineTests.cs',
@@ -89,10 +90,10 @@ RULES = [
         'FE:src/customer/locations/*', 'FE:src/customer/sizes/*', 'FE:src/staff/pages/FacilitiesPage.jsx', 'FE:src/staff/pages/FacilityDetailPage.jsx',
         'FE:src/staff/pages/UnitsPage.jsx', 'FE:src/staff/pages/UnitSizesPage.jsx', 'FE:src/staff/pages/MaintenancePage.jsx',
         'FE:tests/management-csv.test.mjs']),  # tests the old src/admin screens
-    ('Reports & dashboard', 'Thiện', 'F13', [
+    ('Reports & dashboard', 'Trường', 'F13', [
         'BE:StorEase.Api/Controllers/ReportsController.cs', 'BE:StorEase.Application/Features/Reports/*',
         'FE:src/staff/pages/ReportsPage.jsx', 'FE:src/staff/pages/DashboardPage.jsx']),
-    ('Support tickets', 'Thiện', '—', [
+    ('Support tickets', 'Khang', '—', [
         'BE:StorEase.Api/Controllers/SupportTicketsController.cs', 'BE:StorEase.Api/Controllers/TicketQueueController.cs',
         'BE:StorEase.Api/Controllers/TicketCategoriesController.cs', 'BE:StorEase.Application/Features/SupportTickets/*',
         'BE:tests/*/SupportTicketServiceTests.cs', 'BE:tests/*/TicketQueueServiceTests.cs',
@@ -162,10 +163,7 @@ def e2e_ids():
 
 
 # Which person each E2E test belongs to (spec files hold several people's tests).
-E2E_OWNER = {'E01': 'Khang', 'E02': 'Khang', 'E03': 'Khang', 'E04': 'Khang', 'E09': 'Khang', 'E10': 'Khang', 'E12': 'Khang',
-             'E13': 'Khang', 'E14': 'Khang', 'E17': 'Khang', 'E18': 'Khang', 'E20': 'Khang', 'E21': 'Khang', 'E22': 'Khang',
-             'E05': 'Thiện', 'E05b': 'Thiện', 'E05c': 'Thiện', 'E11': 'Thiện', 'E19': 'Thiện',
-             'E06': 'Trường', 'E07': 'Trường', 'E08': 'Trường', 'E15': 'Trường', 'E16': 'Trường'}
+E2E_OWNER = {'E01': 'Khang', 'E02': 'Khang', 'E03': 'Khang', 'E04': 'Khang', 'E09': 'Khang', 'E10': 'Khang', 'E13': 'Khang', 'E14': 'Khang', 'E17': 'Khang', 'E18': 'Khang', 'E20': 'Khang', 'E21': 'Khang', 'E05': 'Thiện', 'E05b': 'Thiện', 'E05c': 'Thiện', 'E08': 'Thiện', 'E11': 'Thiện', 'E12': 'Thiện', 'E15': 'Thiện', 'E19': 'Thiện', 'E22': 'Thiện', 'E06': 'Trường', 'E07': 'Trường', 'E16': 'Trường', 'E23': 'Trường'}
 
 
 def page(owned):
