@@ -77,6 +77,30 @@ public class FacilityPriceTests
     }
 
     [Fact]
+    public async Task The_history_names_who_drafted_and_published_each_version_and_counts_its_bookings()
+    {
+        using var t = await PricedAsync();
+        var prices = new FacilityPricingService(t.Uow, Ops);
+        var live = (await prices.GetAsync(FacilityId, default)).Value!.Versions.Single();
+        // The API's activity log filter records every publish; here the test writes that row itself.
+        t.Db.ActivityLogs.Add(new ActivityLog
+        {
+            UserId = StaffId, Action = "POST FacilityPrices.Publish", EntityId = live.FacilityPriceVersionId.ToString(),
+            Result = ActivityResult.Success, CreatedAt = DateTime.UtcNow,
+        });
+        await t.Db.SaveChangesAsync();
+        (await new ReservationService(t.Uow, Customer, new FakeEmailService())
+            .CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn, 3), default)).IsSuccess.Should().BeTrue();
+
+        var audit = (await prices.GetAsync(FacilityId, default)).Value!.Versions.Single().Audit!;
+        var staffName = (await t.Db.Users.SingleAsync(u => u.UserId == StaffId)).FullName;
+        audit.CreatedByName.Should().Be(staffName);
+        audit.PublishedByName.Should().Be(staffName);
+        audit.PublishedAt.Should().NotBeNull();
+        audit.Bookings.Should().Be(1);
+    }
+
+    [Fact]
     public async Task A_booking_keeps_its_quoted_price_when_the_facility_publishes_a_new_one()
     {
         using var t = await PricedAsync();

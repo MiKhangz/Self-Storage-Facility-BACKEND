@@ -42,7 +42,11 @@ public sealed class FacilityPricingService(IUnitOfWork uow, ICurrentUser current
             .Select(p => new FacilitySizePriceDto(p.UnitTypeId, p.UnitType.Code, p.UnitType.Name, p.BasePricePerMonth, p.Discount3Month, p.Discount6Month, p.Discount12Month))
             .ToList();
         var versions = await Versions(facilityId).OrderByDescending(v => v.Version).ToListAsync(ct);
-        return new FacilityPriceListDto(facility.FacilityId, facility.Name, policy?.Version, standard, versions.Select(ToDto).ToList());
+        var audit = await PriceVersionAudit.LoadAsync(uow, "POST FacilityPrices.Publish",
+            versions.Select(v => (v.FacilityPriceVersionId, v.CreatedBy)).ToList(),
+            uow.Repository<Reservation>().Query().Select(r => r.FacilityPriceVersionId), ct);
+        return new FacilityPriceListDto(facility.FacilityId, facility.Name, policy?.Version, standard,
+            versions.Select(v => ToDto(v) with { Audit = audit[v.FacilityPriceVersionId] }).ToList());
     }
 
     public async Task<Result<FacilityPriceVersionDto>> CreateDraftAsync(int facilityId, CancellationToken ct)

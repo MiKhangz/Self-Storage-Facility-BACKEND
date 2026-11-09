@@ -7361,6 +7361,9 @@
               "$ref": "#/components/schemas/FacilitySizePriceDto"
             },
             "nullable": true
+          },
+          "audit": {
+            "$ref": "#/components/schemas/PriceVersionAuditDto"
           }
         },
         "additionalProperties": false
@@ -8563,6 +8566,29 @@
         },
         "additionalProperties": false
       },
+      "PriceVersionAuditDto": {
+        "type": "object",
+        "properties": {
+          "createdByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "publishedByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "bookings": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "PricingPolicyDto": {
         "type": "object",
         "properties": {
@@ -8631,6 +8657,9 @@
               "$ref": "#/components/schemas/FeeTypeDto"
             },
             "nullable": true
+          },
+          "audit": {
+            "$ref": "#/components/schemas/PriceVersionAuditDto"
           }
         },
         "additionalProperties": false

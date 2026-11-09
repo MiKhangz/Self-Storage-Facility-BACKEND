@@ -11,7 +11,10 @@ public sealed record FacilityPriceListDto(
 
 public sealed record FacilityPriceVersionDto(
     int FacilityPriceVersionId, int FacilityId, int Version, DateOnly EffectiveFrom, DateOnly? EffectiveTo, PricingPolicyStatus Status,
-    IReadOnlyList<FacilitySizePriceDto> Prices);
+    IReadOnlyList<FacilitySizePriceDto> Prices, PriceVersionAuditDto? Audit = null);
+
+/// <summary>A price version's history details: who drafted and who published it, and how many bookings were quoted on it.</summary>
+public sealed record PriceVersionAuditDto(string? CreatedByName, string? PublishedByName, DateTime? PublishedAt, int Bookings);
 
 public sealed record FacilitySizePriceDto(
     int UnitTypeId, string UnitTypeCode, string UnitTypeName, decimal BasePricePerMonth, decimal Discount3Month, decimal Discount6Month, decimal Discount12Month);

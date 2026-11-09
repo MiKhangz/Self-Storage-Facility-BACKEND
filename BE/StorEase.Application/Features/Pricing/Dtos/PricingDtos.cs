@@ -17,7 +17,8 @@ public sealed record PricingPolicyDto(
     int CancelFreeHours,
     PricingPolicyStatus Status,
     IReadOnlyList<UnitPriceDto> UnitPrices,
-    IReadOnlyList<FeeTypeDto> Fees);
+    IReadOnlyList<FeeTypeDto> Fees,
+    PriceVersionAuditDto? Audit = null);
 
 public sealed record UnitPriceDto(
     int UnitPriceId,
