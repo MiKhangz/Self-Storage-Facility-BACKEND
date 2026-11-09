@@ -8,7 +8,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 
 | Person | Flows | Backend files | Frontend files | E2E tests |
 |---|---|---|---|---|
-| **Khang** | F01, F02, F03, F04, F14 | 40 | 32 | E01, E02, E03, E04, E09, E10, E13, E14, E17, E18, E20, E21 |
+| **Khang** | F01, F02, F03, F04, F14, F15 | 40 | 32 | E01, E02, E03, E04, E09, E10, E13, E14, E17, E18, E20, E21 |
 | **Trường** | F05, F07, F08, F09, F13 | 52 | 12 | E06, E07, E16, E23 |
 | **Thiện** | F06, F10, F11, F12 | 75 | 26 | E05, E05b, E05c, E08, E11, E12, E15, E19, E22 |
 
@@ -81,7 +81,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 - **Frontend tests**
   - `e2e/03-desk.spec.js`: E09, E10
 
-### Support tickets (no flow tab)
+### Support tickets (F15)
 
 - **Controllers and routes**
   - `BE/StorEase.Api/Controllers/SupportTicketsController.cs`: `POST /api/support-tickets`, `GET /api/support-tickets/{id}`, `GET /api/support-tickets/{id}/messages`, `POST /api/support-tickets/{id}/messages`
@@ -349,7 +349,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 - **Frontend tests**
   - `tests/management-csv.test.mjs`
 
-### Shifts & staff tasks (no flow tab)
+### Shifts & staff tasks (F12)
 
 - **Controllers and routes**
   - `BE/StorEase.Api/Controllers/ShiftsController.cs`: `POST /api/shifts`, `GET /api/shifts`, `GET /api/shifts/{id}`, `PUT /api/shifts/{id}`, `DELETE /api/shifts/{id}`

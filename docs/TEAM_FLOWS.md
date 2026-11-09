@@ -7,9 +7,9 @@ flows end to end — backend, frontend and tests — and answers for them at the
 
 | Person | Story | Assignment flows | Flow tabs | Steps | Unfinished |
 |---|---|---|---|---|---|
-| **Khang** (leader) | The customer's front door | 1 Storage Unit Reservation · 7 Support Request and Issue Handling | F01 F02 F03 F04 F14, support requests | 103 | 11 |
+| **Khang** (leader) | The customer's front door | 1 Storage Unit Reservation · 7 Support Request and Issue Handling | F01 F02 F03 F04 F14 F15 | 115 | 18 |
 | **Trường** | The money side | 3 Rented Storage Unit Management · 4 Business Rules, Fee Management and Revenue Monitoring · 6 Storage Renewal and Overdue Handling | F05 F07 F08 F09 F13 | 102 | 29 |
-| **Thiện** | The facility side | 2 Storage Check-in and Handover · 5 Facility Storage and Staff Management | F06 F10 F11 F12, shifts and tasks | 114 | 26 |
+| **Thiện** | The facility side | 2 Storage Check-in and Handover · 5 Facility Storage and Staff Management | F06 F10 F11 F12 | 122 | 31 |
 
 F02 Profile & Settings and F14 Language Switch serve every flow; Khang keeps them. Khang also merges, keeps the
 overview tab, SRD, diagram, presentation and AI report.
@@ -29,9 +29,10 @@ turn its badge to DONE in the diagram. **NO SCREEN** means the backend works and
 - **F04:** change the unit at handover: another of the same size; the old unit becomes Available, the new one
   Reserved, and the draft contract moves with its signature cleared.
 - **F02 SMS reminders (NOT BUILT):** the switch is saved but nothing sends SMS. Proposal: out of scope in the SRD.
-- **Flow 7 Support:** built (customer requests and conversation, staff queue, assigning, statuses, opening a
-  maintenance order from a ticket) but it has **no flow tab yet**; E05b covers a renter reporting a problem. Draw an
-  F15 tab, and add an E2E test for the staff queue.
+- **F15 Support Requests (Flow 7):** opening a request is tested (E05b). Still BUILT: the staff queue (assign,
+  priority, due date), replies and internal notes, the status changes (InProgress, WaitingForCustomer, Resolved), a
+  customer reply reopening it, closing it, and opening a maintenance order from a ticket. Add an E2E test for the
+  staff queue.
 
 ## Trường — Flow 3 Rented Unit, Flow 4 Rules & Revenue, Flow 6 Renewal & Overdue
 
@@ -59,8 +60,9 @@ turn its badge to DONE in the diagram. **NO SCREEN** means the backend works and
   Maintenance; a settlement with nothing to pay back shows any shortfall.
 - **F11 Facility & Unit Setup:** deactivate a facility; close, reopen or remove a floor; edit, retire or restore a
   unit; the maintenance order cycle from create to done or cancelled.
-- **F12 Users & Audit, shifts and tasks:** done and tested (E12, E22); shifts and staff tasks are built but not
-  drawn in the diagram yet.
+- **F12 Users & Audit:** staff accounts and the activity log are done and tested (E12, E22). Section D, shifts and
+  tasks, is BUILT: add a shift (only for an active person assigned to the facility, not in the past), give a task
+  inside it, the assignee moves it to Done, only a manager cancels.
 
 ## Shared rules
 

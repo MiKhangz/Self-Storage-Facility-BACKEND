@@ -47,7 +47,7 @@ RULES = [
         'FE:src/staff/pages/UsersPage.jsx', 'FE:src/staff/pages/InviteUserPage.jsx', 'FE:src/staff/pages/PendingBackendPages.jsx',
         'FE:src/staff/activityLabels.js', 'FE:src/staff/permissions.js', 'FE:src/staff/components/FacilityPicker.jsx',
         'FE:tests/activityLabels.test.mjs']),
-    ('Shifts & staff tasks', 'Thiện', '—', [
+    ('Shifts & staff tasks', 'Thiện', 'F12', [
         'BE:StorEase.Api/Controllers/ShiftsController.cs', 'BE:StorEase.Api/Controllers/StaffTasksController.cs',
         'BE:StorEase.Application/Features/Staff/*', 'BE:tests/*/ShiftServiceTests.cs', 'BE:tests/*/StaffTaskServiceTests.cs',
         'FE:src/staff/pages/ShiftsPage.jsx']),
@@ -93,7 +93,7 @@ RULES = [
     ('Reports & dashboard', 'Trường', 'F13', [
         'BE:StorEase.Api/Controllers/ReportsController.cs', 'BE:StorEase.Application/Features/Reports/*',
         'FE:src/staff/pages/ReportsPage.jsx', 'FE:src/staff/pages/DashboardPage.jsx']),
-    ('Support tickets', 'Khang', '—', [
+    ('Support tickets', 'Khang', 'F15', [
         'BE:StorEase.Api/Controllers/SupportTicketsController.cs', 'BE:StorEase.Api/Controllers/TicketQueueController.cs',
         'BE:StorEase.Api/Controllers/TicketCategoriesController.cs', 'BE:StorEase.Application/Features/SupportTickets/*',
         'BE:tests/*/SupportTicketServiceTests.cs', 'BE:tests/*/TicketQueueServiceTests.cs',
