@@ -11,6 +11,24 @@ flows end to end — backend, frontend and tests — and answers for them at the
 | **Trường** | The money side | 3 Rented Storage Unit Management · 4 Business Rules, Fee Management and Revenue Monitoring · 6 Storage Renewal and Overdue Handling | F05 F07 F08 F09 F13 | 102 | 29 |
 | **Thiện** | The facility side | 2 Storage Check-in and Handover · 5 Facility Storage and Staff Management | F06 F10 F11 F12 | 122 | 31 |
 
+## Contribution split (agreed 9 Nov 2026)
+
+| Member | Role | Backend | Frontend | **Total** |
+|---|---|---|---|---|
+| **Khang** (SE171577) | Leader, backend | 30% | 5% | **35%** |
+| **Trường** (SE184087) | Backend | 30% | 5% | **35%** |
+| **Thiện** (SE185085) | Frontend | 0% | 30% | **30%** |
+| **Total** | | 60% | 40% | **100%** |
+
+- **Thiện builds the frontend only.** His flows keep him as the presenter, but their backend moves:
+  F06 handover, visits and access codes, and F10 hand-back and deposit settlement go to **Trường**;
+  F11 facilities, units and maintenance, F12 users, audit, shifts and tasks, and access logs go to **Khang**.
+- **Frontend kept by the backend owners:** Khang keeps the sign-in, sign-up, verify and reset screens and
+  the language switch; Trường keeps Pricing & Policies and Reports. Thiện builds every other screen.
+- **Basis:** lines of code each person owns in `docs/CODE_MAP.md`, with the shared backend split between
+  Khang and Trường and the shared frontend split three ways, then rounded and agreed. Every task with its
+  owner and status is in `docs/SWP391_Topic5_Project_Tracking.xlsx`.
+
 F02 Profile & Settings and F14 Language Switch serve every flow; Khang keeps them. Khang also merges, keeps the
 overview tab, SRD, diagram, presentation and AI report.
 
