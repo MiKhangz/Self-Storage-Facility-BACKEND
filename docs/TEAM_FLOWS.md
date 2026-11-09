@@ -15,16 +15,18 @@ flows end to end — backend, frontend and tests — and answers for them at the
 
 | Member | Role | Backend | Frontend | **Total** |
 |---|---|---|---|---|
-| **Khang** (SE171577) | Leader, backend | 30% | 5% | **35%** |
+| **Khang** (SE171577) | Leader, backend | 25% | 10% | **35%** |
 | **Trường** (SE184087) | Backend | 30% | 5% | **35%** |
-| **Thiện** (SE185085) | Frontend | 0% | 30% | **30%** |
+| **Thiện** (SE185085) | Frontend, plus shifts backend | 5% | 25% | **30%** |
 | **Total** | | 60% | 40% | **100%** |
 
-- **Thiện builds the frontend only.** His flows keep him as the presenter, but their backend moves:
-  F06 handover, visits and access codes, and F10 hand-back and deposit settlement go to **Trường**;
-  F11 facilities, units and maintenance, F12 users, audit, shifts and tasks, and access logs go to **Khang**.
-- **Frontend kept by the backend owners:** Khang keeps the sign-in, sign-up, verify and reset screens and
-  the language switch; Trường keeps Pricing & Policies and Reports. Thiện builds every other screen.
+- **Thiện builds the frontend, plus the backend of F12 shifts and staff tasks.** His flows keep him as
+  the presenter; the rest of their backend moves: F06 handover, visits and access codes, and F10 hand-back
+  and deposit settlement go to **Trường**; F11 facilities, units and maintenance, F12 users and audit, and
+  access logs go to **Khang**.
+- **Frontend kept by the backend owners:** Khang keeps the sign-in, sign-up, verify and reset screens, the
+  language switch, profile, and the support screens (customer requests and the staff ticket queue);
+  Trường keeps Pricing & Policies and Reports. Thiện builds every other screen.
 - **Basis:** lines of code each person owns in `docs/CODE_MAP.md`, with the shared backend split between
   Khang and Trường and the shared frontend split three ways, then rounded and agreed. Every task with its
   owner and status is in `docs/SWP391_Topic5_Project_Tracking.xlsx`.
