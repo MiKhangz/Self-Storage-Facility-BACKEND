@@ -60,7 +60,8 @@ RULES = [
         'BE:StorEase.Application/Features/Payments/*', 'BE:StorEase.Application/Features/Pricing/*',
         'BE:tests/*/VnPay*Tests.cs', 'BE:tests/*/Pricing*Tests.cs', 'BE:tests/*/FacilityPriceTests.cs', 'BE:tests/*/StorageUnitPricingTests.cs', 'BE:tests/*/Truong*Tests.cs',
         'FE:src/customer/account/PaymentsPage.jsx', 'FE:src/customer/account/PayInvoiceButton.jsx',
-        'FE:src/customer/account/VnPayReturnPage.jsx', 'FE:src/staff/pages/RecordPaymentPage.jsx', 'FE:src/staff/pages/PricingPage.jsx', 'FE:src/staff/pages/FacilityPriceList.jsx']),
+        'FE:src/customer/account/VnPayReturnPage.jsx', 'FE:src/staff/pages/RecordPaymentPage.jsx', 'FE:src/staff/pages/PricingPage.jsx', 'FE:src/staff/pages/FacilityPriceList.jsx',
+        'FE:src/staff/pages/PriceHistory.jsx', 'FE:src/staff/pages/priceChanges.js', 'FE:tests/priceChanges.test.mjs']),
     ('Billing job & overdue', 'Trường', 'F08', [
         'BE:StorEase.Api/Controllers/BillingController.cs', 'BE:StorEase.Api/Controllers/OverdueCasesController.cs',
         'BE:StorEase.Api/BillingWorker.cs', 'BE:StorEase.Application/Features/Billing/*', 'BE:StorEase.Application/Features/OverdueCases/*',

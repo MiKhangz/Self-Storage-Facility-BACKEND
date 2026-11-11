@@ -9,7 +9,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 | Person | Flows | Backend files | Frontend files | E2E tests |
 |---|---|---|---|---|
 | **Khang** | F01, F02, F03, F04, F14, F15 | 40 | 32 | E01, E02, E03, E04, E09, E10, E13, E14, E17, E18, E20, E21 |
-| **Trường** | F05, F07, F08, F09, F13 | 52 | 12 | E06, E07, E16, E23 |
+| **Trường** | F05, F07, F08, F09, F13 | 53 | 15 | E06, E07, E16, E23 |
 | **Thiện** | F06, F10, F11, F12 | 75 | 26 | E05, E05b, E05c, E08, E11, E12, E15, E19, E22 |
 
 ## Khang
@@ -176,6 +176,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `BE/StorEase.Application/Features/Pricing/Dtos/FacilityPriceDtos.cs`
   - `BE/StorEase.Application/Features/Pricing/Dtos/PricingDtos.cs`
   - `BE/StorEase.Application/Features/Pricing/FacilityPricingService.cs`
+  - `BE/StorEase.Application/Features/Pricing/PriceVersionAudit.cs`
   - `BE/StorEase.Application/Features/Pricing/PricingService.cs`
   - `BE/StorEase.Application/Features/Pricing/RentCalculator.cs`
   - `BE/StorEase.Application/Features/Pricing/Validators/PricingValidators.cs`
@@ -193,8 +194,12 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `src/customer/account/PaymentsPage.jsx`
   - `src/customer/account/VnPayReturnPage.jsx`
   - `src/staff/pages/FacilityPriceList.jsx`
+  - `src/staff/pages/PriceHistory.jsx`
   - `src/staff/pages/PricingPage.jsx`
   - `src/staff/pages/RecordPaymentPage.jsx`
+  - `src/staff/pages/priceChanges.js`
+- **Frontend tests**
+  - `tests/priceChanges.test.mjs`
 
 ### Renewals (F09)
 
