@@ -106,12 +106,13 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
         var wanted = request.FacilityIds.Distinct().ToList();
         var done = await uow.InTransactionAsync<int>(async () =>
         {
-            if (!await StaffUsers().AnyAsync(u => u.UserId == userId, ct))
+            var user = await StaffUsers().Include(u => u.Role).FirstOrDefaultAsync(u => u.UserId == userId, ct);
+            if (user is null)
                 return Error.NotFound("Staff account not found.");
 
-            var found = await uow.Repository<Facility>().Query()
-                .Where(f => wanted.Contains(f.FacilityId)).CountAsync(ct);
-            if (found != wanted.Count)
+            var facilities = await uow.Repository<Facility>().Query()
+                .Where(f => wanted.Contains(f.FacilityId)).ToListAsync(ct);
+            if (facilities.Count != wanted.Count)
                 return Error.NotFound("One or more facilities were not found.");
 
             var current = await uow.Repository<StaffFacility>().Query()
@@ -141,6 +142,16 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
             foreach (var facilityId in wanted.Except(current.Select(r => r.FacilityId)))
                 uow.Repository<StaffFacility>().Add(
                     new StaffFacility { UserId = userId, FacilityId = facilityId, AssignedDate = today });
+
+            if (user.Role.RoleName == Roles.FacilityManager)
+            {
+                var unmanaged = await uow.Repository<Facility>().Query()
+                    .Where(f => f.ManagerId == userId && !wanted.Contains(f.FacilityId)).ToListAsync(ct);
+                foreach (var f in unmanaged)
+                    f.ManagerId = null;
+                foreach (var f in facilities)
+                    f.ManagerId = userId;
+            }
             return userId;
         }, ct);
         return done.IsSuccess ? await GetAsync(userId, ct) : done.Error;

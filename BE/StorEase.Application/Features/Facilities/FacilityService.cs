@@ -29,9 +29,11 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
         if (!(includeInactive && currentUser.Role == Roles.SystemAdministrator))
             query = query.Where(f => f.Status == FacilityStatus.Active);
         var staffed = StaffScope.StaffedFacilityIds(uow);
-        // Customers see only facilities someone works at; staff see all, flagged, so an admin can fix it.
+        // Customers see only facilities someone works at; facility staff/managers see their own; admins/ops see all, flagged.
         if (currentUser.Role is "" or Roles.StorageCustomer)
             query = query.Where(f => staffed.Contains(f.FacilityId));
+        else if (!StaffScope.SeesAllFacilities(currentUser.Role))
+            query = query.Where(f => StaffScope.FacilityIdsOf(uow, currentUser.UserId).Contains(f.FacilityId));
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
@@ -62,6 +64,9 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
         if (currentUser.Role is "" or Roles.StorageCustomer
             && !await StaffScope.StaffedFacilityIds(uow).AnyAsync(id => id == facilityId, ct))
             return Error.NotFound("Facility not found.");
+        if (currentUser.Role is Roles.FacilityStaff or Roles.FacilityManager
+            && !await StaffScope.FacilityIdsOf(uow, currentUser.UserId).AnyAsync(id => id == facilityId, ct))
+            return Error.Forbidden("You are not assigned to this facility.");
 
         var prices = await ActivePricesAsync(facility.FacilityId, ct);
         var units = facility.StorageUnits.Where(u => u.Status != StorageUnitStatus.Retired).ToList();

@@ -25,7 +25,7 @@ public class StorageUnitService(IUnitOfWork uow, ICurrentUser currentUser) : ISt
     public async Task<Result<PagedResult<StorageUnitListItemDto>>> ListAsync(
         int? facilityId, StorageUnitStatus? status, int? unitTypeId, string? search, int page, int pageSize, CancellationToken ct)
     {
-        var query = uow.Repository<StorageUnit>().Query();
+        var query = Visible();
         if (facilityId is not null)
             query = query.Where(u => u.FacilityId == facilityId);
         if (status is not null)
@@ -40,8 +40,20 @@ public class StorageUnitService(IUnitOfWork uow, ICurrentUser currentUser) : ISt
 
     public async Task<Result<StorageUnitListItemDto>> GetAsync(int storageUnitId, CancellationToken ct)
     {
-        var dto = await Project(uow.Repository<StorageUnit>().Query().Where(u => u.StorageUnitId == storageUnitId)).FirstOrDefaultAsync(ct);
+        var dto = await Project(Visible().Where(u => u.StorageUnitId == storageUnitId)).FirstOrDefaultAsync(ct);
         return dto is null ? Error.NotFound("Storage unit not found.") : dto;
+    }
+
+    /// <summary>Facility staff and managers see only the facilities they work at; everyone else sees all.</summary>
+    private IQueryable<StorageUnit> Visible()
+    {
+        var query = uow.Repository<StorageUnit>().Query();
+        if (currentUser.Role is Roles.FacilityStaff or Roles.FacilityManager)
+        {
+            var facilityIds = StaffScope.FacilityIdsOf(uow, currentUser.UserId);
+            return query.Where(u => facilityIds.Contains(u.FacilityId));
+        }
+        return query;
     }
 
     public async Task<Result<StorageUnitListItemDto>> CreateAsync(CreateStorageUnitRequest request, CancellationToken ct)
