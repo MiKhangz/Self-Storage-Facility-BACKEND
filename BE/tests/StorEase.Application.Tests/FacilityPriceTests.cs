@@ -101,6 +101,23 @@ public class FacilityPriceTests
     }
 
     [Fact]
+    public async Task The_company_standard_history_names_who_published_each_version()
+    {
+        using var t = await PricedAsync();
+        var policyId = (await t.Db.PricingPolicies.SingleAsync()).PricingPolicyId;
+        // The action text ActivityLogFilter writes when PricingPoliciesController.Activate succeeds.
+        t.Db.ActivityLogs.Add(new ActivityLog
+        {
+            UserId = StaffId, Action = "POST PricingPolicies.Activate", EntityId = policyId.ToString(),
+            Result = ActivityResult.Success, CreatedAt = DateTime.UtcNow,
+        });
+        await t.Db.SaveChangesAsync();
+
+        var audit = (await new PricingService(t.Uow, Ops).ListPoliciesAsync(1, 50, default)).Value!.Items.Single().Audit!;
+        audit.PublishedByName.Should().Be((await t.Db.Users.SingleAsync(u => u.UserId == StaffId)).FullName);
+    }
+
+    [Fact]
     public async Task A_booking_keeps_its_quoted_price_when_the_facility_publishes_a_new_one()
     {
         using var t = await PricedAsync();
