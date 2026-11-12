@@ -63,8 +63,8 @@ public class MaintenanceServiceTests
         var open = await w.As(w.Staff).CreateAsync(Req(w.Unit), default);
         var scheduled = await w.As(w.Staff).CreateAsync(Req(w.Unit, DateTime.UtcNow.AddDays(2)), default);
 
-        open.Value.Status.Should().Be(MaintenanceOrderStatus.Open);
-        scheduled.Value.Status.Should().Be(MaintenanceOrderStatus.Scheduled);
+        open.Value!.Status.Should().Be(MaintenanceOrderStatus.Open);
+        scheduled.Value!.Status.Should().Be(MaintenanceOrderStatus.Scheduled);
     }
 
     [Fact]
@@ -82,8 +82,8 @@ public class MaintenanceServiceTests
         var ok = await w.As(w.Staff).CreateAsync(new("Fix", null, withUnit.TicketId, null, null), default);
         var bad = await w.As(w.Staff).CreateAsync(new("Fix", null, withoutUnit.TicketId, null, null), default);
 
-        ok.Value.StorageUnitId.Should().Be(w.Unit.StorageUnitId);
-        ok.Value.TicketId.Should().Be(withUnit.TicketId);
+        ok.Value!.StorageUnitId.Should().Be(w.Unit.StorageUnitId);
+        ok.Value!.TicketId.Should().Be(withUnit.TicketId);
         bad.Error!.Type.Should().Be(ErrorType.Validation);
     }
 
@@ -94,7 +94,7 @@ public class MaintenanceServiceTests
         using var _ = w.Db;
 
         (await w.As(w.Outside).CreateAsync(Req(w.Unit), default)).Error!.Type.Should().Be(ErrorType.NotFound);
-        var id = (await w.As(w.Staff).CreateAsync(Req(w.Unit), default)).Value.MaintenanceOrderId;
+        var id = (await w.As(w.Staff).CreateAsync(Req(w.Unit), default)).Value!.MaintenanceOrderId;
 
         (await w.As(w.Outside).GetAsync(id, default)).Error!.Type.Should().Be(ErrorType.NotFound);
         (await w.As(w.Outside).ChangeStatusAsync(id, To(MaintenanceOrderStatus.Cancelled), default)).Error!.Type.Should().Be(ErrorType.NotFound);
@@ -110,7 +110,7 @@ public class MaintenanceServiceTests
         var good = await w.As(w.Staff).CreateAsync(Req(w.Unit) with { AssignedTo = w.Staff.UserId }, default);
         var bad = await w.As(w.Staff).CreateAsync(Req(w.Unit) with { AssignedTo = w.Outside.UserId }, default);
 
-        good.Value.AssignedTo.Should().Be(w.Staff.UserId);
+        good.Value!.AssignedTo.Should().Be(w.Staff.UserId);
         bad.Error!.Type.Should().Be(ErrorType.Validation);
     }
 
@@ -120,17 +120,17 @@ public class MaintenanceServiceTests
         var w = await SeedAsync();
         using var _ = w.Db;
         var svc = w.As(w.Staff);
-        var id = (await svc.CreateAsync(Req(w.Unit), default)).Value.MaintenanceOrderId;
+        var id = (await svc.CreateAsync(Req(w.Unit), default)).Value!.MaintenanceOrderId;
 
         (await svc.ChangeStatusAsync(id, To(MaintenanceOrderStatus.InProgress), default)).IsSuccess.Should().BeTrue();
         (await w.UnitStatus(w.Unit)).Should().Be(StorageUnitStatus.Maintenance);
 
         var done = await svc.ChangeStatusAsync(id, Done(), default);
 
-        done.Value.Status.Should().Be(MaintenanceOrderStatus.Done);
-        done.Value.Cost.Should().Be(150_000m);
-        done.Value.WorkNote.Should().Be("Lock replaced");
-        done.Value.CompletedAt.Should().NotBeNull();
+        done.Value!.Status.Should().Be(MaintenanceOrderStatus.Done);
+        done.Value!.Cost.Should().Be(150_000m);
+        done.Value!.WorkNote.Should().Be("Lock replaced");
+        done.Value!.CompletedAt.Should().NotBeNull();
         (await w.UnitStatus(w.Unit)).Should().Be(StorageUnitStatus.Available);
     }
 
@@ -140,7 +140,7 @@ public class MaintenanceServiceTests
         var w = await SeedAsync();
         using var _ = w.Db;
         var svc = w.As(w.Staff);
-        var id = (await svc.CreateAsync(Req(w.OccupiedUnit), default)).Value.MaintenanceOrderId;
+        var id = (await svc.CreateAsync(Req(w.OccupiedUnit), default)).Value!.MaintenanceOrderId;
 
         await svc.ChangeStatusAsync(id, To(MaintenanceOrderStatus.InProgress), default);
         (await w.UnitStatus(w.OccupiedUnit)).Should().Be(StorageUnitStatus.Occupied);
@@ -155,8 +155,8 @@ public class MaintenanceServiceTests
         var w = await SeedAsync();
         using var _ = w.Db;
         var svc = w.As(w.Staff);
-        var first = (await svc.CreateAsync(Req(w.Unit), default)).Value.MaintenanceOrderId;
-        var second = (await svc.CreateAsync(Req(w.Unit), default)).Value.MaintenanceOrderId;
+        var first = (await svc.CreateAsync(Req(w.Unit), default)).Value!.MaintenanceOrderId;
+        var second = (await svc.CreateAsync(Req(w.Unit), default)).Value!.MaintenanceOrderId;
         await svc.ChangeStatusAsync(first, To(MaintenanceOrderStatus.InProgress), default);
 
         await svc.ChangeStatusAsync(first, To(MaintenanceOrderStatus.Cancelled), default);
@@ -174,7 +174,7 @@ public class MaintenanceServiceTests
         var w = await SeedAsync();
         using var _ = w.Db;
         var svc = w.As(w.Staff);
-        var id = (await svc.CreateAsync(Req(w.Unit), default)).Value.MaintenanceOrderId;
+        var id = (await svc.CreateAsync(Req(w.Unit), default)).Value!.MaintenanceOrderId;
 
         (await svc.ChangeStatusAsync(id, Done(), default)).Error!.Type.Should().Be(ErrorType.Conflict);
         await svc.ChangeStatusAsync(id, To(MaintenanceOrderStatus.InProgress), default);
@@ -189,15 +189,15 @@ public class MaintenanceServiceTests
         var w = await SeedAsync();
         using var _ = w.Db;
         var svc = w.As(w.Staff);
-        var id = (await svc.CreateAsync(Req(w.Unit), default)).Value.MaintenanceOrderId;
+        var id = (await svc.CreateAsync(Req(w.Unit), default)).Value!.MaintenanceOrderId;
         await svc.CreateAsync(Req(w.OccupiedUnit), default);
         var at = DateTime.UtcNow.AddDays(3);
 
         var scheduled = await svc.ChangeStatusAsync(id, new(MaintenanceOrderStatus.Scheduled, at, null, null), default);
         var list = await svc.ListAsync(MaintenanceOrderStatus.Scheduled, null, 1, 20, default);
 
-        scheduled.Value.ScheduledAt.Should().BeCloseTo(at, TimeSpan.FromSeconds(1));
-        list.Value.Items.Should().ContainSingle().Which.MaintenanceOrderId.Should().Be(id);
+        scheduled.Value!.ScheduledAt.Should().BeCloseTo(at, TimeSpan.FromSeconds(1));
+        list.Value!.Items.Should().ContainSingle().Which.MaintenanceOrderId.Should().Be(id);
     }
 
     private static User NewUser(Role role, string email) => new()
@@ -222,7 +222,7 @@ public class MaintenanceServiceTests
         var w = await SeedAsync();
         using var _ = w.Db;
         var svc = w.As(w.Staff);
-        var id = (await svc.CreateAsync(Req(w.Unit), default)).Value.MaintenanceOrderId;
+        var id = (await svc.CreateAsync(Req(w.Unit), default)).Value!.MaintenanceOrderId;
         // e.g. a handover inspection found damage and parked the unit in Maintenance.
         (await w.Db.Db.StorageUnits.SingleAsync(u => u.StorageUnitId == w.Unit.StorageUnitId)).Status = StorageUnitStatus.Maintenance;
         await w.Db.Db.SaveChangesAsync();
@@ -240,11 +240,11 @@ public class MaintenanceServiceTests
         var at = new DateTime(2026, 10, 20, 9, 0, 0, DateTimeKind.Unspecified);
 
         var created = await w.As(w.Staff).CreateAsync(Req(w.Unit, at), default);
-        var id = (await w.As(w.Staff).CreateAsync(Req(w.Unit), default)).Value.MaintenanceOrderId;
+        var id = (await w.As(w.Staff).CreateAsync(Req(w.Unit), default)).Value!.MaintenanceOrderId;
         var scheduled = await w.As(w.Staff).ChangeStatusAsync(
             id, new(MaintenanceOrderStatus.Scheduled, at, null, null), default);
 
-        created.Value.ScheduledAt.Should().Be(new DateTime(2026, 10, 20, 2, 0, 0));
-        scheduled.Value.ScheduledAt.Should().Be(new DateTime(2026, 10, 20, 2, 0, 0));
+        created.Value!.ScheduledAt.Should().Be(new DateTime(2026, 10, 20, 2, 0, 0));
+        scheduled.Value!.ScheduledAt.Should().Be(new DateTime(2026, 10, 20, 2, 0, 0));
     }
 }
