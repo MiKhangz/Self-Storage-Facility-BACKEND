@@ -76,7 +76,9 @@ public class PricingPinTests
     {
         var (t, v1, _) = TwoVersions();
         using var _ = t;
-        var start = new DateOnly(2026, 1, 10);
+        // Start in December so the January invoice is due on 10 January and is overdue by the
+        // second billing run below. The contract still exercises the pinned v1 policy.
+        var start = new DateOnly(2025, 12, 10);
         var contract = new Contract
         {
             Reservation = new Reservation

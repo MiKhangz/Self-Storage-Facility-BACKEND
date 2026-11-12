@@ -86,7 +86,9 @@ public class ScopeTermsAndBillingTests
         t.Db.SaveChanges();
         var email = new FakeEmailService();
 
-        await new BillingCycleService(t.Uow, new ReminderService(t.Uow, Staff, email)).RunAsync(new DateOnly(2026, 3, 31), default);
+        // The March period is due on 30 April for a 31st-start contract, so the invoice appears
+        // seven days ahead of that due date while keeping the March period in its line description.
+        await new BillingCycleService(t.Uow, new ReminderService(t.Uow, Staff, email)).RunAsync(new DateOnly(2026, 4, 23), default);
 
         var march = await t.Db.Invoices.Include(i => i.InvoiceItems).SingleAsync(i => i.InvoiceNumber.StartsWith("INV202603"));
         march.InvoiceItems.Single().Description.Should().Contain("31/03/2026", "the third period starts on the 31st, not the drifted 28th");
