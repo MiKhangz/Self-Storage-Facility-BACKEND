@@ -70,10 +70,10 @@ public class SupportTicketServiceTests
         var result = await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.FacilityId.Should().Be(w.Facility.FacilityId);
-        result.Value.Priority.Should().Be(Priority.High);
-        result.Value.Status.Should().Be(SupportTicketStatus.New);
-        result.Value.TicketCode.Should().MatchRegex(@"^TK\d{12}$");
+        result.Value!.FacilityId.Should().Be(w.Facility.FacilityId);
+        result.Value!.Priority.Should().Be(Priority.High);
+        result.Value!.Status.Should().Be(SupportTicketStatus.New);
+        result.Value!.TicketCode.Should().MatchRegex(@"^TK\d{12}$");
         var messages = await w.Db.Db.TicketMessages.ToListAsync();
         messages.Should().ContainSingle().Which.Body.Should().Be("Cannot open the door.");
     }
@@ -86,7 +86,7 @@ public class SupportTicketServiceTests
 
         var result = await w.As(w.Customer).CreateAsync(Req(w, facilityId: w.Facility.FacilityId, priority: Priority.Low), default);
 
-        result.Value.Priority.Should().Be(Priority.Low);
+        result.Value!.Priority.Should().Be(Priority.Low);
     }
 
     [Fact]
@@ -127,7 +127,7 @@ public class SupportTicketServiceTests
     {
         var w = await SeedAsync();
         using var _ = w.Db;
-        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value.TicketId;
+        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value!.TicketId;
 
         (await w.As(w.Other).GetAsync(id, default)).Error!.Type.Should().Be(ErrorType.NotFound);
         (await w.As(w.OutsideStaff).GetAsync(id, default)).Error!.Type.Should().Be(ErrorType.NotFound);
@@ -140,7 +140,7 @@ public class SupportTicketServiceTests
     {
         var w = await SeedAsync();
         using var _ = w.Db;
-        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value.TicketId;
+        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value!.TicketId;
         await w.As(w.Staff).PostMessageAsync(id, new("secret", true, null), default);
         await w.As(w.Staff).PostMessageAsync(id, new("hello", false, null), default);
 
@@ -156,7 +156,7 @@ public class SupportTicketServiceTests
     {
         var w = await SeedAsync();
         using var _ = w.Db;
-        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value.TicketId;
+        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value!.TicketId;
 
         (await w.As(w.Customer).PostMessageAsync(id, new("x", true, null), default)).Error!.Type.Should().Be(ErrorType.Forbidden);
         (await w.As(w.Customer).PostMessageAsync(id, new("x", false, SupportTicketStatus.InProgress), default))
@@ -168,7 +168,7 @@ public class SupportTicketServiceTests
     {
         var w = await SeedAsync();
         using var _ = w.Db;
-        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value.TicketId;
+        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value!.TicketId;
 
         // An internal note alone does not start work.
         await w.As(w.Staff).PostMessageAsync(id, new("note", true, null), default);
@@ -189,7 +189,7 @@ public class SupportTicketServiceTests
     {
         var w = await SeedAsync();
         using var _ = w.Db;
-        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value.TicketId;
+        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value!.TicketId;
         var ticket = await w.Db.Db.SupportTickets.SingleAsync();
         ticket.Status = SupportTicketStatus.Resolved;
         ticket.ResolvedAt = DateTime.UtcNow;
@@ -207,7 +207,7 @@ public class SupportTicketServiceTests
     {
         var w = await SeedAsync();
         using var _ = w.Db;
-        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value.TicketId;
+        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value!.TicketId;
         (await w.Db.Db.SupportTickets.SingleAsync()).Status = SupportTicketStatus.Closed;
         await w.Db.Db.SaveChangesAsync();
 
@@ -221,7 +221,7 @@ public class SupportTicketServiceTests
     {
         var w = await SeedAsync();
         using var _ = w.Db;
-        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value.TicketId;
+        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value!.TicketId;
 
         var result = await w.As(w.Other).PostMessageAsync(id, new("hi", false, null), default);
 
@@ -258,7 +258,7 @@ public class SupportTicketServiceTests
     {
         var w = await SeedAsync();
         using var _ = w.Db;
-        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value.TicketId;
+        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value!.TicketId;
 
         // New cannot jump to WaitingForCustomer, and plain staff cannot close.
         var skipped = await w.As(w.Staff).PostMessageAsync(id, new("hi", false, SupportTicketStatus.WaitingForCustomer), default);
@@ -275,7 +275,7 @@ public class SupportTicketServiceTests
     {
         var w = await SeedAsync();
         using var _ = w.Db;
-        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value.TicketId;
+        var id = (await w.As(w.Customer).CreateAsync(Req(w, unitId: w.Unit.StorageUnitId), default)).Value!.TicketId;
 
         var resolved = await w.As(w.Staff).PostMessageAsync(id, new("fixed", false, SupportTicketStatus.Resolved), default);
         var reopened = await w.As(w.Staff).PostMessageAsync(id, new("oops", false, SupportTicketStatus.InProgress), default);
