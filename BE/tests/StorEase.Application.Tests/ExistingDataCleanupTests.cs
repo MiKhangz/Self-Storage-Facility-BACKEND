@@ -32,8 +32,9 @@ public class ExistingDataCleanupTests
         using var t = new TestDb();
         await t.Db.Database.ExecuteSqlRawAsync("DROP INDEX IF EXISTS IX_StaffFacility_UserId_FacilityId");
         await t.Db.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=OFF");
+        const string assignedDate = "2026-01-01";
         foreach (var (id, user, fac) in new[] { (1, 1, 1), (2, 1, 1), (3, 1, 2), (4, 2, 1), (5, 1, 1) })
-            await t.Db.Database.ExecuteSqlRawAsync($"INSERT INTO StaffFacility (StaffFacilityId, UserId, FacilityId, AssignedDate) VALUES ({id}, {user}, {fac}, '2026-01-01')");
+            await t.Db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO StaffFacility (StaffFacilityId, UserId, FacilityId, AssignedDate) VALUES ({id}, {user}, {fac}, {assignedDate})");
 
         await t.Db.Database.ExecuteSqlRawAsync(ExistingDataCleanup.DeduplicateStaffFacility);
 
