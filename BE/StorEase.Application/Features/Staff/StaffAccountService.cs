@@ -131,7 +131,7 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
             // Unassigning must not strand work: refuse while the person still has open work at that facility.
             var leaving = current.Where(r => !wanted.Contains(r.FacilityId)).Select(r => r.FacilityId).ToList();
             if (leaving.Count > 0 && await OpenWorkAsync(userId, leaving, ct) is { } blocker)
-                return Error.Conflict(blocker);
+                return blocker;
 
             // StaffFacility is a link, not history, so unassigning deletes the row (design Q4).
             foreach (var row in current.Where(r => !wanted.Contains(r.FacilityId)))
@@ -147,7 +147,7 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
     }
 
     /// <summary>Describes open work that ties <paramref name="userId"/> to one of the facilities, or null if none.</summary>
-    private async Task<string?> OpenWorkAsync(int userId, List<int> facilityIds, CancellationToken ct)
+    private async Task<Error?> OpenWorkAsync(int userId, List<int> facilityIds, CancellationToken ct)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
         var shifts = await uow.Repository<Shift>().Query()
@@ -164,8 +164,8 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
                               o.Status == MaintenanceOrderStatus.InProgress), ct);
         if (shifts + tickets + tasks + orders == 0)
             return null;
-        return $"Cannot unassign a facility with open work: {shifts} upcoming shift(s), {tickets} open ticket(s), " +
-               $"{tasks} open task(s), {orders} open maintenance order(s). Reassign or finish them first.";
+        return Error.Conflict($"Cannot unassign a facility with open work: {shifts} upcoming shift(s), {tickets} open ticket(s), " +
+                              $"{tasks} open task(s), {orders} open maintenance order(s). Reassign or finish them first.");
     }
 
     // Customers are not managed here; this service only sees staff roles, and a facility manager facility staff and

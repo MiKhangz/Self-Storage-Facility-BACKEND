@@ -55,7 +55,7 @@ public interface IWalkInService
 
     /// <summary>
     /// A booking made at the desk: the reservation is Confirmed with the chosen unit at once, and the deposit is
-    /// recorded as paid in cash, so check-in can follow straight away.
+    /// recorded as paid in cash, so handover can follow straight away.
     /// </summary>
     Task<Result<ReservationDto>> BookAsync(WalkInReservationRequest request, CancellationToken ct);
 }
@@ -107,7 +107,7 @@ public class WalkInService(
             if (!customer.IsSuccess)
                 return customer.Error;
 
-            var terms = await RentCalculator.TermsAsync(uow, request.UnitTypeId, request.MoveInDate, request.RentalMonths, ct);
+            var terms = await RentCalculator.TermsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, request.RentalMonths, ct);
             if (!terms.IsSuccess)
                 return terms.Error;
 
@@ -122,6 +122,7 @@ public class WalkInService(
                 MoveInDate = request.MoveInDate,
                 RentalMonths = request.RentalMonths,
                 PricingPolicyId = terms.Value.Policy.PricingPolicyId,
+                FacilityPriceVersionId = terms.Value.FacilityPriceVersionId,
                 Status = ReservationStatus.Confirmed,
                 CreatedAt = DateTime.UtcNow,
             };

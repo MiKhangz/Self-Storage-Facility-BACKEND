@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using StorEase.Application.Common;
 
 namespace StorEase.Api.Middleware;
 
@@ -20,7 +21,7 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
                 new ProblemDetails
                 {
                     Status = StatusCodes.Status500InternalServerError,
-                    Title = "An unexpected error occurred.",
+                    Title = ErrorText.Localize("An unexpected error occurred."),
                     Instance = context.Request.Path,
                     Extensions = { ["traceId"] = context.TraceIdentifier },
                 },

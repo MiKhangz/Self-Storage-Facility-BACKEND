@@ -11,14 +11,15 @@ public class CheckInConfiguration : IEntityTypeConfiguration<CheckIn>
         builder.ToTable("CheckIn");
         builder.HasKey(x => x.CheckInId);
 
-        builder.HasOne(x => x.Reservation).WithMany().HasForeignKey(x => x.ReservationId);
         builder.HasOne(x => x.Contract).WithMany().HasForeignKey(x => x.ContractId);
         builder.HasOne(x => x.StorageUnit).WithMany().HasForeignKey(x => x.StorageUnitId);
-        builder.HasOne(x => x.Staff).WithMany().HasForeignKey(x => x.StaffId);
-        builder.Property(x => x.LockSerial).HasMaxLength(30).IsUnicode(false);
-        builder.Property(x => x.CardNumber).HasMaxLength(30).IsUnicode(false);
-        builder.Property(x => x.ConditionNote).HasMaxLength(300);
-        builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
-        builder.HasIndex(x => x.Status);
+        builder.HasOne(x => x.RecordedByUser).WithMany().HasForeignKey(x => x.RecordedBy);
+        builder.Property(x => x.Note).HasMaxLength(200);
+        builder.Property(x => x.CheckOutMethod).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
+        builder.Property(x => x.CheckOutReason).HasMaxLength(200);
+
+        builder.HasIndex(x => x.ContractId);
+        builder.HasIndex(x => x.StorageUnitId);
+        builder.HasIndex(x => x.CheckInAt);
     }
 }

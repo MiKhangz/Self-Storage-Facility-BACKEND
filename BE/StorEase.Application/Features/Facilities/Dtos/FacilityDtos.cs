@@ -2,7 +2,8 @@ using StorEase.Domain.Enums;
 
 namespace StorEase.Application.Features.Facilities.Dtos;
 
-public sealed record FacilityFloorDto(int FloorId, int FacilityId, int FloorNumber, string? Name, int UnitCount);
+/// <summary><c>RentedUnits</c> are Reserved or Occupied: while any remain, the floor cannot be removed.</summary>
+public sealed record FacilityFloorDto(int FloorId, int FacilityId, int FloorNumber, string? Name, int UnitCount, FloorStatus Status, int RentedUnits);
 
 public sealed record FacilityUnitTypeDto(
     int UnitTypeId, string Code, string Name, decimal AreaM2, bool IsClimateControlled, int TotalUnits, int AvailableUnits, decimal? FromPrice);
@@ -27,7 +28,8 @@ public sealed record FacilityDetailDto(
 public sealed record FacilityRequest(
     string Code, string Name, string Address, string District, string? Phone, string? OpeningHours, int? ManagerId);
 
-public sealed record FloorRequest(int FloorNumber, string? Name);
+/// <summary><c>Status</c> left out keeps the floor's current one (a new floor is Open).</summary>
+public sealed record FloorRequest(int FloorNumber, string? Name, FloorStatus? Status = null);
 
 public sealed record UnitBoardUnitDto(
     int StorageUnitId, string UnitCode, string? Zone, StorageUnitStatus Status, int UnitTypeId, string UnitTypeName,

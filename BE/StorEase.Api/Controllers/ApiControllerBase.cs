@@ -9,7 +9,7 @@ public abstract class ApiControllerBase : ControllerBase
 {
     /// <summary>Maps a service <see cref="Error"/> to an RFC 7807 ProblemDetails response.</summary>
     protected ObjectResult Failure(Error error) => Problem(
-        title: error.Message,
+        title: ErrorText.Localize(error.Message),
         statusCode: error.Type switch
         {
             ErrorType.Validation => StatusCodes.Status400BadRequest,

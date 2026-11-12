@@ -13,6 +13,7 @@ public class UnitPriceConfiguration : IEntityTypeConfiguration<UnitPrice>
 
         builder.HasOne(x => x.PricingPolicy).WithMany(x => x.UnitPrices).HasForeignKey(x => x.PricingPolicyId);
         builder.HasOne(x => x.UnitType).WithMany().HasForeignKey(x => x.UnitTypeId);
+        builder.HasIndex(x => new { x.PricingPolicyId, x.UnitTypeId });
         builder.Property(x => x.BasePricePerMonth).HasColumnType("decimal(12,2)");
         builder.Property(x => x.Discount3Month).HasColumnType("decimal(5,2)");
         builder.Property(x => x.Discount6Month).HasColumnType("decimal(5,2)");

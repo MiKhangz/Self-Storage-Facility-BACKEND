@@ -13,5 +13,6 @@ public class FloorConfiguration : IEntityTypeConfiguration<Floor>
 
         builder.HasOne(x => x.Facility).WithMany(x => x.Floors).HasForeignKey(x => x.FacilityId);
         builder.Property(x => x.Name).HasMaxLength(50);
+        builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
     }
 }

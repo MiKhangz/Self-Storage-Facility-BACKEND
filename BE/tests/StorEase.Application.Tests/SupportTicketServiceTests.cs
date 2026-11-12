@@ -247,7 +247,7 @@ public class SupportTicketServiceTests
         {
             Customer = customer, FacilityId = unit.FacilityId, UnitTypeId = unit.UnitTypeId, StorageUnit = unit,
             ReservationCode = "R" + number, MoveInDate = new DateOnly(2026, 10, 1), RentalMonths = 3,
-            Status = ReservationStatus.CheckedIn, CreatedAt = DateTime.UtcNow,
+            Status = ReservationStatus.HandedOver, CreatedAt = DateTime.UtcNow,
         },
         Customer = customer, StorageUnit = unit, ContractNumber = number,
         StartDate = new DateOnly(2026, 10, 1), EndDate = new DateOnly(2027, 1, 1), Status = status,

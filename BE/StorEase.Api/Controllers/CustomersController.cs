@@ -19,7 +19,7 @@ public class CustomersController(IWalkInService walkIns) : ApiControllerBase
 
     /// <summary>One customer's contact details; 404 for a staff account or an unknown id.</summary>
     [HttpGet("{id:int}")]
-    [Authorize(Roles = Roles.Staff)]
+    [Authorize(Roles = Roles.Staff + "," + Roles.BusinessOperationsManager + "," + Roles.SystemAdministrator)]
     public async Task<ActionResult<CustomerSummaryDto>> Get(int id, CancellationToken ct)
     {
         var result = await walkIns.GetCustomerAsync(id, ct);

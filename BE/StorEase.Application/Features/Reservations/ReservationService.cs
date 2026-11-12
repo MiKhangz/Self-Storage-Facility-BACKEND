@@ -25,13 +25,16 @@ public interface IReservationService
 
     Task<Result<ReservationDto>> AssignUnitAsync(int reservationId, AssignUnitRequest request, CancellationToken ct);
 
+    /// <summary>At the handover the customer saw the unit and wants another of the same size.</summary>
+    Task<Result<ReservationDto>> ChangeUnitAsync(int reservationId, AssignUnitRequest request, CancellationToken ct);
+
     /// <summary>Customer (own) or staff cancel a Pending/Confirmed reservation; the held unit is released.</summary>
     Task<Result<ReservationCancellationDto>> CancelAsync(int reservationId, CancelReservationRequest request, CancellationToken ct);
 
     /// <summary>Staff mark a reservation whose move-in date has passed as a no-show; the deposit is forfeited.</summary>
     Task<Result<ReservationCancellationDto>> MarkNoShowAsync(int reservationId, CancellationToken ct);
 
-    Task<Result<CheckInChecklistDto>> GetCheckInChecklistAsync(int reservationId, CancellationToken ct);
+    Task<Result<HandoverChecklistDto>> GetHandoverChecklistAsync(int reservationId, CancellationToken ct);
 }
 
 public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmailService email) : IReservationService
@@ -42,6 +45,9 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             .FirstOrDefaultAsync(f => f.FacilityId == request.FacilityId && f.Status == FacilityStatus.Active, ct);
         if (facility is null)
             return Error.NotFound("Facility not found.");
+        // Nobody would assign the unit, hand it over or answer the customer there.
+        if (!await StaffScope.StaffedFacilityIds(uow).AnyAsync(id => id == facility.FacilityId, ct))
+            return Error.Conflict("This facility is not taking bookings yet: no staff work there.");
 
         if (!await uow.Repository<UnitType>().Query().AnyAsync(t => t.UnitTypeId == request.UnitTypeId, ct))
             return Error.NotFound("Unit type not found.");
@@ -55,7 +61,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             return Error.Conflict("No unit of this type is available at this facility.");
 
         // Without a policy there is no price, so the deposit is skipped rather than blocking the booking.
-        var terms = await RentCalculator.TermsAsync(uow, request.UnitTypeId, request.MoveInDate, request.RentalMonths, ct);
+        var terms = await RentCalculator.TermsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, request.RentalMonths, ct);
 
         var created = await uow.InTransactionAsync<int>(async () =>
         {
@@ -69,6 +75,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
                 RentalMonths = request.RentalMonths,
                 // The version this quote came from; the contract is drafted from it even if prices change before move-in.
                 PricingPolicyId = terms.IsSuccess ? terms.Value.Policy.PricingPolicyId : null,
+                FacilityPriceVersionId = terms.IsSuccess ? terms.Value.FacilityPriceVersionId : null,
                 Status = ReservationStatus.Pending,
                 CreatedAt = DateTime.UtcNow,
             };
@@ -128,7 +135,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             var reservation = await Visible().FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
             if (reservation is null)
                 return Error.NotFound("Reservation not found.");
-            // A Confirmed reservation without a unit is one whose check-in was cancelled (SR-02); it is assigned again.
+            // A Confirmed reservation without a unit is one whose handover was cancelled (SR-02); it is assigned again.
             var awaitingUnit = reservation.Status == ReservationStatus.Pending
                 || (reservation.Status == ReservationStatus.Confirmed && reservation.StorageUnitId is null);
             if (!awaitingUnit)
@@ -164,6 +171,52 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
                 $"Đơn {dto.Value.ReservationCode} đã được xác nhận với kho {dto.Value.UnitCode} tại {dto.Value.FacilityName}. " +
                 $"Hẹn gặp bạn ngày {dto.Value.MoveInDate:dd/MM/yyyy}.", ct);
         return dto;
+    }
+
+    /// <summary>
+    /// The old unit goes back on sale and the new one is held. A drafted contract moves with the booking; if the
+    /// customer had already signed it, the signature is cleared because it named the old unit.
+    /// </summary>
+    public async Task<Result<ReservationDto>> ChangeUnitAsync(
+        int reservationId, AssignUnitRequest request, CancellationToken ct)
+    {
+        var changed = await uow.InTransactionAsync<int>(async () =>
+        {
+            var reservation = await Visible().Include(r => r.StorageUnit)
+                .FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
+            if (reservation is null)
+                return Error.NotFound("Reservation not found.");
+            if (reservation.Status != ReservationStatus.Confirmed || reservation.StorageUnit is null)
+                return Error.Conflict("Only a confirmed booking with a unit, not yet handed over, can change its unit.");
+            if (reservation.StorageUnitId == request.StorageUnitId)
+                return Error.Conflict("The booking already holds this unit.");
+
+            var unit = await uow.Repository<StorageUnit>().FindAsync(request.StorageUnitId, ct);
+            if (unit is null)
+                return Error.NotFound("Storage unit not found.");
+            if (unit.FacilityId != reservation.FacilityId || unit.UnitTypeId != reservation.UnitTypeId)
+                return Error.Conflict("The new unit must be the same size, at the same facility.");
+            if (unit.Status != StorageUnitStatus.Available)
+                return Error.Conflict($"Unit {unit.UnitCode} is {unit.Status}, not Available.");
+            if (await uow.Repository<Contract>().Query().AnyAsync(c => c.StorageUnitId == unit.StorageUnitId &&
+                    (c.Status == ContractStatus.Active || c.Status == ContractStatus.Draft), ct))
+                return Error.Conflict($"Unit {unit.UnitCode} already has an Active or Draft contract.");
+
+            if (reservation.StorageUnit.Status == StorageUnitStatus.Reserved)
+                reservation.StorageUnit.Status = StorageUnitStatus.Available;
+            unit.Status = StorageUnitStatus.Reserved;
+            reservation.StorageUnitId = unit.StorageUnitId;
+
+            var drafts = await uow.Repository<Contract>().Query()
+                .Where(c => c.ReservationId == reservationId && c.Status == ContractStatus.Draft).ToListAsync(ct);
+            foreach (var draft in drafts)
+            {
+                draft.StorageUnitId = unit.StorageUnitId;
+                draft.SignedAt = null;
+            }
+            return reservation.ReservationId;
+        }, ct);
+        return changed.IsSuccess ? await GetAsync(changed.Value, ct) : changed.Error;
     }
 
     public Task<Result<ReservationCancellationDto>> CancelAsync(
@@ -226,7 +279,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
         return new ReservationCancellationDto(dto.Value, closed.Value.Paid, closed.Value.Refundable);
     }
 
-    public async Task<Result<CheckInChecklistDto>> GetCheckInChecklistAsync(int reservationId, CancellationToken ct)
+    public async Task<Result<HandoverChecklistDto>> GetHandoverChecklistAsync(int reservationId, CancellationToken ct)
     {
         var r = await Visible().AsNoTracking()
             .Include(x => x.Customer).Include(x => x.StorageUnit)
@@ -240,7 +293,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
         var deposit = await uow.Repository<Invoice>().Query().AsNoTracking()
             .FirstOrDefaultAsync(i => i.ReservationId == reservationId && i.ContractId == null, ct);
 
-        var items = new List<CheckInItemDto>
+        var items = new List<HandoverItemDto>
         {
             new("identity", "Đã có CCCD/CMND của khách", !string.IsNullOrEmpty(r.Customer.CitizenId), r.Customer.CitizenId),
             new("deposit", "Đã thanh toán tiền cọc", deposit is null || deposit.Status == InvoiceStatus.Paid,
@@ -250,9 +303,9 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             new("signed", "Khách đã ký hợp đồng", contract?.SignedAt is not null, contract?.SignedAt?.ToString("u")),
             new("moveIn", "Đến ngày dọn vào", r.MoveInDate <= VietnamTime.Today, r.MoveInDate.ToString("yyyy-MM-dd")),
         };
-        // The move-in date is informative only: an early check-in is the facility's call.
+        // The move-in date is informative only: an early handover is the facility's call.
         var ready = r.Status == ReservationStatus.Confirmed && items.Where(i => i.Key != "moveIn").All(i => i.Done);
-        return new CheckInChecklistDto(r.ReservationId, r.ReservationCode, r.Customer.FullName, r.Customer.PhoneNumber,
+        return new HandoverChecklistDto(r.ReservationId, r.ReservationCode, r.Customer.FullName, r.Customer.PhoneNumber,
             r.Customer.CitizenId, r.StorageUnit?.UnitCode, contract?.ContractId, items, ready);
     }
 

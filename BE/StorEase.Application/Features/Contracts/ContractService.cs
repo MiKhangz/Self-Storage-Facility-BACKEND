@@ -44,8 +44,8 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
                 return Error.Conflict("The unit already has an Active or Draft contract.");
 
             // The rent and deposit the customer was quoted when booking, even if a new price was published since.
-            var terms = await RentCalculator.TermsAsync(uow, reservation.UnitTypeId, reservation.MoveInDate, reservation.RentalMonths, ct,
-                reservation.PricingPolicyId);
+            var terms = await RentCalculator.TermsAsync(uow, reservation.FacilityId, reservation.UnitTypeId, reservation.MoveInDate, reservation.RentalMonths, ct,
+                new PricePin(reservation.PricingPolicyId, reservation.FacilityPriceVersionId));
             if (!terms.IsSuccess)
                 return terms.Error;
 
@@ -86,7 +86,7 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
             if (contract.SignedAt is not null)
                 return Error.Conflict("The contract is already signed.");
 
-            // Signing does not activate: the check-in does (business rule 3).
+            // Signing does not activate: the handover does (business rule 3).
             contract.SignedAt = DateTime.UtcNow;
             return contract.ContractId;
         }, ct);

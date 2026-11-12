@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using StorEase.Api;
+using StorEase.Api.Controllers;
 using StorEase.Api.Middleware;
 using StorEase.Application;
 using StorEase.Application.Common;
@@ -64,6 +65,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         // Keep claim names as issued ("sub", "role") instead of the long WS-* URIs.
         options.MapInboundClaims = false;
+        // The web app's token comes in the HttpOnly session cookie set at login; Swagger and tests still send the header.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (string.IsNullOrEmpty(context.Request.Headers.Authorization))
+                    context.Token = AuthController.SessionToken(context.Request);
+                return Task.CompletedTask;
+            },
+        };
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidIssuer = jwt.Issuer,
@@ -93,8 +104,8 @@ builder.Services.AddSwaggerGen(options =>
     options.AddSecurityRequirement(new OpenApiSecurityRequirement { [bearer] = [] });
 });
 
-// Owner decision (VS-1341): any origin in every environment. The frontend holds its JWT in memory and sends it
-// in the Authorization header, so no credentialed CORS is needed. To restore: WithOrigins("http://localhost:5173").
+// Owner decision (VS-1341): any origin in every environment. The web app calls the API through its own origin
+// (the Vite proxy), so the session cookie needs no credentialed CORS. To restore: WithOrigins("http://localhost:5173").
 const string AnyOriginCors = "AnyOrigin";
 builder.Services.AddCors(options => options.AddPolicy(AnyOriginCors, policy => policy
     .AllowAnyOrigin()
@@ -121,6 +132,9 @@ if (Encoding.UTF8.GetByteCount(jwt.Key) < 32)
     throw new InvalidOperationException(
         "Jwt:Key is missing or shorter than 32 characters. Set it in BE/StorEase.Api/appsettings.Development.json.");
 
+// Accept-Language picks the language of error messages (FluentValidation's own included). Only the UI culture
+// changes: numbers and dates in the API stay the same for everyone.
+app.UseRequestLocalization(new RequestLocalizationOptions().SetDefaultCulture("en").AddSupportedUICultures("en", "vi"));
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Configure the HTTP request pipeline.

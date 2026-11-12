@@ -34,7 +34,11 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
     public async Task<Result<PagedResult<PricingPolicyDto>>> ListPoliciesAsync(int page, int pageSize, CancellationToken ct)
     {
         var paged = await WithPrices().OrderByDescending(p => p.Version).ToPagedResultAsync(page, pageSize, ct);
-        return new PagedResult<PricingPolicyDto>(paged.Items.Select(ToDto).ToList(), paged.Page, paged.PageSize, paged.TotalCount);
+        var audit = await PriceVersionAudit.LoadAsync(uow, "POST PricingPolicies.Activate",
+            paged.Items.Select(p => (p.PricingPolicyId, p.CreatedBy)).ToList(),
+            uow.Repository<Reservation>().Query().Select(r => r.PricingPolicyId), ct);
+        return new PagedResult<PricingPolicyDto>(paged.Items.Select(p => ToDto(p) with { Audit = audit[p.PricingPolicyId] }).ToList(),
+            paged.Page, paged.PageSize, paged.TotalCount);
     }
 
     public async Task<Result<PricingPolicyDto>> GetPolicyAsync(int policyId, CancellationToken ct)

@@ -61,7 +61,7 @@ public class AccessCodeManagementTests
             new AccessLog { AccessCodeId = 1, AccessCode = a1, StorageUnitId = 1, StorageUnit = u1, AccessTime = new DateTime(2026, 10, 5, 8, 0, 0, DateTimeKind.Utc), Result = AccessResult.Denied },
             new AccessLog { AccessCodeId = 2, AccessCode = a2, StorageUnitId = 2, StorageUnit = u2, AccessTime = new DateTime(2026, 10, 3, 8, 0, 0, DateTimeKind.Utc), Result = AccessResult.Granted });
         db.SaveChanges();
-        return (db, new AccessCodeService(uow, new FakeHasher(), user), new AccessLogService(uow, user));
+        return (db, new AccessCodeService(uow, new FakeHasher(), user, TestCodes.Protector), new AccessLogService(uow, user));
     }
 
     [Fact]
@@ -76,12 +76,24 @@ public class AccessCodeManagementTests
     }
 
     [Fact]
-    public async Task Customer_sees_only_their_own_active_code_and_never_the_plaintext()
+    public async Task Customer_sees_only_their_own_active_code()
     {
         var (_, codes, _) = Create(1, Roles.StorageCustomer);
 
         (await codes.GetActiveAsync(1, default)).Value!.AccessCodeId.Should().Be(1);
         (await codes.GetActiveAsync(2, default)).Error!.Type.Should().Be(ErrorType.NotFound);
+    }
+
+    [Fact]
+    public async Task The_renter_reads_their_current_code_back_and_staff_never_do()
+    {
+        var (db, codes, _) = Create(1, Roles.StorageCustomer);
+        var issued = (await codes.IssueAsync(1, default)).Value!.Code;
+        var staffCodes = new AccessCodeService(new TestUow(db), new FakeHasher(), new FakeUser(9, Roles.SystemAdministrator), TestCodes.Protector);
+
+        (await codes.GetActiveAsync(1, default)).Value!.Code.Should().Be(issued);
+        (await staffCodes.GetActiveAsync(1, default)).Value!.Code.Should().BeNull();
+        db.Set<AccessCode>().Single(a => a.IsActive && a.ContractId == 1).CodeCipher.Should().NotContain(issued);
     }
 
     [Fact]

@@ -54,7 +54,7 @@ public class ContractServiceTests
             new Contract { ContractId = 3, ContractNumber = "CT3", CustomerId = 2, Customer = other, StorageUnitId = 1, StorageUnit = unit, Status = ContractStatus.Draft });
         db.SaveChanges();
         return (new ContractService(new TestUow(db), new FakeUser(userId, role),
-            new AccessCodeService(new TestUow(db), new FakeHasher(), new FakeUser(userId, role))), db);
+            new AccessCodeService(new TestUow(db), new FakeHasher(), new FakeUser(userId, role), TestCodes.Protector)), db);
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public class ContractServiceTests
         var elsewhere = await outsider.SignAsync(1, default);
 
         signed.Value!.SignedAt.Should().NotBeNull();
-        signed.Value.Status.Should().Be(ContractStatus.Draft, "signing never activates; check-in does");
+        signed.Value.Status.Should().Be(ContractStatus.Draft, "signing never activates; handover does");
         elsewhere.Error!.Type.Should().Be(ErrorType.NotFound);
     }
 }

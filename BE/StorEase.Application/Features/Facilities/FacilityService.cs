@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.Facilities.Dtos;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
@@ -27,6 +28,10 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
         var query = uow.Repository<Facility>().Query();
         if (!(includeInactive && currentUser.Role == Roles.SystemAdministrator))
             query = query.Where(f => f.Status == FacilityStatus.Active);
+        var staffed = StaffScope.StaffedFacilityIds(uow);
+        // Customers see only facilities someone works at; staff see all, flagged, so an admin can fix it.
+        if (currentUser.Role is "" or Roles.StorageCustomer)
+            query = query.Where(f => staffed.Contains(f.FacilityId));
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
@@ -39,7 +44,8 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
             .OrderBy(f => f.Name)
             .Select(f => new FacilityListItemDto(
                 f.FacilityId, f.Code, f.Name, f.Address, f.District, f.Phone, f.OpeningHours,
-                f.StorageUnits.Count(u => u.Status == StorageUnitStatus.Available)))
+                f.StorageUnits.Count(u => u.Status == StorageUnitStatus.Available),
+                staffed.Contains(f.FacilityId)))
             .ToPagedResultAsync(page, pageSize, ct);
     }
 
@@ -53,15 +59,19 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
         // An inactive facility is only visible to staff, so customers cannot book it from a stale link.
         if (facility is null || (facility.Status != FacilityStatus.Active && currentUser.Role is "" or Roles.StorageCustomer))
             return Error.NotFound("Facility not found.");
+        if (currentUser.Role is "" or Roles.StorageCustomer
+            && !await StaffScope.StaffedFacilityIds(uow).AnyAsync(id => id == facilityId, ct))
+            return Error.NotFound("Facility not found.");
 
-        var prices = await ActivePricesAsync(ct);
+        var prices = await ActivePricesAsync(facility.FacilityId, ct);
         var units = facility.StorageUnits.Where(u => u.Status != StorageUnitStatus.Retired).ToList();
         return new FacilityDetailDto(
             facility.FacilityId, facility.Code, facility.Name, facility.Address, facility.District, facility.Phone,
             facility.OpeningHours, facility.Status, facility.ManagerId, facility.Manager?.FullName,
             units.Count, units.Count(u => u.Status == StorageUnitStatus.Available),
-            facility.Floors.OrderBy(f => f.FloorNumber)
-                .Select(f => new FacilityFloorDto(f.FloorId, f.FacilityId, f.FloorNumber, f.Name, units.Count(u => u.FloorId == f.FloorId)))
+            facility.Floors.Where(f => f.Status != FloorStatus.Removed).OrderBy(f => f.FloorNumber)
+                .Select(f => new FacilityFloorDto(f.FloorId, f.FacilityId, f.FloorNumber, f.Name, units.Count(u => u.FloorId == f.FloorId), f.Status,
+                    units.Count(u => u.FloorId == f.FloorId && u.Status is StorageUnitStatus.Reserved or StorageUnitStatus.Occupied)))
                 .ToList(),
             units.GroupBy(u => u.UnitType).OrderBy(g => g.Key.AreaM2)
                 .Select(g => new FacilityUnitTypeDto(g.Key.UnitTypeId, g.Key.Code, g.Key.Name, g.Key.AreaM2, g.Key.IsClimateControlled,
@@ -188,11 +198,12 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
         facility.ManagerId = request.ManagerId;
     }
 
-    // "From" price per unit type in the active policy, before any long-stay discount.
-    private async Task<Dictionary<int, decimal>> ActivePricesAsync(CancellationToken ct) =>
-        await uow.Repository<UnitPrice>().Query()
-            .Where(p => p.PricingPolicy.Status == PricingPolicyStatus.Active)
-            .GroupBy(p => p.UnitTypeId)
-            .Select(g => new { g.Key, Price = g.Min(p => p.BasePricePerMonth) })
-            .ToDictionaryAsync(x => x.Key, x => x.Price, ct);
+    // This facility's monthly price per unit type in the active policy (its own, else the company's), before long-stay discounts.
+    private async Task<Dictionary<int, decimal>> ActivePricesAsync(int facilityId, CancellationToken ct)
+    {
+        var active = await uow.Repository<PricingPolicy>().Query()
+            .Where(p => p.Status == PricingPolicyStatus.Active).OrderByDescending(p => p.Version)
+            .Select(p => (int?)p.PricingPolicyId).FirstOrDefaultAsync(ct);
+        return active is { } policyId ? await RentCalculator.PricesAsync(uow, policyId, facilityId, VietnamTime.Today, ct) : [];
+    }
 }

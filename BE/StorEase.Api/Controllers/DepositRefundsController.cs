@@ -6,7 +6,7 @@ using StorEase.Domain.Enums;
 
 namespace StorEase.Api.Controllers;
 
-/// <summary>Deposits owed back after a cancellation or a handover, and when they were paid.</summary>
+/// <summary>Deposits owed back after a cancellation or a return, and when they were paid.</summary>
 [Route("api/deposit-refunds")]
 public class DepositRefundsController(IDepositRefundService refunds) : ApiControllerBase
 {

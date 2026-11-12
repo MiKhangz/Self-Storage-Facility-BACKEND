@@ -4,7 +4,7 @@ public enum ContractStatus
 {
     Draft,
     Active,
-    PendingHandover,
+    PendingReturn,
     Closed,
     Overdue,
     Suspended,

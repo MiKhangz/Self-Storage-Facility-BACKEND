@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddSingleton(jwtOptions);
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
+        services.AddSingleton<ICodeProtector>(AesCodeProtector.FromSecret(jwtOptions.Key));
         if (string.IsNullOrWhiteSpace(smtp.Host))
             services.AddSingleton<IEmailService, LoggingEmailService>();
         else

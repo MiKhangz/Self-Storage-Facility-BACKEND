@@ -14,7 +14,7 @@ public class DepositRefundConfiguration : IEntityTypeConfiguration<DepositRefund
         builder.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.Facility).WithMany().HasForeignKey(x => x.FacilityId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.Reservation).WithMany().HasForeignKey(x => x.ReservationId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne(x => x.Handover).WithMany().HasForeignKey(x => x.HandoverId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.UnitReturn).WithMany().HasForeignKey(x => x.UnitReturnId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.PaidByUser).WithMany().HasForeignKey(x => x.PaidBy).OnDelete(DeleteBehavior.Restrict);
 
         builder.Property(x => x.Amount).HasPrecision(18, 2);
@@ -26,8 +26,8 @@ public class DepositRefundConfiguration : IEntityTypeConfiguration<DepositRefund
 
         builder.HasIndex(x => x.Status);
         builder.HasIndex(x => x.FacilityId);
-        // One refund per cancelled reservation and one per settled handover, so a retried request cannot pay twice.
+        // One refund per cancelled reservation and one per settled return, so a retried request cannot pay twice.
         builder.HasIndex(x => new { x.ReservationId, x.Source }).IsUnique().HasFilter("[Source] = 'Cancellation'");
-        builder.HasIndex(x => x.HandoverId).IsUnique().HasFilter("[HandoverId] IS NOT NULL");
+        builder.HasIndex(x => x.UnitReturnId).IsUnique().HasFilter("[UnitReturnId] IS NOT NULL");
     }
 }

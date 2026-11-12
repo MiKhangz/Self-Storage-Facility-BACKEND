@@ -2,9 +2,8 @@ namespace StorEase.Domain.Enums;
 
 public enum HandoverStatus
 {
-    Requested,
-    Approved,
-    Inspected,
+    Scheduled,
+    InProgress,
     Completed,
     Cancelled
 }

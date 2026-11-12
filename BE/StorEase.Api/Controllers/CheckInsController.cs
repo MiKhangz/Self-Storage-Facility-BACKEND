@@ -2,71 +2,73 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StorEase.Application.Common;
 using StorEase.Application.Features.CheckIns;
-using StorEase.Application.Features.CheckIns.Dtos;
-using StorEase.Domain.Enums;
 
 namespace StorEase.Api.Controllers;
 
+/// <summary>SR-05: a customer's visits to their unit, recorded by staff at reception.</summary>
 [Route("api/check-ins")]
-public class CheckInsController(ICheckInService checkIns, ICheckInEvidenceService evidence) : ApiControllerBase
+public class CheckInsController(ICheckInService visits) : ApiControllerBase
 {
-    [HttpPost]
+    [HttpPost("check-in")]
     [Authorize(Roles = Roles.Staff)]
     [ProducesResponseType<CheckInDto>(StatusCodes.Status201Created)]
-    public async Task<ActionResult<CheckInDto>> Create(CreateCheckInRequest request, CancellationToken ct)
+    public async Task<ActionResult<CheckInDto>> CheckIn(CheckInRequest request, CancellationToken ct)
     {
-        var result = await checkIns.CreateAsync(request, ct);
+        var result = await visits.CheckInAsync(request, ct);
         return result.IsSuccess
             ? CreatedAtAction(nameof(Get), new { id = result.Value.CheckInId }, result.Value)
             : Failure(result.Error);
     }
 
-    [HttpGet]
+    [HttpPost("{id:int}/check-out")]
     [Authorize(Roles = Roles.Staff)]
-    public async Task<ActionResult<PagedResult<CheckInDetailDto>>> List(
-        [FromQuery] CheckInStatus? status, int page = 1, int pageSize = 20, CancellationToken ct = default)
+    public async Task<ActionResult<CheckInDto>> CheckOut(int id, CancellationToken ct)
     {
-        var result = await evidence.ListAsync(status, page, pageSize, ct);
+        var result = await visits.CheckOutAsync(id, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
-    /// <summary>Undo a check-in: contract terminated, unit Available, reservation back to Confirmed waiting for a unit.</summary>
-    [HttpPost("{id:int}/cancel")]
+    /// <summary>The customer left without checking out: staff close the visit with when they left and why.</summary>
+    [HttpPost("{id:int}/mark-left")]
     [Authorize(Roles = Roles.Staff)]
-    public async Task<IActionResult> Cancel(int id, CancellationToken ct)
+    public async Task<ActionResult<CheckInDto>> MarkLeft(int id, MarkLeftRequest request, CancellationToken ct)
     {
-        var result = await checkIns.CancelAsync(id, ct);
-        return result.IsSuccess ? NoContent() : Failure(result.Error);
+        var result = await visits.MarkLeftAsync(id, request, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>Staff see visits at their facilities; a customer only their own.</summary>
+    [HttpGet]
+    [Authorize]
+    public async Task<ActionResult<PagedResult<CheckInDto>>> List(int? contractId, int? customerId, int page = 1, int pageSize = 20, CancellationToken ct = default)
+    {
+        var result = await visits.ListAsync(contractId, customerId, page, pageSize, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>The check-in screen: everyone renting at the caller's facilities, those inside first.</summary>
+    [HttpGet("board")]
+    [Authorize(Roles = Roles.Staff)]
+    public async Task<ActionResult<IReadOnlyList<CheckInBoardRowDto>>> Board(CancellationToken ct)
+    {
+        var result = await visits.BoardAsync(ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>Finds the renter by the access code (PIN) they say at the desk; 404 when no working code matches.</summary>
+    [HttpPost("find")]
+    [Authorize(Roles = Roles.Staff)]
+    public async Task<ActionResult<CheckInBoardRowDto>> Find(FindByAccessCodeRequest request, CancellationToken ct)
+    {
+        var result = await visits.FindByAccessCodeAsync(request, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
     [HttpGet("{id:int}")]
     [Authorize]
-    public async Task<ActionResult<CheckInDetailDto>> Get(int id, CancellationToken ct)
+    public async Task<ActionResult<CheckInDto>> Get(int id, CancellationToken ct)
     {
-        var result = await evidence.GetAsync(id, ct);
+        var result = await visits.GetAsync(id, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
-    }
-
-    /// <summary>One condition photo (JPEG, PNG or WebP, up to 5 MB) as multipart form field <c>file</c>.</summary>
-    [HttpPost("{id:int}/photos")]
-    [Authorize(Roles = Roles.Staff)]
-    [Consumes("multipart/form-data")]
-    [RequestSizeLimit(CheckInEvidenceService.MaxBytes + 64 * 1024)]
-    [ProducesResponseType<CheckInPhotoDto>(StatusCodes.Status201Created)]
-    public async Task<ActionResult<CheckInPhotoDto>> AddPhoto(int id, IFormFile file, CancellationToken ct)
-    {
-        await using var stream = file.OpenReadStream();
-        var result = await evidence.AddPhotoAsync(id, stream, file.FileName, file.ContentType, file.Length, ct);
-        return result.IsSuccess
-            ? CreatedAtAction(nameof(Photo), new { id, photoId = result.Value.CheckInPhotoId }, result.Value)
-            : Failure(result.Error);
-    }
-
-    [HttpGet("{id:int}/photos/{photoId:int}")]
-    [Authorize]
-    public async Task<IActionResult> Photo(int id, int photoId, CancellationToken ct)
-    {
-        var result = await evidence.OpenPhotoAsync(id, photoId, ct);
-        return result.IsSuccess ? File(result.Value.Content, result.Value.ContentType, result.Value.FileName) : Failure(result.Error);
     }
 }

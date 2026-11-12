@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Options;
+using StorEase.Application.Common;
 
 namespace StorEase.Api.Middleware;
 
@@ -25,7 +26,7 @@ public class ValidationFilter(IOptions<ApiBehaviorOptions> apiBehavior) : IAsync
             var result = await validator.ValidateAsync(
                 new ValidationContext<object>(argument), context.HttpContext.RequestAborted);
             foreach (var error in result.Errors)
-                context.ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
+                context.ModelState.AddModelError(error.PropertyName, ErrorText.Localize(error.ErrorMessage));
         }
 
         if (!context.ModelState.IsValid)
