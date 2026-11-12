@@ -37,11 +37,11 @@ public sealed class TruongCoreFeatureTests
         var result = await service.QuoteAsync(1, 1, new DateOnly(2026, 10, 1), 3, default);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.MonthlyRent.Should().Be(900_000m);
-        result.Value.RentSubtotal.Should().Be(2_700_000m);
-        result.Value.DepositAmount.Should().Be(1_800_000m);
-        result.Value.Fees.Single().Amount.Should().Be(135_000m);
-        result.Value.TotalAmount.Should().Be(4_635_000m);
+        result.Value!.MonthlyRent.Should().Be(900_000m);
+        result.Value!.RentSubtotal.Should().Be(2_700_000m);
+        result.Value!.DepositAmount.Should().Be(1_800_000m);
+        result.Value!.Fees.Single().Amount.Should().Be(135_000m);
+        result.Value!.TotalAmount.Should().Be(4_635_000m);
     }
 
     [Fact]
@@ -56,14 +56,14 @@ public sealed class TruongCoreFeatureTests
         var created = await service.CreatePolicyAsync(new CreatePricingPolicyRequest(
             new DateOnly(2026, 1, 1), null, 1, 3, 30, 2, 0, 14, 60, 24), default);
         created.IsSuccess.Should().BeTrue();
-        var price = await service.UpsertUnitPriceAsync(created.Value.PricingPolicyId, 3,
+        var price = await service.UpsertUnitPriceAsync(created.Value!.PricingPolicyId, 3,
             new UpsertUnitPriceRequest(2_000_000, 5, 10, 15), default);
         price.IsSuccess.Should().BeTrue();
-        var active = await service.ActivatePolicyAsync(created.Value.PricingPolicyId, default);
+        var active = await service.ActivatePolicyAsync(created.Value!.PricingPolicyId, default);
 
         active.IsSuccess.Should().BeTrue();
-        active.Value.Status.Should().Be(PricingPolicyStatus.Active);
-        active.Value.UnitPrices.Single().BasePricePerMonth.Should().Be(2_000_000m);
+        active.Value!.Status.Should().Be(PricingPolicyStatus.Active);
+        active.Value!.UnitPrices.Single().BasePricePerMonth.Should().Be(2_000_000m);
     }
 
     [Fact]
@@ -110,11 +110,11 @@ public sealed class TruongCoreFeatureTests
             .PayOnlineAsync(10, new PaymentRequest(1, null), default);
         var invoice = await db.Db.Invoices.Include(i => i.Payments).SingleAsync(i => i.InvoiceId == 10);
 
-        intent.Value.Status.Should().Be(PaymentStatus.Pending);
+        intent.Value!.Status.Should().Be(PaymentStatus.Pending);
         pending.PaidAmount.Should().Be(0, "nothing is credited until the gateway confirms");
         paid.IsSuccess.Should().BeTrue(paid.Error?.Message);
         paid.Value!.Status.Should().Be(InvoiceStatus.Paid);
-        paid.Value.OutstandingAmount.Should().Be(0);
+        paid.Value!.OutstandingAmount.Should().Be(0);
         duplicate.Error!.Type.Should().Be(ErrorType.Conflict);
         otherCustomer.Error!.Type.Should().Be(ErrorType.NotFound);
         invoice.PaidAmount.Should().Be(500_000m);
@@ -163,11 +163,11 @@ public sealed class TruongCoreFeatureTests
         var paid = await bom.RecordManualPaymentAsync(20, new PaymentRequest(100_000, "CASH"), default);
 
         var refunded = await bom.RefundPaymentAsync(paid.Value!.Payments.Single().PaymentId, new RefundRequest("Paid twice"), default);
-        var again = await bom.RefundPaymentAsync(paid.Value.Payments.Single().PaymentId, new RefundRequest(null), default);
+        var again = await bom.RefundPaymentAsync(paid.Value!.Payments.Single().PaymentId, new RefundRequest(null), default);
 
         refunded.Value!.Status.Should().Be(InvoiceStatus.Issued);
-        refunded.Value.OutstandingAmount.Should().Be(100_000m);
-        refunded.Value.Payments.Single().Status.Should().Be(PaymentStatus.Refunded);
+        refunded.Value!.OutstandingAmount.Should().Be(100_000m);
+        refunded.Value!.Payments.Single().Status.Should().Be(PaymentStatus.Refunded);
         again.Error!.Type.Should().Be(ErrorType.Conflict);
     }
 
@@ -207,9 +207,9 @@ public sealed class TruongCoreFeatureTests
         var service = new PricingService(db.Uow, new FakeCurrentUser(7, Roles.BusinessOperationsManager));
         var created = await service.CreatePolicyAsync(new CreatePricingPolicyRequest(
             VietnamTime.Today.AddDays(30), null, 1, 3, 30, 2, 0, 14, 60, 24), default);
-        await service.UpsertUnitPriceAsync(created.Value.PricingPolicyId, 3, new UpsertUnitPriceRequest(2_000_000, 5, 10, 15), default);
+        await service.UpsertUnitPriceAsync(created.Value!.PricingPolicyId, 3, new UpsertUnitPriceRequest(2_000_000, 5, 10, 15), default);
 
-        var result = await service.ActivatePolicyAsync(created.Value.PricingPolicyId, default);
+        var result = await service.ActivatePolicyAsync(created.Value!.PricingPolicyId, default);
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Type.Should().Be(ErrorType.Conflict);
@@ -233,7 +233,7 @@ public sealed class TruongCoreFeatureTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Status.Should().Be(InvoiceStatus.Overdue);
-        result.Value.OutstandingAmount.Should().Be(50_000m);
+        result.Value!.OutstandingAmount.Should().Be(50_000m);
     }
 
     [Theory]
