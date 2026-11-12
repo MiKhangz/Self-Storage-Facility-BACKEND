@@ -75,7 +75,7 @@ public class TicketQueueServiceTests
         var r = await w.As(w.Staff).ListAsync(null, null, null, false, 1, 20, default);
 
         r.IsSuccess.Should().BeTrue();
-        r.Value.Items.Select(i => i.TicketId).Should().Equal(
+        r.Value!.Items.Select(i => i.TicketId).Should().Equal(
             urgentEarly.TicketId, urgentLate.TicketId, high.TicketId, normal.TicketId, low.TicketId);
     }
 
@@ -92,9 +92,9 @@ public class TicketQueueServiceTests
         var admin = await new TicketQueueService(w.Db.Uow, new FakeCurrentUser(99, Roles.SystemAdministrator))
             .ListAsync(null, null, null, false, 1, 20, default);
 
-        staff.Value.Items.Select(i => i.TicketId).Should().BeEquivalentTo([mine.TicketId, otherCustomer.TicketId]);
-        customer.Value.Items.Select(i => i.TicketId).Should().BeEquivalentTo([mine.TicketId, otherFacility.TicketId]);
-        admin.Value.TotalCount.Should().Be(3);
+        staff.Value!.Items.Select(i => i.TicketId).Should().BeEquivalentTo([mine.TicketId, otherCustomer.TicketId]);
+        customer.Value!.Items.Select(i => i.TicketId).Should().BeEquivalentTo([mine.TicketId, otherFacility.TicketId]);
+        admin.Value!.TotalCount.Should().Be(3);
     }
 
     [Fact]
@@ -109,11 +109,11 @@ public class TicketQueueServiceTests
         var svc = w.As(w.Staff);
 
         (await svc.ListAsync(SupportTicketStatus.New, null, null, false, 1, 20, default))
-            .Value.TotalCount.Should().Be(2);
+            .Value!.TotalCount.Should().Be(2);
         (await svc.ListAsync(null, Priority.High, null, false, 1, 20, default))
-            .Value.Items.Select(i => i.TicketId).Should().BeEquivalentTo([a.TicketId, c.TicketId]);
+            .Value!.Items.Select(i => i.TicketId).Should().BeEquivalentTo([a.TicketId, c.TicketId]);
         (await svc.ListAsync(null, null, null, true, 1, 20, default))
-            .Value.Items.Should().ContainSingle().Which.TicketId.Should().Be(c.TicketId);
+            .Value!.Items.Should().ContainSingle().Which.TicketId.Should().Be(c.TicketId);
     }
 
     [Fact]
@@ -126,9 +126,9 @@ public class TicketQueueServiceTests
         var r = await w.As(w.Manager).AssignAsync(t.TicketId, new AssignTicketRequest(w.Staff.UserId, due), default);
 
         r.IsSuccess.Should().BeTrue();
-        r.Value.AssignedTo.Should().Be(w.Staff.UserId);
-        r.Value.DueDate.Should().Be(due);
-        r.Value.Status.Should().Be(SupportTicketStatus.InProgress);
+        r.Value!.AssignedTo.Should().Be(w.Staff.UserId);
+        r.Value!.DueDate.Should().Be(due);
+        r.Value!.Status.Should().Be(SupportTicketStatus.InProgress);
     }
 
     [Fact]
@@ -181,13 +181,13 @@ public class TicketQueueServiceTests
         var svc = w.As(w.Staff);
 
         (await svc.ChangeStatusAsync(t.TicketId, new ChangeTicketStatusRequest(SupportTicketStatus.InProgress), default))
-            .Value.Status.Should().Be(SupportTicketStatus.InProgress);
+            .Value!.Status.Should().Be(SupportTicketStatus.InProgress);
         (await svc.ChangeStatusAsync(t.TicketId, new ChangeTicketStatusRequest(SupportTicketStatus.WaitingForCustomer), default))
-            .Value.Status.Should().Be(SupportTicketStatus.WaitingForCustomer);
+            .Value!.Status.Should().Be(SupportTicketStatus.WaitingForCustomer);
         var resolved = await svc.ChangeStatusAsync(t.TicketId, new ChangeTicketStatusRequest(SupportTicketStatus.Resolved), default);
 
-        resolved.Value.Status.Should().Be(SupportTicketStatus.Resolved);
-        resolved.Value.ResolvedAt.Should().NotBeNull();
+        resolved.Value!.Status.Should().Be(SupportTicketStatus.Resolved);
+        resolved.Value!.ResolvedAt.Should().NotBeNull();
     }
 
     [Fact]
@@ -213,8 +213,8 @@ public class TicketQueueServiceTests
 
         (await w.As(w.Staff).ChangeStatusAsync(t1.TicketId, close, default)).Error!.Type.Should().Be(ErrorType.Forbidden);
         (await w.As(w.OtherCustomer).ChangeStatusAsync(t1.TicketId, close, default)).Error!.Type.Should().Be(ErrorType.NotFound);
-        (await w.As(w.Customer).ChangeStatusAsync(t1.TicketId, close, default)).Value.Status.Should().Be(SupportTicketStatus.Closed);
-        (await w.As(w.Manager).ChangeStatusAsync(t2.TicketId, close, default)).Value.Status.Should().Be(SupportTicketStatus.Closed);
+        (await w.As(w.Customer).ChangeStatusAsync(t1.TicketId, close, default)).Value!.Status.Should().Be(SupportTicketStatus.Closed);
+        (await w.As(w.Manager).ChangeStatusAsync(t2.TicketId, close, default)).Value!.Status.Should().Be(SupportTicketStatus.Closed);
         (await w.As(w.Manager).ChangeStatusAsync(t2.TicketId, new ChangeTicketStatusRequest(SupportTicketStatus.InProgress), default))
             .Error!.Type.Should().Be(ErrorType.Conflict);
     }
@@ -256,7 +256,7 @@ public class TicketQueueServiceTests
         var r = await w.As(w.Manager).AssignAsync(t.TicketId, new AssignTicketRequest(lead.UserId, null), default);
 
         r.Error.Should().BeNull();
-        r.Value.AssignedTo.Should().Be(lead.UserId);
+        r.Value!.AssignedTo.Should().Be(lead.UserId);
     }
 
     [Fact]
@@ -268,6 +268,6 @@ public class TicketQueueServiceTests
 
         var r = await w.As(w.Manager).AssignAsync(t.TicketId, new AssignTicketRequest(w.Staff.UserId, due), default);
 
-        r.Value.DueDate.Should().Be(due.AddHours(-7));
+        r.Value!.DueDate.Should().Be(due.AddHours(-7));
     }
 }
