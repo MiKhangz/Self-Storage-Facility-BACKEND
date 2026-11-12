@@ -86,9 +86,9 @@ public class StaffAccountServiceTests
         var r = await w.AsAdmin().CreateAsync(World.Create(), default);
 
         r.IsSuccess.Should().BeTrue();
-        r.Value.Role.Should().Be(Roles.FacilityStaff);
-        r.Value.Status.Should().Be(UserStatus.Active);
-        r.Value.GetType().GetProperties().Select(p => p.Name).Should().NotContain(n => n.Contains("Password"));
+        r.Value!.Role.Should().Be(Roles.FacilityStaff);
+        r.Value!.Status.Should().Be(UserStatus.Active);
+        r.Value!.GetType().GetProperties().Select(p => p.Name).Should().NotContain(n => n.Contains("Password"));
         var stored = await w.Db.Db.Users.SingleAsync(u => u.Email == "new@x.vn");
         stored.PasswordHash.Should().Be("hash:Secret123");
     }
@@ -144,9 +144,9 @@ public class StaffAccountServiceTests
             new UpdateStaffAccountRequest("Renamed", null, Roles.FacilityManager, UserStatus.Disabled), default);
 
         r.IsSuccess.Should().BeTrue();
-        r.Value.FullName.Should().Be("Renamed");
-        r.Value.Role.Should().Be(Roles.FacilityManager);
-        r.Value.Status.Should().Be(UserStatus.Disabled);
+        r.Value!.FullName.Should().Be("Renamed");
+        r.Value!.Role.Should().Be(Roles.FacilityManager);
+        r.Value!.Status.Should().Be(UserStatus.Disabled);
     }
 
     [Fact]
@@ -173,7 +173,7 @@ public class StaffAccountServiceTests
         (await w.AsAdmin().GetAsync(w.Customer.UserId, default)).Error!.Type.Should().Be(ErrorType.NotFound);
         (await w.AsAdmin().UpdateAsync(w.Customer.UserId,
             new UpdateStaffAccountRequest("x", null, null, null), default)).Error!.Type.Should().Be(ErrorType.NotFound);
-        (await w.AsAdmin().ListAsync(null, null, 1, 20, default)).Value.Items
+        (await w.AsAdmin().ListAsync(null, null, 1, 20, default)).Value!.Items
             .Should().OnlyContain(u => u.Role != Roles.StorageCustomer);
     }
 
@@ -187,7 +187,7 @@ public class StaffAccountServiceTests
         var r = await w.AsAdmin().SetFacilitiesAsync(id, new SetStaffFacilitiesRequest([w.F2.FacilityId]), default);
 
         r.IsSuccess.Should().BeTrue();
-        r.Value.Facilities.Select(f => f.FacilityId).Should().Equal(w.F2.FacilityId);
+        r.Value!.Facilities.Select(f => f.FacilityId).Should().Equal(w.F2.FacilityId);
         (await w.Db.Db.StaffFacilities.CountAsync(s => s.UserId == id)).Should().Be(1);
     }
 
@@ -203,9 +203,9 @@ public class StaffAccountServiceTests
             new SetStaffFacilitiesRequest([w.F1.FacilityId, w.F2.FacilityId, w.F2.FacilityId]), default);
         var none = await w.AsAdmin().SetFacilitiesAsync(id, new SetStaffFacilitiesRequest([]), default);
 
-        both.Value.Facilities.Should().HaveCount(2);
+        both.Value!.Facilities.Should().HaveCount(2);
         w.Db.Db.StaffFacilities.Any(s => s.StaffFacilityId == keptRowId).Should().BeFalse("cleared by the last call");
-        none.Value.Facilities.Should().BeEmpty();
+        none.Value!.Facilities.Should().BeEmpty();
     }
 
     [Fact]
@@ -233,8 +233,8 @@ public class StaffAccountServiceTests
         var byRole = await w.AsAdmin().ListAsync(Roles.FacilityManager, null, 1, 20, default);
         var byStatus = await w.AsAdmin().ListAsync(null, UserStatus.Disabled, 1, 20, default);
 
-        byRole.Value.Items.Select(i => i.Email).Should().Equal("b@x.vn");
-        byStatus.Value.Items.Select(i => i.Email).Should().Equal("a@x.vn");
+        byRole.Value!.Items.Select(i => i.Email).Should().Equal("b@x.vn");
+        byStatus.Value!.Items.Select(i => i.Email).Should().Equal("a@x.vn");
     }
 
     [Fact]
