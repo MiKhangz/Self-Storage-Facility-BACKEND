@@ -11,7 +11,7 @@ public interface IPricingService
 {
     Task<Result<PagedResult<PricingPolicyDto>>> ListPoliciesAsync(int page, int pageSize, CancellationToken ct);
     Task<Result<PricingPolicyDto>> GetPolicyAsync(int policyId, CancellationToken ct);
-    Task<Result<PolicyTermsDto>> GetCurrentTermsAsync(CancellationToken ct);
+    Task<Result<PolicyTermsDto>> GetCurrentTermsAsync(int? facilityId = null, DateOnly? date = null, CancellationToken ct = default);
     Task<Result<PricingPolicyDto>> CreatePolicyAsync(CreatePricingPolicyRequest request, CancellationToken ct);
     Task<Result<PricingPolicyDto>> ActivatePolicyAsync(int policyId, CancellationToken ct);
     /// <summary>
@@ -47,9 +47,10 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
         return policy is null ? Error.NotFound("Pricing policy not found.") : ToDto(policy);
     }
 
-    public async Task<Result<PolicyTermsDto>> GetCurrentTermsAsync(CancellationToken ct)
+    public async Task<Result<PolicyTermsDto>> GetCurrentTermsAsync(int? facilityId = null, DateOnly? date = null, CancellationToken ct = default)
     {
-        var policy = await RentCalculator.PolicyForAsync(uow, VietnamTime.Today, ct);
+        var day = date ?? VietnamTime.Today;
+        var policy = await RentCalculator.PolicyForAsync(uow, day, ct);
         if (policy is null)
             return Error.NotFound("No pricing policy is in force today.");
         var discounts = await uow.Repository<UnitPrice>().Query()
@@ -57,6 +58,14 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
             .OrderBy(p => p.UnitTypeId)
             .Select(p => new SizeDiscountDto(p.UnitTypeId, p.Discount3Month, p.Discount6Month, p.Discount12Month))
             .ToListAsync(ct);
+        if (facilityId is { } id && await RentCalculator.FacilityVersionForAsync(uow, id, day, ct) is { } versionId)
+        {
+            var own = await uow.Repository<FacilityUnitPrice>().Query()
+                .Where(p => p.FacilityPriceVersionId == versionId)
+                .Select(p => new SizeDiscountDto(p.UnitTypeId, p.Discount3Month, p.Discount6Month, p.Discount12Month))
+                .ToDictionaryAsync(p => p.UnitTypeId, ct);
+            discounts = discounts.Select(d => own.GetValueOrDefault(d.UnitTypeId, d)).ToList();
+        }
         return new PolicyTermsDto(policy.PricingPolicyId, policy.Version, policy.DepositMonths, policy.GraceDays,
             policy.LateFeePercentPerWeek, policy.EarlyTerminationPercent, policy.SuspendAfterDays, policy.ClearOutAfterDays,
             policy.CancelFreeHours, discounts);
