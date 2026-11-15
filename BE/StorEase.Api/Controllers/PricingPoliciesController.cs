@@ -21,9 +21,9 @@ public sealed class PricingPoliciesController(IPricingService pricing) : ApiCont
     /// <summary>The terms customers agree to when booking (deposit, late fee, notice, discounts). No sign-in needed.</summary>
     [HttpGet("current-terms")]
     [AllowAnonymous]
-    public async Task<ActionResult<PolicyTermsDto>> CurrentTerms(CancellationToken ct)
+    public async Task<ActionResult<PolicyTermsDto>> CurrentTerms(int? facilityId = null, DateOnly? date = null, CancellationToken ct = default)
     {
-        var result = await pricing.GetCurrentTermsAsync(ct);
+        var result = await pricing.GetCurrentTermsAsync(facilityId, date, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 

@@ -54,17 +54,24 @@ public class ScopeTermsAndBillingTests
     {
         using var t = Create();
         var pricing = new PricingService(t.Uow, Customer);
-        var none = await pricing.GetCurrentTermsAsync(default);
+        var none = await pricing.GetCurrentTermsAsync(ct: default);
 
         t.Db.Add(new UnitPrice { PricingPolicy = ActivePolicy(), UnitTypeId = SmallTypeId, BasePricePerMonth = 900_000m, Discount3Month = 5, Discount6Month = 10, Discount12Month = 15 });
+        t.Db.Add(new FacilityPriceVersion
+        {
+            FacilityId = FacilityId, Version = 1, EffectiveFrom = VietnamTime.Today, Status = PricingPolicyStatus.Active, CreatedBy = StaffId,
+            Prices = { new FacilityUnitPrice { UnitTypeId = SmallTypeId, BasePricePerMonth = 950_000m, Discount3Month = 8, Discount6Month = 12, Discount12Month = 20 } },
+        });
         t.Db.SaveChanges();
-        var terms = await pricing.GetCurrentTermsAsync(default);
+        var terms = await pricing.GetCurrentTermsAsync(ct: default);
+        var facilityTerms = await pricing.GetCurrentTermsAsync(FacilityId, ct: default);
 
         none.Error!.Type.Should().Be(ErrorType.NotFound);
         terms.Value!.LateFeePercentPerWeek.Should().Be(2);
         terms.Value.SuspendAfterDays.Should().Be(14);
         terms.Value.CancelFreeHours.Should().Be(24);
         terms.Value.Discounts.Should().ContainSingle(d => d.UnitTypeId == SmallTypeId && d.Discount12Month == 15);
+        facilityTerms.Value!.Discounts.Should().ContainSingle(d => d.UnitTypeId == SmallTypeId && d.Discount3Month == 8 && d.Discount6Month == 12 && d.Discount12Month == 20);
     }
 
     [Fact]
