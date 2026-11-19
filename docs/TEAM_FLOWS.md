@@ -1,15 +1,17 @@
 # Who owns which flow
 
 Revised 9 Nov 2026: **one owner per assignment flow**, so each person presents and demos one continuous story.
+Revised 19 Nov 2026: **Khang presents F06 Handover & Access**, the first half of Flow 2; Thiện keeps F10, the second half.
+Who built each file, and the contribution split, do not change.
 The team is **Khang** (SE171577, leader), **Trường** (SE184087) and **Thiện** (SE185085). Each person owns their
 flows end to end — backend, frontend and tests — and answers for them at the defense. The flow tabs of
 `docs/flows.drawio` name their owner; `docs/CODE_MAP.md` names the owner of every file.
 
 | Person | Story | Assignment flows | Flow tabs | Steps | Unfinished |
 |---|---|---|---|---|---|
-| **Khang** (leader) | The customer's front door | 1 Storage Unit Reservation · 7 Support Request and Issue Handling | F01 F02 F03 F04 F14 F15 | 115 | 18 |
+| **Khang** (leader) | The customer's front door, through move-in | 1 Storage Unit Reservation · 2 Storage Check-in and Handover (F06) · 7 Support Request and Issue Handling | F01 F02 F03 F04 F06 F14 F15 | 142 | 26 |
 | **Trường** | The money side | 3 Rented Storage Unit Management · 4 Business Rules, Fee Management and Revenue Monitoring · 6 Storage Renewal and Overdue Handling | F05 F07 F08 F09 F13 | 102 | 29 |
-| **Thiện** | The facility side | 2 Storage Check-in and Handover · 5 Facility Storage and Staff Management | F06 F10 F11 F12 | 122 | 31 |
+| **Thiện** | The facility side | 2 Storage Check-in and Handover (F10) · 5 Facility Storage and Staff Management | F10 F11 F12 | 95 | 23 |
 
 ## Contribution split (agreed 9 Nov 2026)
 
@@ -70,12 +72,16 @@ turn its badge to DONE in the diagram. **NO SCREEN** means the backend works and
 - **F09 Renewal:** reject a renewal; the contract stays unchanged.
 - **F13 Reports:** each role sees only its facilities; dashboard, occupancy and revenue show the right numbers.
 
-## Thiện — Flow 2 Check-in & Handover, Flow 5 Facility & Staff
+## Khang — Flow 2, first half: F06 Handover & Access (since 19 Nov)
 
-- **F06 Handover & Access**
-  - Undo a handover: Handover Cancelled, Contract Terminated, codes off, unit Available.
-  - The hourly job closes visits at closing time; the customer reads the new code and sees their visit history.
-  - The customer asks for a new code; staff revoke a code.
+Khang presents and demos F06; the backend stays Trường's and the screens Thiện's.
+
+- Undo a handover: Handover Cancelled, Contract Terminated, codes off, unit Available.
+- The hourly job closes visits at closing time; the customer reads the new code and sees their visit history.
+- The customer asks for a new code; staff revoke a code.
+
+## Thiện — Flow 2, second half (F10), Flow 5 Facility & Staff
+
 - **F10 Move-out & Settlement:** the hourly job turns the codes off and staff clear the unit; the unit goes to
   Maintenance; a settlement with nothing to pay back shows any shortfall.
 - **F11 Facility & Unit Setup:** deactivate a facility; close, reopen or remove a floor; edit, retire or restore a
