@@ -75,6 +75,25 @@ public class ScopeTermsAndBillingTests
     }
 
     [Fact]
+    public async Task A_size_only_the_facility_prices_still_shows_its_discounts()
+    {
+        using var t = Create();
+        t.Db.Add(new UnitPrice { PricingPolicy = ActivePolicy(), UnitTypeId = SmallTypeId, BasePricePerMonth = 900_000m, Discount3Month = 5, Discount6Month = 10, Discount12Month = 15 });
+        t.Db.Add(new FacilityPriceVersion
+        {
+            FacilityId = FacilityId, Version = 1, EffectiveFrom = VietnamTime.Today, Status = PricingPolicyStatus.Active, CreatedBy = StaffId,
+            Prices = { new FacilityUnitPrice { UnitTypeId = LargeTypeId, BasePricePerMonth = 1_800_000m, Discount3Month = 6, Discount6Month = 11, Discount12Month = 18 } },
+        });
+        t.Db.SaveChanges();
+
+        var terms = await new PricingService(t.Uow, Customer).GetCurrentTermsAsync(FacilityId, ct: default);
+
+        terms.Value!.Discounts.Select(d => d.UnitTypeId).Should().Equal(SmallTypeId, LargeTypeId);
+        terms.Value.Discounts.Should().ContainSingle(d => d.UnitTypeId == LargeTypeId && d.Discount3Month == 6 && d.Discount12Month == 18);
+        terms.Value.Discounts.Should().ContainSingle(d => d.UnitTypeId == SmallTypeId && d.Discount12Month == 15, "the standard still prices the small size here");
+    }
+
+    [Fact]
     public async Task A_contract_starting_on_the_31st_keeps_its_billing_day_after_february()
     {
         using var t = Create();

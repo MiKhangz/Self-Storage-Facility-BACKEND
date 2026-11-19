@@ -64,7 +64,10 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
                 .Where(p => p.FacilityPriceVersionId == versionId)
                 .Select(p => new SizeDiscountDto(p.UnitTypeId, p.Discount3Month, p.Discount6Month, p.Discount12Month))
                 .ToDictionaryAsync(p => p.UnitTypeId, ct);
-            discounts = discounts.Select(d => own.GetValueOrDefault(d.UnitTypeId, d)).ToList();
+            // A facility may price a size the standard does not, so its own sizes are added, not only swapped in.
+            discounts = discounts.Select(d => own.GetValueOrDefault(d.UnitTypeId, d))
+                .Concat(own.Values.Where(o => discounts.All(d => d.UnitTypeId != o.UnitTypeId)))
+                .OrderBy(d => d.UnitTypeId).ToList();
         }
         return new PolicyTermsDto(policy.PricingPolicyId, policy.Version, policy.DepositMonths, policy.GraceDays,
             policy.LateFeePercentPerWeek, policy.EarlyTerminationPercent, policy.SuspendAfterDays, policy.ClearOutAfterDays,
