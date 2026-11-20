@@ -8,5 +8,7 @@ public enum ContractStatus
     Closed,
     Overdue,
     Suspended,
-    Terminated
+    Terminated,
+    /// <summary>The end date has passed and the unit was not handed back: a daily fee runs and access is locked.</summary>
+    Overstay
 }

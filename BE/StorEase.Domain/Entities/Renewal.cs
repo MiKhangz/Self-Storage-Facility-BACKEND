@@ -10,7 +10,10 @@ public class Renewal
     public DateOnly NewEndDate { get; set; }
     public decimal NewMonthlyRent { get; set; }
     public string Status { get; set; } = string.Empty;
+    /// <summary>Another unit for the renewed months, when the next customer has booked this one; the renter must agree.</summary>
+    public int? TransferStorageUnitId { get; set; }
 
     public Contract Contract { get; set; } = null!;
     public User? ApprovedByUser { get; set; }
+    public StorageUnit? TransferStorageUnit { get; set; }
 }

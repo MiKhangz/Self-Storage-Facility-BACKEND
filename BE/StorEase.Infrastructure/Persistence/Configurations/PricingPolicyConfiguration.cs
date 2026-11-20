@@ -15,6 +15,9 @@ public class PricingPolicyConfiguration : IEntityTypeConfiguration<PricingPolicy
         builder.Property(x => x.NoticeDays).HasDefaultValue(30);
         builder.Property(x => x.LateFeePercentPerWeek).HasColumnType("decimal(5,2)");
         builder.Property(x => x.EarlyTerminationPercent).HasColumnType("decimal(5,2)");
+        builder.Property(x => x.OverstayFeePercent).HasColumnType("decimal(5,2)").HasDefaultValue(150m);
+        builder.Property(x => x.EndReminderDays).HasDefaultValue(10);
+        builder.Property(x => x.MoveOutAfterDays).HasDefaultValue(7);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
         builder.HasIndex(x => x.Status);
     }

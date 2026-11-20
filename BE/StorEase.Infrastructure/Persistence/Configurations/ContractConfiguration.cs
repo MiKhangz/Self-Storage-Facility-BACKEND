@@ -16,12 +16,13 @@ public class ContractConfiguration : IEntityTypeConfiguration<Contract>
         builder.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId);
         builder.HasOne(x => x.StorageUnit).WithMany().HasForeignKey(x => x.StorageUnitId);
         builder.Property(x => x.ContractNumber).HasMaxLength(20).IsUnicode(false);
+        builder.Property(x => x.EndContactNote).HasMaxLength(500);
         builder.Property(x => x.MonthlyRent).HasColumnType("decimal(12,2)");
         builder.Property(x => x.DepositAmount).HasColumnType("decimal(12,2)");
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
         builder.HasIndex(x => x.Status);
         builder.HasIndex(x => x.ContractNumber).IsUnique();
         // Business rule 1 enforced by the database: one Active/Draft contract per unit.
-        builder.HasIndex(x => x.StorageUnitId).IsUnique().HasFilter("[Status] IN ('Active', 'Draft')");
+        builder.HasIndex(x => x.StorageUnitId).IsUnique().HasFilter("[Status] IN ('Active', 'Draft', 'Overstay')");
     }
 }

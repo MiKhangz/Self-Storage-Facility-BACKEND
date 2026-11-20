@@ -71,7 +71,7 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
         }
         return new PolicyTermsDto(policy.PricingPolicyId, policy.Version, policy.DepositMonths, policy.GraceDays,
             policy.LateFeePercentPerWeek, policy.EarlyTerminationPercent, policy.SuspendAfterDays, policy.ClearOutAfterDays,
-            policy.CancelFreeHours, discounts);
+            policy.CancelFreeHours, discounts, policy.EndReminderDays, policy.OverstayFeePercent, policy.MoveOutAfterDays);
     }
 
     public async Task<Result<PricingPolicyDto>> CreatePolicyAsync(CreatePricingPolicyRequest request, CancellationToken ct)
@@ -101,6 +101,9 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
             SuspendAfterDays = request.SuspendAfterDays,
             ClearOutAfterDays = request.ClearOutAfterDays,
             CancelFreeHours = request.CancelFreeHours,
+            EndReminderDays = request.EndReminderDays,
+            OverstayFeePercent = request.OverstayFeePercent,
+            MoveOutAfterDays = request.MoveOutAfterDays,
             Status = PricingPolicyStatus.Draft,
         };
         uow.Repository<PricingPolicy>().Add(policy);
@@ -135,6 +138,9 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
         policy.SuspendAfterDays = request.SuspendAfterDays;
         policy.ClearOutAfterDays = request.ClearOutAfterDays;
         policy.CancelFreeHours = request.CancelFreeHours;
+        policy.EndReminderDays = request.EndReminderDays;
+        policy.OverstayFeePercent = request.OverstayFeePercent;
+        policy.MoveOutAfterDays = request.MoveOutAfterDays;
         await uow.SaveChangesAsync(ct);
         return await GetPolicyAsync(policyId, ct);
     }
@@ -164,6 +170,9 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
             SuspendAfterDays = source.SuspendAfterDays,
             ClearOutAfterDays = source.ClearOutAfterDays,
             CancelFreeHours = source.CancelFreeHours,
+            EndReminderDays = source.EndReminderDays,
+            OverstayFeePercent = source.OverstayFeePercent,
+            MoveOutAfterDays = source.MoveOutAfterDays,
             Status = PricingPolicyStatus.Draft,
         };
         foreach (var price in source.UnitPrices)
@@ -332,5 +341,6 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
             .Select(p => new UnitPriceDto(p.UnitPriceId, p.PricingPolicyId, p.UnitTypeId, p.UnitType.Code, p.UnitType.Name,
                 p.BasePricePerMonth, p.Discount3Month, p.Discount6Month, p.Discount12Month)).ToList(),
         policy.FeeTypes.OrderBy(f => f.Code)
-            .Select(ToDto).ToList());
+            .Select(ToDto).ToList(),
+        EndReminderDays: policy.EndReminderDays, OverstayFeePercent: policy.OverstayFeePercent, MoveOutAfterDays: policy.MoveOutAfterDays);
 }

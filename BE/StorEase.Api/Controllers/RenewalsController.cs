@@ -55,4 +55,22 @@ public class RenewalsController(IRenewalService renewals) : ApiControllerBase
         var result = await renewals.RejectAsync(id, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
+
+    /// <summary>The renter agrees to move to the unit offered because the next customer booked theirs.</summary>
+    [HttpPost("{id:int}/accept-transfer")]
+    [Authorize(Roles = Roles.StorageCustomer)]
+    public async Task<ActionResult<RenewalDto>> AcceptTransfer(int id, CancellationToken ct)
+    {
+        var result = await renewals.AcceptTransferAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>The renter will not move: the renewal is dropped and the unit is handed back on the end date.</summary>
+    [HttpPost("{id:int}/decline-transfer")]
+    [Authorize(Roles = Roles.StorageCustomer)]
+    public async Task<ActionResult<RenewalDto>> DeclineTransfer(int id, CancellationToken ct)
+    {
+        var result = await renewals.DeclineTransferAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
 }

@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<IFacilityPricingService, FacilityPricingService>();
         services.AddScoped<IInvoiceService, InvoiceService>();
         services.AddScoped<IReservationService, ReservationService>();
+        services.AddScoped<IRentalEndService, RentalEndService>();
         services.AddScoped<IHandoverService, HandoverService>();
         services.AddScoped<IContractService, ContractService>();
         services.AddScoped<IAccessCodeService, AccessCodeService>();

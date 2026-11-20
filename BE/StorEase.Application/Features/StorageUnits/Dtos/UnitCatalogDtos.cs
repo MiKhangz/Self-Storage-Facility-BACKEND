@@ -15,12 +15,16 @@ public sealed record UnitTypeDto(
     bool IsClimateControlled,
     decimal? MonthlyPrice);
 
+/// <summary>AvailableUnits counts units free for the whole stay (move-in date for RentalMonths); ExpectedUnitCode is the
+/// unit a booking made now would hold, or null when none is free.</summary>
 public sealed record UnitAvailabilityDto(
     int FacilityId,
     int UnitTypeId,
     DateOnly MoveInDate,
     int AvailableUnits,
-    int TotalUnits);
+    int TotalUnits,
+    int RentalMonths = 1,
+    string? ExpectedUnitCode = null);
 
 public sealed record QuoteFeeDto(string Code, string Name, decimal Amount);
 
@@ -35,7 +39,8 @@ public sealed record UnitPriceQuoteDto(
     decimal RentSubtotal,
     decimal DepositAmount,
     IReadOnlyList<QuoteFeeDto> Fees,
-    decimal TotalAmount);
+    decimal TotalAmount,
+    string? ExpectedUnitCode = null);
 
 public sealed record UnitTypeRequest(
     string Code,

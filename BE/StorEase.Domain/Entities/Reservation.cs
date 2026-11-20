@@ -17,7 +17,11 @@ public class Reservation
     public int? PricingPolicyId { get; set; }
     /// <summary>The facility price version the rent was quoted from; null when the company standard price applied.</summary>
     public int? FacilityPriceVersionId { get; set; }
+    /// <summary>The handover appointment the customer chose after paying the deposit; missing it forfeits the deposit.</summary>
     public DateTime? HandoverSlot { get; set; }
+    /// <summary>Another unit staff (or the daily job) offer instead of the one held; the customer accepts or cancels with a full refund.</summary>
+    public int? ProposedStorageUnitId { get; set; }
+    public DateTime? ProposedAt { get; set; }
     public ReservationStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
 
@@ -25,6 +29,7 @@ public class Reservation
     public Facility Facility { get; set; } = null!;
     public UnitType UnitType { get; set; } = null!;
     public StorageUnit? StorageUnit { get; set; }
+    public StorageUnit? ProposedStorageUnit { get; set; }
     public User? CreatedByUser { get; set; }
     public PricingPolicy? PricingPolicy { get; set; }
     public FacilityPriceVersion? FacilityPriceVersion { get; set; }

@@ -17,6 +17,7 @@ public class ReservationConfiguration : IEntityTypeConfiguration<Reservation>
         builder.HasOne(x => x.Facility).WithMany().HasForeignKey(x => x.FacilityId);
         builder.HasOne(x => x.UnitType).WithMany().HasForeignKey(x => x.UnitTypeId);
         builder.HasOne(x => x.StorageUnit).WithMany().HasForeignKey(x => x.StorageUnitId);
+        builder.HasOne(x => x.ProposedStorageUnit).WithMany().HasForeignKey(x => x.ProposedStorageUnitId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.CreatedByUser).WithMany().HasForeignKey(x => x.CreatedBy);
         builder.Property(x => x.ReservationCode).HasMaxLength(20).IsUnicode(false);
         builder.HasIndex(x => x.MoveInDate);

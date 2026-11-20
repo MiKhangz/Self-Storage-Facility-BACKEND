@@ -224,11 +224,21 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<decimal>("DepositAmount")
                         .HasColumnType("decimal(12,2)");
 
+                    b.Property<string>("EndContactNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date");
 
+                    b.Property<DateTime?>("EndReminderAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<decimal>("MonthlyRent")
                         .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime?>("MovedToCentralStorageAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("PaymentDay")
                         .HasColumnType("int");
@@ -269,7 +279,7 @@ namespace StorEase.Infrastructure.Migrations
 
                     b.HasIndex("StorageUnitId")
                         .IsUnique()
-                        .HasFilter("[Status] IN ('Active', 'Draft')");
+                        .HasFilter("[Status] IN ('Active', 'Draft', 'Overstay')");
 
                     b.ToTable("Contract", (string)null);
                 });
@@ -972,16 +982,31 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<DateOnly?>("EffectiveTo")
                         .HasColumnType("date");
 
+                    b.Property<int>("EndReminderDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(10);
+
                     b.Property<int>("GraceDays")
                         .HasColumnType("int");
 
                     b.Property<decimal>("LateFeePercentPerWeek")
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<int>("MoveOutAfterDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(7);
+
                     b.Property<int>("NoticeDays")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(30);
+
+                    b.Property<decimal>("OverstayFeePercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(5,2)")
+                        .HasDefaultValue(150m);
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1077,11 +1102,16 @@ namespace StorEase.Infrastructure.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<int?>("TransferStorageUnitId")
+                        .HasColumnType("int");
+
                     b.HasKey("RenewalId");
 
                     b.HasIndex("ApprovedBy");
 
                     b.HasIndex("ContractId");
+
+                    b.HasIndex("TransferStorageUnitId");
 
                     b.ToTable("Renewal", (string)null);
                 });
@@ -1118,6 +1148,12 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<int?>("PricingPolicyId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("ProposedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ProposedStorageUnitId")
+                        .HasColumnType("int");
+
                     b.Property<int>("RentalMonths")
                         .HasColumnType("int");
 
@@ -1152,6 +1188,8 @@ namespace StorEase.Infrastructure.Migrations
                     b.HasIndex("MoveInDate");
 
                     b.HasIndex("PricingPolicyId");
+
+                    b.HasIndex("ProposedStorageUnitId");
 
                     b.HasIndex("ReservationCode")
                         .IsUnique();
@@ -2169,9 +2207,16 @@ namespace StorEase.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("StorEase.Domain.Entities.StorageUnit", "TransferStorageUnit")
+                        .WithMany()
+                        .HasForeignKey("TransferStorageUnitId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("ApprovedByUser");
 
                     b.Navigation("Contract");
+
+                    b.Navigation("TransferStorageUnit");
                 });
 
             modelBuilder.Entity("StorEase.Domain.Entities.Reservation", b =>
@@ -2203,6 +2248,11 @@ namespace StorEase.Infrastructure.Migrations
                         .HasForeignKey("PricingPolicyId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("StorEase.Domain.Entities.StorageUnit", "ProposedStorageUnit")
+                        .WithMany()
+                        .HasForeignKey("ProposedStorageUnitId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("StorEase.Domain.Entities.StorageUnit", "StorageUnit")
                         .WithMany()
                         .HasForeignKey("StorageUnitId")
@@ -2223,6 +2273,8 @@ namespace StorEase.Infrastructure.Migrations
                     b.Navigation("FacilityPriceVersion");
 
                     b.Navigation("PricingPolicy");
+
+                    b.Navigation("ProposedStorageUnit");
 
                     b.Navigation("StorageUnit");
 

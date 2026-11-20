@@ -6,4 +6,4 @@ public sealed record CreateRenewalRequest(int ContractId, int ExtendMonths);
 public sealed record RenewalDto(
     int RenewalId, int ContractId, string ContractNumber, string UnitCode, DateTime RequestedAt,
     int ExtendMonths, DateOnly CurrentEndDate, DateOnly NewEndDate, decimal CurrentMonthlyRent,
-    decimal NewMonthlyRent, string Status, int? ApprovedBy);
+    decimal NewMonthlyRent, string Status, int? ApprovedBy, string? TransferUnitCode = null);

@@ -17,7 +17,7 @@ public interface IUnitCatalogService
     Task<Result<UnitTypeDto>> CreateUnitTypeAsync(UnitTypeRequest request, CancellationToken ct);
     Task<Result<UnitTypeDto>> UpdateUnitTypeAsync(int unitTypeId, UnitTypeRequest request, CancellationToken ct);
     Task<Result<bool>> DeleteUnitTypeAsync(int unitTypeId, CancellationToken ct);
-    Task<Result<UnitAvailabilityDto>> GetAvailabilityAsync(int facilityId, int unitTypeId, DateOnly moveInDate, CancellationToken ct);
+    Task<Result<UnitAvailabilityDto>> GetAvailabilityAsync(int facilityId, int unitTypeId, DateOnly moveInDate, CancellationToken ct, int rentalMonths = 1);
     Task<Result<UnitPriceQuoteDto>> QuoteAsync(int facilityId, int unitTypeId, DateOnly moveInDate, int rentalMonths, CancellationToken ct);
 }
 
@@ -103,7 +103,7 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
     }
 
     public async Task<Result<UnitAvailabilityDto>> GetAvailabilityAsync(
-        int facilityId, int unitTypeId, DateOnly moveInDate, CancellationToken ct)
+        int facilityId, int unitTypeId, DateOnly moveInDate, CancellationToken ct, int rentalMonths = 1)
     {
         var facilityExists = await uow.Repository<Facility>().Query()
             .AnyAsync(f => f.FacilityId == facilityId && f.Status == FacilityStatus.Active, ct);
@@ -112,11 +112,15 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
         if (!await uow.Repository<UnitType>().Query().AnyAsync(t => t.UnitTypeId == unitTypeId, ct))
             return Error.NotFound("Unit type not found.");
 
-        var units = uow.Repository<StorageUnit>().Query()
-            .Where(u => u.FacilityId == facilityId && u.UnitTypeId == unitTypeId && u.Status != StorageUnitStatus.Retired);
-        var total = await units.CountAsync(ct);
-        var available = await units.CountAsync(u => u.Status == StorageUnitStatus.Available, ct);
-        return new UnitAvailabilityDto(facilityId, unitTypeId, moveInDate, available, total);
+        var total = await uow.Repository<StorageUnit>().Query()
+            .CountAsync(u => u.FacilityId == facilityId && u.UnitTypeId == unitTypeId && u.Status != StorageUnitStatus.Retired, ct);
+        // Free for the whole stay, not just today: a unit rented now but handed back before move-in can be booked.
+        var end = UnitSchedule.EndOf(moveInDate, Math.Max(rentalMonths, 1));
+        var free = await UnitSchedule.FreeUnitsAsync(uow, facilityId, unitTypeId, moveInDate, end, ct);
+        var unplaced = await UnitSchedule.UnplacedBookingsAsync(uow, facilityId, unitTypeId, moveInDate, end, ct);
+        var available = Math.Max(free.Count - unplaced, 0);
+        return new UnitAvailabilityDto(facilityId, unitTypeId, moveInDate, available, total, rentalMonths,
+            available > 0 ? free[0].UnitCode : null);
     }
 
     public async Task<Result<UnitPriceQuoteDto>> QuoteAsync(
@@ -124,7 +128,7 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
     {
         if (rentalMonths is < 1 or > CreateReservationRequestValidator.MaxRentalMonths)
             return Error.Validation($"Rental months must be between 1 and {CreateReservationRequestValidator.MaxRentalMonths}.");
-        var availability = await GetAvailabilityAsync(facilityId, unitTypeId, moveInDate, ct);
+        var availability = await GetAvailabilityAsync(facilityId, unitTypeId, moveInDate, ct, rentalMonths);
         if (!availability.IsSuccess)
             return availability.Error!;
         if (availability.Value.AvailableUnits == 0)
@@ -143,7 +147,7 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
             Money.Round(f.IsPercentage ? rentSubtotal * f.Amount / 100m : f.Amount))).ToList();
         var total = Money.Round(rentSubtotal + deposit + quoteFees.Sum(f => f.Amount));
         return new UnitPriceQuoteDto(facilityId, unitTypeId, moveInDate, rentalMonths,
-            policy.PricingPolicyId, policy.Version, monthlyRent, rentSubtotal, deposit, quoteFees, total);
+            policy.PricingPolicyId, policy.Version, monthlyRent, rentSubtotal, deposit, quoteFees, total, availability.Value.ExpectedUnitCode);
     }
 
     private static Expression<Func<UnitType, UnitTypeDto>> ProjectUnitType() =>

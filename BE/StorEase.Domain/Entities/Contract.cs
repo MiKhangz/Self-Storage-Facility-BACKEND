@@ -18,6 +18,11 @@ public class Contract
     public int PaymentDay { get; set; }
     public DateTime? SignedAt { get; set; }
     public ContractStatus Status { get; set; }
+    /// <summary>When the "your rental ends soon" reminder went out; staff note the call on the Ending soon list.</summary>
+    public DateTime? EndReminderAt { get; set; }
+    public string? EndContactNote { get; set; }
+    /// <summary>Set when an overstayer's goods were moved to the central warehouse and the unit freed.</summary>
+    public DateTime? MovedToCentralStorageAt { get; set; }
 
     public Reservation Reservation { get; set; } = null!;
     public PricingPolicy? PricingPolicy { get; set; }

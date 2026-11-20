@@ -19,6 +19,25 @@ public class ReservationServiceTests
         return result.Value!.ReservationId;
     }
 
+    /// <summary>Another customer's contract holds the unit for these dates.</summary>
+    private static void RentOut(TestDb t, int unitId, DateOnly start, DateOnly end, ContractStatus status = ContractStatus.Active)
+    {
+        var booking = new Reservation
+        {
+            CustomerId = OtherCustomerId, FacilityId = FacilityId, UnitTypeId = t.Db.StorageUnits.Find(unitId)!.UnitTypeId, StorageUnitId = unitId,
+            ReservationCode = $"RS-OUT{unitId}{start.DayNumber}", MoveInDate = start, RentalMonths = 1, Status = ReservationStatus.HandedOver, CreatedAt = DateTime.UtcNow,
+        };
+        t.Db.Add(booking);
+        t.Db.SaveChanges();
+        t.Db.Add(new Contract
+        {
+            ReservationId = booking.ReservationId, CustomerId = OtherCustomerId, StorageUnitId = unitId, ContractNumber = $"CT-OUT{unitId}{start.DayNumber}",
+            StartDate = start, EndDate = end, MonthlyRent = 1, DepositAmount = 1, PaymentDay = 1, Status = status,
+        });
+        t.Db.StorageUnits.Find(unitId)!.Status = StorageUnitStatus.Occupied;
+        t.Db.SaveChanges();
+    }
+
     private static StorageUnitStatus UnitStatus(TestDb t, int unitId)
     {
         t.Db.ChangeTracker.Clear();
@@ -26,7 +45,7 @@ public class ReservationServiceTests
     }
 
     [Fact]
-    public async Task Reserving_creates_a_pending_reservation_and_holds_no_unit()
+    public async Task Reserving_creates_a_pending_reservation_holding_the_expected_unit()
     {
         using var t = Create();
 
@@ -34,23 +53,24 @@ public class ReservationServiceTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Status.Should().Be(ReservationStatus.Pending);
-        result.Value.StorageUnitId.Should().BeNull();
+        result.Value.UnitCode.Should().Be("A-101", "the first unit free for the whole stay is held");
         result.Value.CustomerId.Should().Be(CustomerId);
         result.Value.ReservationCode.Should().StartWith("RS");
-        t.Db.StorageUnits.Should().OnlyContain(u => u.Status == StorageUnitStatus.Available, "business rule 2: reserving does not occupy a unit");
+        UnitStatus(t, A101).Should().Be(StorageUnitStatus.Reserved);
+        UnitStatus(t, A102).Should().Be(StorageUnitStatus.Available);
     }
 
     [Fact]
     public async Task Reserving_a_type_with_no_available_unit_is_a_conflict()
     {
         using var t = Create();
-        t.Db.StorageUnits.Find(A104)!.Status = StorageUnitStatus.Occupied;
-        t.Db.SaveChanges();
+        // The only large unit is rented through the whole stay.
+        RentOut(t, A104, MoveIn.AddDays(-30), MoveIn.AddMonths(6));
 
         var result = await As(t, Customer).CreateAsync(new CreateReservationRequest(FacilityId, LargeTypeId, MoveIn, 3), default);
 
         result.Error!.Type.Should().Be(ErrorType.Conflict);
-        t.Db.Reservations.Should().BeEmpty();
+        t.Db.Reservations.Should().NotContain(r => r.CustomerId == CustomerId);
     }
 
     [Fact]
@@ -102,7 +122,7 @@ public class ReservationServiceTests
         var result = await As(t, Staff).AssignUnitAsync(id, new AssignUnitRequest(A101), default);
 
         result.Error!.Type.Should().Be(ErrorType.Conflict);
-        result.Error.Message.Should().Contain("not Available");
+        result.Error.Message.Should().Contain("Maintenance");
     }
 
     [Fact]
@@ -128,7 +148,7 @@ public class ReservationServiceTests
         var result = await As(t, Staff).AssignUnitAsync(id, new AssignUnitRequest(A101), default);
 
         result.Error!.Type.Should().Be(ErrorType.Conflict);
-        result.Error.Message.Should().Contain("Active or Draft contract", "business rule 1");
+        result.Error.Message.Should().Contain("booked or rented", "business rule 1: a Draft contract already claims its unit");
     }
 
     [Fact]
@@ -155,7 +175,7 @@ public class ReservationServiceTests
         t.Db.ChangeTracker.Clear();
         var reservation = t.Db.Reservations.Find(id)!;
         reservation.Status.Should().Be(ReservationStatus.Pending);
-        reservation.StorageUnitId.Should().BeNull();
+        reservation.StorageUnitId.Should().Be(A101, "the expected unit stays held");
         UnitStatus(t, A104).Should().Be(StorageUnitStatus.Available);
     }
 
@@ -185,5 +205,130 @@ public class ReservationServiceTests
 
         all.Value!.TotalCount.Should().Be(2);
         pending.Value!.Items.Should().ContainSingle().Which.Status.Should().Be(ReservationStatus.Pending);
+    }
+
+    [Fact]
+    public async Task A_unit_rented_now_can_be_booked_when_the_renter_leaves_before_move_in()
+    {
+        using var t = Create();
+        RentOut(t, A104, MoveIn.AddDays(-60), MoveIn.AddDays(-1));
+
+        var result = await As(t, Customer).CreateAsync(new CreateReservationRequest(FacilityId, LargeTypeId, MoveIn, 3), default);
+
+        result.IsSuccess.Should().BeTrue(result.Error?.Message);
+        result.Value!.UnitCode.Should().Be("A-104");
+        UnitStatus(t, A104).Should().Be(StorageUnitStatus.Occupied, "the current renter is still inside; the unit is held for later");
+    }
+
+    [Fact]
+    public async Task A_renter_still_inside_after_the_end_date_blocks_the_unit()
+    {
+        using var t = Create();
+        RentOut(t, A104, MoveIn.AddDays(-90), MoveIn.AddDays(-30), ContractStatus.Overstay);
+
+        var result = await As(t, Customer).CreateAsync(new CreateReservationRequest(FacilityId, LargeTypeId, MoveIn, 3), default);
+
+        result.Error!.Type.Should().Be(ErrorType.Conflict);
+    }
+
+    [Fact]
+    public async Task Two_bookings_for_the_same_days_get_different_units()
+    {
+        using var t = Create();
+
+        var first = await As(t, Customer).CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn, 3), default);
+        var second = await As(t, OtherCustomer).CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn.AddMonths(1), 3), default);
+        var third = await As(t, Customer).CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn.AddMonths(2), 1), default);
+        var later = await As(t, OtherCustomer).CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn.AddMonths(4), 1), default);
+
+        first.Value!.UnitCode.Should().Be("A-101");
+        second.Value!.UnitCode.Should().Be("A-102");
+        third.Error!.Type.Should().Be(ErrorType.Conflict, "both small units are taken in month three");
+        later.Value!.UnitCode.Should().Be("A-101", "A-101 is free again once the first stay ends");
+    }
+
+    [Fact]
+    public async Task Staff_choosing_another_unit_asks_the_customer_who_can_accept()
+    {
+        using var t = Create();
+        var id = await Reserve(t);
+
+        var assigned = await As(t, Staff).AssignUnitAsync(id, new AssignUnitRequest(A102), default);
+        var accepted = await As(t, Customer).AcceptProposedUnitAsync(id, default);
+
+        assigned.Value!.Status.Should().Be(ReservationStatus.Pending, "the customer was promised A-101 and must agree first");
+        assigned.Value.ProposedUnitCode.Should().Be("A-102");
+        accepted.Value!.Status.Should().Be(ReservationStatus.Confirmed);
+        accepted.Value.UnitCode.Should().Be("A-102");
+        accepted.Value.ProposedStorageUnitId.Should().BeNull();
+        UnitStatus(t, A101).Should().Be(StorageUnitStatus.Available);
+        UnitStatus(t, A102).Should().Be(StorageUnitStatus.Reserved);
+    }
+
+    [Fact]
+    public async Task Declining_the_proposed_unit_cancels_with_the_whole_deposit_refunded()
+    {
+        using var t = Create();
+        t.Db.Add(new PricingPolicy { CreatedBy = StaffId, Version = 1, EffectiveFrom = new DateOnly(2025, 1, 1), DepositMonths = 1, CancelFreeHours = 0, Status = PricingPolicyStatus.Active,
+            UnitPrices = { new UnitPrice { UnitTypeId = SmallTypeId, BasePricePerMonth = 500_000m } } });
+        t.Db.SaveChanges();
+        var id = await Reserve(t);
+        var deposit = t.Db.Invoices.Single(i => i.ReservationId == id);
+        deposit.PaidAmount = deposit.TotalAmount;
+        deposit.Status = InvoiceStatus.Paid;
+        t.Db.SaveChanges();
+        await As(t, Staff).AssignUnitAsync(id, new AssignUnitRequest(A102), default);
+
+        var declined = await As(t, Customer).DeclineProposedUnitAsync(id, default);
+
+        declined.Value!.DepositRefundable.Should().BeTrue("the free-cancellation window has passed, but the change was ours");
+        declined.Value.Reservation.Status.Should().Be(ReservationStatus.Cancelled);
+        t.Db.DepositRefunds.Should().ContainSingle(r => r.ReservationId == id);
+        UnitStatus(t, A101).Should().Be(StorageUnitStatus.Available);
+    }
+
+    [Fact]
+    public async Task A_missed_appointment_expires_the_booking_and_keeps_the_deposit()
+    {
+        using var t = Create();
+        var id = await Reserve(t);
+        var set = await As(t, Customer).SetAppointmentAsync(id, new SetAppointmentRequest(MoveIn.ToDateTime(new TimeOnly(9, 0))), default);
+
+        var (expired, _) = await As(t, Staff).RunDailyAsync(MoveIn.AddDays(1), 10, default);
+
+        set.Value!.HandoverSlot.Should().Be(VietnamTime.ToUtc(MoveIn.ToDateTime(new TimeOnly(9, 0))), "stored in UTC");
+        expired.Should().Be(1);
+        t.Db.ChangeTracker.Clear();
+        t.Db.Reservations.Find(id)!.Status.Should().Be(ReservationStatus.Expired);
+        t.Db.DepositRefunds.Should().BeEmpty("a no-show forfeits the deposit");
+        UnitStatus(t, A101).Should().Be(StorageUnitStatus.Available);
+    }
+
+    [Fact]
+    public async Task An_appointment_after_move_in_or_outside_opening_hours_is_refused()
+    {
+        using var t = Create();
+        var id = await Reserve(t);
+
+        var late = await As(t, Customer).SetAppointmentAsync(id, new SetAppointmentRequest(MoveIn.AddDays(1).ToDateTime(new TimeOnly(9, 0))), default);
+        var night = await As(t, Customer).SetAppointmentAsync(id, new SetAppointmentRequest(MoveIn.ToDateTime(new TimeOnly(22, 0))), default);
+
+        late.Error!.Type.Should().Be(ErrorType.Validation);
+        night.Error!.Type.Should().Be(ErrorType.Validation);
+    }
+
+    [Fact]
+    public async Task A_booking_whose_unit_stays_rented_is_offered_another_unit()
+    {
+        using var t = Create();
+        var id = await Reserve(t);
+        // The renter of A-101 never left: their contract runs past the booking's move-in.
+        RentOut(t, A101, MoveIn.AddDays(-90), MoveIn.AddDays(-30), ContractStatus.Overstay);
+
+        var (_, proposed) = await As(t, Staff).RunDailyAsync(MoveIn.AddDays(-5), 10, default);
+
+        proposed.Should().Be(1);
+        var dto = await As(t, Customer).GetAsync(id, default);
+        dto.Value!.ProposedUnitCode.Should().Be("A-102");
     }
 }

@@ -10,7 +10,7 @@ using StorEase.Domain.Enums;
 namespace StorEase.Api.Controllers;
 
 [Route("api/contracts")]
-public class ContractsController(IContractService contracts, IAccessCodeService accessCodes) : ApiControllerBase
+public class ContractsController(IContractService contracts, IAccessCodeService accessCodes, IRentalEndService rentalEnds) : ApiControllerBase
 {
     /// <summary>Staff see every contract; a customer sees only their own.</summary>
     [HttpPost]
@@ -71,6 +71,33 @@ public class ContractsController(IContractService contracts, IAccessCodeService 
         // The BOM makes Excel read the Vietnamese names as UTF-8.
         var bytes = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(result.Value)).ToArray();
         return File(bytes, "text/csv", "contracts.csv");
+    }
+
+    /// <summary>Rentals ending within the reminder window or already past their end date; <c>overstayOnly</c> keeps the latter.</summary>
+    [HttpGet("ending")]
+    [Authorize(Roles = Roles.Staff)]
+    public async Task<ActionResult<IReadOnlyList<RentalEndDto>>> Ending(bool overstayOnly = false, CancellationToken ct = default)
+    {
+        var result = await rentalEnds.ListAsync(overstayOnly, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>Staff note after calling the renter about the end of their rental.</summary>
+    [HttpPost("{id:int}/end-contact")]
+    [Authorize(Roles = Roles.Staff)]
+    public async Task<ActionResult<RentalEndDto>> EndContact(int id, RecordEndContactRequest request, CancellationToken ct)
+    {
+        var result = await rentalEnds.RecordContactAsync(id, request, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>After the overstay grace: goods go to the central warehouse, the deposit settles the fees, the unit is freed.</summary>
+    [HttpPost("{id:int}/move-to-central-storage")]
+    [Authorize(Roles = Roles.FacilityManager)]
+    public async Task<ActionResult<RentalEndDto>> MoveToCentralStorage(int id, CancellationToken ct)
+    {
+        var result = await rentalEnds.MoveToCentralStorageAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
     [HttpPost("{id:int}/terminate")]

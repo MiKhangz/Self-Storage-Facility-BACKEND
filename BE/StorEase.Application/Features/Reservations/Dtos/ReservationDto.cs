@@ -24,9 +24,15 @@ public sealed record ReservationDto(
     int? ContractId,
     int? DepositInvoiceId = null,
     decimal? DepositAmount = null,
-    InvoiceStatus? DepositStatus = null);
+    InvoiceStatus? DepositStatus = null,
+    int? ProposedStorageUnitId = null,
+    string? ProposedUnitCode = null,
+    DateTime? HandoverSlot = null);
 
 public sealed record CancelReservationRequest(string? Reason);
+
+/// <summary>The handover appointment, in Vietnam time, between today and the move-in date.</summary>
+public sealed record SetAppointmentRequest(DateTime At);
 
 /// <summary>
 /// <see cref="DepositRefundable"/> is true when a paid deposit should be returned (cancelled inside the policy's

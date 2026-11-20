@@ -27,9 +27,9 @@ public sealed class UnitTypesController(IUnitCatalogService catalog) : ApiContro
 
     [HttpGet("{id:int}/availability")]
     [AllowAnonymous]
-    public async Task<ActionResult<UnitAvailabilityDto>> Availability(int id, int facilityId, DateOnly moveInDate, CancellationToken ct)
+    public async Task<ActionResult<UnitAvailabilityDto>> Availability(int id, int facilityId, DateOnly moveInDate, CancellationToken ct, int rentalMonths = 1)
     {
-        var result = await catalog.GetAvailabilityAsync(facilityId, id, moveInDate, ct);
+        var result = await catalog.GetAvailabilityAsync(facilityId, id, moveInDate, ct, rentalMonths);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 

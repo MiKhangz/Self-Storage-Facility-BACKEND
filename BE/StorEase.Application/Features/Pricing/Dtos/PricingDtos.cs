@@ -18,7 +18,10 @@ public sealed record PricingPolicyDto(
     PricingPolicyStatus Status,
     IReadOnlyList<UnitPriceDto> UnitPrices,
     IReadOnlyList<FeeTypeDto> Fees,
-    PriceVersionAuditDto? Audit = null);
+    PriceVersionAuditDto? Audit = null,
+    int EndReminderDays = 10,
+    decimal OverstayFeePercent = 150,
+    int MoveOutAfterDays = 7);
 
 public sealed record UnitPriceDto(
     int UnitPriceId,
@@ -43,7 +46,10 @@ public sealed record CreatePricingPolicyRequest(
     decimal EarlyTerminationPercent,
     int SuspendAfterDays,
     int ClearOutAfterDays,
-    int CancelFreeHours);
+    int CancelFreeHours,
+    int EndReminderDays = 10,
+    decimal OverstayFeePercent = 150,
+    int MoveOutAfterDays = 7);
 
 public sealed record UpdatePricingPolicyRequest(
     DateOnly EffectiveFrom,
@@ -55,7 +61,10 @@ public sealed record UpdatePricingPolicyRequest(
     decimal EarlyTerminationPercent,
     int SuspendAfterDays,
     int ClearOutAfterDays,
-    int CancelFreeHours);
+    int CancelFreeHours,
+    int EndReminderDays = 10,
+    decimal OverstayFeePercent = 150,
+    int MoveOutAfterDays = 7);
 
 public sealed record UpsertUnitPriceRequest(
     decimal BasePricePerMonth,
@@ -68,7 +77,8 @@ public sealed record FeeTypeRequest(string Code, string Name, decimal Amount, bo
 /// <summary>The rules customers agree to when booking, from the policy in force today. Public: shown before sign-in.</summary>
 public sealed record PolicyTermsDto(
     int PricingPolicyId, int Version, int DepositMonths, int GraceDays, decimal LateFeePercentPerWeek, decimal EarlyTerminationPercent,
-    int SuspendAfterDays, int ClearOutAfterDays, int CancelFreeHours, IReadOnlyList<SizeDiscountDto> Discounts);
+    int SuspendAfterDays, int ClearOutAfterDays, int CancelFreeHours, IReadOnlyList<SizeDiscountDto> Discounts,
+    int EndReminderDays = 10, decimal OverstayFeePercent = 150, int MoveOutAfterDays = 7);
 
 /// <summary>Percent off the monthly rent for a stay of at least 3, 6 or 12 months.</summary>
 public sealed record SizeDiscountDto(int UnitTypeId, decimal Discount3Month, decimal Discount6Month, decimal Discount12Month);

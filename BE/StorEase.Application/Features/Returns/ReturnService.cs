@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Features.DepositRefunds;
 using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.Returns.Dtos;
@@ -28,12 +29,14 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
     {
         var created = await uow.InTransactionAsync<int>(async () =>
         {
-            var contract = await uow.Repository<Contract>().FindAsync(request.ContractId, ct);
+            var contract = await uow.Repository<Contract>().Query().Include(c => c.AccessCodes)
+                .FirstOrDefaultAsync(c => c.ContractId == request.ContractId, ct);
             // Someone else's contract is a 404, not a 403, so ids cannot be probed.
             if (contract is null || contract.CustomerId != currentUser.UserId)
                 return Error.NotFound("Contract not found.");
-            if (contract.Status != ContractStatus.Active)
-                return Error.Conflict($"Only an Active contract can be handed back; this one is {contract.Status}.");
+            var overstaying = contract.Status == ContractStatus.Overstay;
+            if (contract.Status != ContractStatus.Active && !overstaying)
+                return Error.Conflict($"Only an Active or overstaying contract can be handed back; this one is {contract.Status}.");
 
             var open = await uow.Repository<UnitReturn>().Query().AnyAsync(m =>
                 m.ContractId == contract.ContractId &&
@@ -63,6 +66,14 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
             };
             uow.Repository<UnitReturn>().Add(unitReturn);
             contract.Status = ContractStatus.PendingReturn;
+            // Past the end date the codes were suspended; the renter gets them back to empty the unit. The fee stops here.
+            if (overstaying)
+                foreach (var code in contract.AccessCodes.Where(a => !a.IsActive && a.SuspendedAt != null))
+                {
+                    code.IsActive = true;
+                    code.SuspendedAt = null;
+                    code.ExpiresAt = deadline.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+                }
             await uow.SaveChangesAsync(ct);
             return unitReturn.UnitReturnId;
         }, ct);
@@ -182,9 +193,10 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
 
             // ponytail: a unit with major damage goes to Maintenance; staff flip it back through the unit board.
             var unit = (await uow.Repository<StorageUnit>().FindAsync(contract.StorageUnitId, ct))!;
-            unit.Status = inspection.ConditionResult == ConditionResult.MajorDamage
-                ? StorageUnitStatus.Maintenance
-                : StorageUnitStatus.Available;
+            if (inspection.ConditionResult == ConditionResult.MajorDamage)
+                unit.Status = StorageUnitStatus.Maintenance;
+            else
+                await UnitSchedule.ReleaseAsync(uow, unit, ct); // held for the next booking, else back on sale
 
             return new DepositSettlementDto(
                 unitReturn.UnitReturnId, contract.DepositAmount, damage, penalty, outstanding, refund, shortfall, unitReturn.Status);

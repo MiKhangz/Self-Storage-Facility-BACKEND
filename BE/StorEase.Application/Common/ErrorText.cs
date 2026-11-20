@@ -38,20 +38,27 @@ public static class ErrorText
         ["Open"] = "đang mở", ["Scheduled"] = "đã lên lịch", ["InProgress"] = "đang xử lý", ["Done"] = "đã xong", ["Cancelled"] = "đã hủy",
         ["Reminder"] = "nhắc nhở", ["LateFee"] = "phí trễ hạn", ["ClearOut"] = "dọn kho", ["Resolved"] = "đã giải quyết", ["Pending"] = "đang chờ",
         ["Succeeded"] = "thành công", ["Failed"] = "thất bại", ["Refunded"] = "đã hoàn", ["Superseded"] = "đã thay thế", ["Confirmed"] = "đã xác nhận",
-        ["HandedOver"] = "đã bàn giao", ["Rejected"] = "bị từ chối", ["Expired"] = "hết hạn", ["Requested"] = "đã yêu cầu", ["Approved"] = "đã duyệt",
+        ["HandedOver"] = "đã bàn giao", ["Rejected"] = "bị từ chối", ["Expired"] = "hết hạn", ["Requested"] = "đã yêu cầu", ["Approved"] = "đã duyệt", ["AwaitingCustomer"] = "chờ khách xác nhận",
         ["Inspected"] = "đã kiểm tra", ["Completed"] = "hoàn thành", ["New"] = "mới", ["WaitingForCustomer"] = "chờ khách phản hồi", ["ToDo"] = "cần làm",
-        ["Available"] = "còn trống", ["Reserved"] = "đã giữ chỗ", ["Occupied"] = "đang thuê", ["Maintenance"] = "bảo trì", ["Retired"] = "ngừng sử dụng",
+        ["Available"] = "còn trống", ["Reserved"] = "đã giữ chỗ", ["Occupied"] = "đang thuê", ["Maintenance"] = "bảo trì", ["Retired"] = "ngừng sử dụng", ["Overstay"] = "quá hạn trả kho",
     };
 
     private static readonly Dictionary<string, string> Vietnamese = new()
     {
         ["An unexpected error occurred."] = "Đã có lỗi xảy ra. Vui lòng thử lại.",
+        ["No other unit is waiting for your answer."] = "Không có kho nào khác đang chờ bạn xác nhận.",
+        ["The appointment must be between today and the move-in date."] = "Lịch hẹn phải từ hôm nay đến ngày dọn vào.",
+        ["The appointment must be during opening hours (07:00–21:00)."] = "Lịch hẹn phải trong giờ mở cửa (07:00–21:00).",
 
         // Not found
         ["Access code not found."] = "Không tìm thấy mã ra vào.",
         ["Account not found."] = "Không tìm thấy tài khoản.",
         ["Assignee not found."] = "Không tìm thấy người được giao.",
         ["Contract not found."] = "Không tìm thấy hợp đồng.",
+        ["Unit {0} is booked by the next customer and no other unit of this size is free; reject the renewal."] = "Kho {0} đã có khách đặt tiếp và không còn kho cùng cỡ trống; hãy từ chối gia hạn.",
+        ["No unit change is waiting for your answer; this renewal is {0}."] = "Không có đề xuất đổi kho nào chờ bạn trả lời; yêu cầu gia hạn này: {0}.",
+        ["Only an overstaying rental can be moved out; this one is {0}."] = "Chỉ chuyển đồ khi hợp đồng quá hạn trả kho; hợp đồng này: {0}.",
+        ["Goods can be moved out after {0} days past the end date; it has been {1}."] = "Chỉ chuyển đồ sau {0} ngày quá hạn; hiện mới {1} ngày.",
         ["Customer not found."] = "Không tìm thấy khách hàng.",
         ["Deposit refund not found."] = "Không tìm thấy khoản hoàn cọc.",
         ["Facility not found."] = "Không tìm thấy cơ sở.",
@@ -111,7 +118,7 @@ public static class ErrorText
         ["This person is not assigned to the facility."] = "Người này không được giao cho cơ sở.",
 
         // Booking and handover
-        ["A reservation can only be marked as a no-show after its move-in date."] = "Chỉ ghi nhận khách không đến sau ngày nhận kho.",
+        ["A reservation can only be marked as a no-show after its handover appointment day."] = "Chỉ đánh dấu không đến nhận kho sau ngày hẹn bàn giao.",
         ["Give either an existing customer or a new customer, not both."] = "Chọn khách hàng cũ hoặc khách hàng mới, không chọn cả hai.",
         ["Move-in date cannot be in the past."] = "Ngày nhận kho không được ở quá khứ.",
         ["No unit of this type is available at this facility."] = "Cơ sở này không còn kho loại này.",
@@ -248,7 +255,7 @@ public static class ErrorText
         ["Only a Requested return can be approved; this one is {0}."] = "Chỉ duyệt được yêu cầu trả kho đang chờ; yêu cầu này: {0}.",
         ["Only a Succeeded payment can be refunded; this one is {0}."] = "Chỉ hoàn được thanh toán thành công; thanh toán này: {0}.",
         ["Only a reservation waiting for a unit can be assigned one; this one is {0}."] = "Chỉ xếp kho cho đơn đang chờ xếp; đơn này: {0}.",
-        ["Only an Active contract can be handed back; this one is {0}."] = "Chỉ trả kho được với hợp đồng đang hiệu lực; hợp đồng này: {0}.",
+        ["Only an Active or overstaying contract can be handed back; this one is {0}."] = "Chỉ trả kho được với hợp đồng đang hiệu lực hoặc quá hạn trả kho; hợp đồng này: {0}.",
         ["Only an Active contract can be renewed; this one is {0}."] = "Chỉ gia hạn được hợp đồng đang hiệu lực; hợp đồng này: {0}.",
         ["Only an Approved return can be inspected; this one is {0}."] = "Chỉ kiểm tra được yêu cầu trả kho đã duyệt; yêu cầu này: {0}.",
         ["Overlaps shift #{0} at {1} ({2} {3}-{4})."] = "Trùng ca #{0} tại {1} ({2} {3}-{4}).",
@@ -264,6 +271,11 @@ public static class ErrorText
         ["This case is already {0}."] = "Hồ sơ này đã ở trạng thái {0}.",
         ["This policy starts on {0}; activate it on or after that date."] = "Chính sách này bắt đầu từ {0}; hãy áp dụng từ ngày đó trở đi.",
         ["Unit code {0} is already used in this facility."] = "Mã kho {0} đã được dùng trong cơ sở này.",
+        ["Unit {0} cannot be booked while it is {1}."] = "Kho {0} không đặt được khi đang ở trạng thái {1}.",
+        ["Unit {0} is booked or rented for part of this stay."] = "Kho {0} đã được đặt hoặc đang cho thuê trong một phần thời gian thuê này.",
+        ["Unit {0} was taken meanwhile; staff will offer another."] = "Kho {0} vừa có người đặt; nhân viên sẽ đề xuất kho khác.",
+        ["This booking is {0}."] = "Đơn đặt kho này: {0}.",
+        ["Only a booking not yet handed over can get an appointment; this one is {0}."] = "Chỉ đặt lịch hẹn cho đơn chưa bàn giao; đơn này: {0}.",
         ["Unit {0} already has an Active or Draft contract."] = "Kho {0} đã có hợp đồng đang hiệu lực hoặc nháp.",
         ["Unit {0} is retired; restore it before ordering work on it."] = "Kho {0} đã ngừng sử dụng; hãy khôi phục trước khi tạo lệnh.",
         ["Unit {0} is {1}, expected Reserved."] = "Kho {0} đang ở trạng thái {1}, cần là đã giữ chỗ.",

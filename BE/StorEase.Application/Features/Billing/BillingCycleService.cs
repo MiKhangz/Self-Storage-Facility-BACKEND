@@ -1,3 +1,4 @@
+using StorEase.Application.Features.Contracts;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.Invoices;
@@ -115,6 +116,8 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
         var invoices = await uow.Repository<Invoice>().Query().Include(i => i.InvoiceItems)
             .Where(i => (i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.Overdue)
                 && i.PaidAmount < i.TotalAmount && i.DueDate < today
+                // The overstay fee is not late rent: it is settled from the deposit when the unit is handed back.
+                && !i.InvoiceNumber.StartsWith(RentalEndService.OverstayPrefix)
                 // A closed rental (settled from the deposit) or a cancelled handover is not chased any more.
                 && (i.ContractId == null || (i.Contract!.Status != ContractStatus.Closed && i.Contract.Status != ContractStatus.Terminated)))
             .ToListAsync(ct);

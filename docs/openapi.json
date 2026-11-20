@@ -975,6 +975,117 @@
         }
       }
     },
+    "/api/contracts/ending": {
+      "get": {
+        "tags": [
+          "Contracts"
+        ],
+        "parameters": [
+          {
+            "name": "overstayOnly",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RentalEndDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/contracts/{id}/end-contact": {
+      "post": {
+        "tags": [
+          "Contracts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordEndContactRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordEndContactRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordEndContactRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentalEndDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/contracts/{id}/move-to-central-storage": {
+      "post": {
+        "tags": [
+          "Contracts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentalEndDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/contracts/{id}/terminate": {
       "post": {
         "tags": [
@@ -3705,6 +3816,66 @@
         }
       }
     },
+    "/api/renewals/{id}/accept-transfer": {
+      "post": {
+        "tags": [
+          "Renewals"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewalDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/renewals/{id}/decline-transfer": {
+      "post": {
+        "tags": [
+          "Renewals"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewalDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/reports/dashboard": {
       "get": {
         "tags": [
@@ -4064,6 +4235,115 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ReservationCancellationDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reservations/{id}/accept-unit": {
+      "post": {
+        "tags": [
+          "Reservations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reservations/{id}/decline-unit": {
+      "post": {
+        "tags": [
+          "Reservations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationCancellationDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reservations/{id}/appointment": {
+      "post": {
+        "tags": [
+          "Reservations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAppointmentRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAppointmentRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAppointmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationDto"
                 }
               }
             }
@@ -5799,6 +6079,15 @@
               "type": "string",
               "format": "date"
             }
+          },
+          {
+            "name": "rentalMonths",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
           }
         ],
         "responses": {
@@ -6520,7 +6809,8 @@
           "Closed",
           "Overdue",
           "Suspended",
-          "Terminated"
+          "Terminated",
+          "Overstay"
         ],
         "type": "string"
       },
@@ -6635,6 +6925,18 @@
             "format": "int32"
           },
           "cancelFreeHours": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "endReminderDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "overstayFeePercent": {
+            "type": "number",
+            "format": "double"
+          },
+          "moveOutAfterDays": {
             "type": "integer",
             "format": "int32"
           }
@@ -8564,6 +8866,18 @@
               "$ref": "#/components/schemas/SizeDiscountDto"
             },
             "nullable": true
+          },
+          "endReminderDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "overstayFeePercent": {
+            "type": "number",
+            "format": "double"
+          },
+          "moveOutAfterDays": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -8678,6 +8992,18 @@
           },
           "audit": {
             "$ref": "#/components/schemas/PriceVersionAuditDto"
+          },
+          "endReminderDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "overstayFeePercent": {
+            "type": "number",
+            "format": "double"
+          },
+          "moveOutAfterDays": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -8790,6 +9116,16 @@
           "amount": {
             "type": "number",
             "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RecordEndContactRequest": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8946,6 +9282,10 @@
             "type": "integer",
             "format": "int32",
             "nullable": true
+          },
+          "transferUnitCode": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8976,6 +9316,75 @@
             "type": "integer",
             "format": "int32",
             "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RentalEndDto": {
+        "type": "object",
+        "properties": {
+          "contractId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contractNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "unitCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "facilityName": {
+            "type": "string",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "daysLeft": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "decision": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ContractStatus"
+          },
+          "endReminderAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endContactNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "overstayDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "overstayFee": {
+            "type": "number",
+            "format": "double"
+          },
+          "canMoveOut": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -9082,6 +9491,20 @@
           },
           "depositStatus": {
             "$ref": "#/components/schemas/InvoiceStatus"
+          },
+          "proposedStorageUnitId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "proposedUnitCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "handoverSlot": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9397,6 +9820,16 @@
             "nullable": true
           },
           "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetAppointmentRequest": {
+        "type": "object",
+        "properties": {
+          "at": {
             "type": "string",
             "format": "date-time"
           }
@@ -10065,6 +10498,14 @@
           "totalUnits": {
             "type": "integer",
             "format": "int32"
+          },
+          "rentalMonths": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "expectedUnitCode": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -10283,6 +10724,10 @@
           "totalAmount": {
             "type": "number",
             "format": "double"
+          },
+          "expectedUnitCode": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -10403,6 +10848,18 @@
             "format": "int32"
           },
           "cancelFreeHours": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "endReminderDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "overstayFeePercent": {
+            "type": "number",
+            "format": "double"
+          },
+          "moveOutAfterDays": {
             "type": "integer",
             "format": "int32"
           }

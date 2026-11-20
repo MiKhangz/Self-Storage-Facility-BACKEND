@@ -81,4 +81,55 @@ public class RenewalDecisionTests
         contract.EndDate.Should().Be(End);
         contract.MonthlyRent.Should().Be(900_000m);
     }
+
+    /// <summary>Another customer booked A-101 from the day after the current rental ends.</summary>
+    private static void BookNext(TestDb t)
+    {
+        t.Db.Add(new Reservation
+        {
+            CustomerId = OtherCustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, StorageUnitId = A101, ReservationCode = "RS-NEXT",
+            MoveInDate = End.AddDays(1), RentalMonths = 3, Status = ReservationStatus.Confirmed, CreatedAt = DateTime.UtcNow,
+        });
+        t.Db.SaveChanges();
+        t.Db.ChangeTracker.Clear();
+    }
+
+    [Fact]
+    public async Task When_the_next_customer_booked_the_unit_the_renter_is_offered_another_and_moves_on_accepting()
+    {
+        var (t, renewalId, contractId) = Seed();
+        using var _ = t;
+        BookNext(t);
+
+        var approved = await As(t, StaffId, Roles.FacilityManager).ApproveAsync(renewalId, default);
+        var accepted = await As(t, CustomerId, Roles.StorageCustomer).AcceptTransferAsync(renewalId, default);
+
+        approved.Value!.Status.Should().Be(RenewalStatus.AwaitingCustomer);
+        approved.Value.TransferUnitCode.Should().Be("A-102");
+        approved.Value.NewEndDate.Should().Be(NewEnd);
+        accepted.Value!.Status.Should().Be(RenewalStatus.Approved);
+        t.Db.ChangeTracker.Clear();
+        var contract = t.Db.Contracts.Find(contractId)!;
+        contract.StorageUnitId.Should().Be(A102);
+        contract.EndDate.Should().Be(NewEnd);
+        t.Db.StorageUnits.Find(A102)!.Status.Should().Be(StorageUnitStatus.Occupied);
+        t.Db.StorageUnits.Find(A101)!.Status.Should().Be(StorageUnitStatus.Reserved, "the next customer's booking keeps A-101");
+    }
+
+    [Fact]
+    public async Task Declining_the_offered_unit_drops_the_renewal_and_keeps_the_contract_as_it_was()
+    {
+        var (t, renewalId, contractId) = Seed();
+        using var _ = t;
+        BookNext(t);
+        await As(t, StaffId, Roles.FacilityManager).ApproveAsync(renewalId, default);
+
+        var declined = await As(t, CustomerId, Roles.StorageCustomer).DeclineTransferAsync(renewalId, default);
+
+        declined.Value!.Status.Should().Be(RenewalStatus.Rejected);
+        t.Db.ChangeTracker.Clear();
+        var contract = t.Db.Contracts.Find(contractId)!;
+        contract.StorageUnitId.Should().Be(A101);
+        contract.EndDate.Should().Be(End);
+    }
 }

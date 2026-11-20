@@ -7,4 +7,6 @@ public static class RenewalStatus
     public const string Approved = "Approved";
     public const string Rejected = "Rejected";
     public const string Cancelled = "Cancelled";
+    /// <summary>Approved only if the renter agrees to move: the next customer booked their unit, so another is offered.</summary>
+    public const string AwaitingCustomer = "AwaitingCustomer";
 }

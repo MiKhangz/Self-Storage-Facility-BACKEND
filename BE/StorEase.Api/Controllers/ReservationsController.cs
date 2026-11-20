@@ -75,6 +75,33 @@ public class ReservationsController(IReservationService reservations, IWalkInSer
     }
 
     /// <summary>The counter checklist staff complete before handover.</summary>
+    /// <summary>The customer accepts the unit offered instead of the expected one.</summary>
+    [HttpPost("{id:int}/accept-unit")]
+    [Authorize(Roles = Roles.StorageCustomer)]
+    public async Task<ActionResult<ReservationDto>> AcceptUnit(int id, CancellationToken ct)
+    {
+        var result = await reservations.AcceptProposedUnitAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>The customer turns the offered unit down: the booking is cancelled and the whole deposit refunded.</summary>
+    [HttpPost("{id:int}/decline-unit")]
+    [Authorize(Roles = Roles.StorageCustomer)]
+    public async Task<ActionResult<ReservationCancellationDto>> DeclineUnit(int id, CancellationToken ct)
+    {
+        var result = await reservations.DeclineProposedUnitAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>The handover appointment (Vietnam time); missing it forfeits the deposit.</summary>
+    [HttpPost("{id:int}/appointment")]
+    [Authorize(Roles = Roles.StorageCustomer + "," + Roles.Staff)]
+    public async Task<ActionResult<ReservationDto>> Appointment(int id, SetAppointmentRequest request, CancellationToken ct)
+    {
+        var result = await reservations.SetAppointmentAsync(id, request, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
     [HttpGet("{id:int}/handover")]
     [Authorize(Roles = Roles.Staff)]
     public async Task<ActionResult<HandoverChecklistDto>> Handover(int id, CancellationToken ct)

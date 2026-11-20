@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Features.Contracts;
 using StorEase.Application.Features.Handovers.Dtos;
 using StorEase.Application.Interfaces;
@@ -48,7 +49,7 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser, IContrac
                 foreach (var code in contract.AccessCodes.Where(a => a.IsActive))
                     code.IsActive = false;
             }
-            handover.StorageUnit.Status = StorageUnitStatus.Available;
+            await UnitSchedule.ReleaseAsync(uow, handover.StorageUnit, ct);
             handover.Reservation.Status = ReservationStatus.Confirmed;
             handover.Reservation.StorageUnitId = null;
             return true;

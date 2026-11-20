@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Features.AccessCodes;
 using StorEase.Application.Features.Contracts.Dtos;
 using StorEase.Application.Features.Pricing;
@@ -134,7 +135,7 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
                 code.IsActive = false;
             // Occupied is the only state this contract could have put the unit in.
             if (contract.StorageUnit.Status == StorageUnitStatus.Occupied)
-                contract.StorageUnit.Status = StorageUnitStatus.Available;
+                await UnitSchedule.ReleaseAsync(uow, contract.StorageUnit, ct);
             return contract.ContractId;
         }, ct);
 
