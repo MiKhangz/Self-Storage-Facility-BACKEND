@@ -49,6 +49,7 @@ public static class ErrorText
         ["No other unit is waiting for your answer."] = "Không có kho nào khác đang chờ bạn xác nhận.",
         ["The appointment must be between today and the move-in date."] = "Lịch hẹn phải từ hôm nay đến ngày dọn vào.",
         ["The appointment time has already passed."] = "Giờ hẹn này đã qua.",
+        ["The appointment time has passed, so it can no longer be changed."] = "Đã qua giờ hẹn nên không thể đổi lịch hẹn.",
         ["The appointment must be during opening hours (07:00–21:00)."] = "Lịch hẹn phải trong giờ mở cửa (07:00–21:00).",
 
         // Not found

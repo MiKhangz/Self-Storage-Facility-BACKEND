@@ -342,6 +342,19 @@ public class ReservationServiceTests
     }
 
     [Fact]
+    public async Task A_missed_appointment_cannot_be_moved()
+    {
+        using var t = Create();
+        var id = await Reserve(t);
+        t.Db.Reservations.Find(id)!.HandoverSlot = DateTime.UtcNow.AddMinutes(-1);
+        await t.Db.SaveChangesAsync();
+
+        var moved = await As(t, Customer).SetAppointmentAsync(id, new SetAppointmentRequest(MoveIn.ToDateTime(new TimeOnly(9, 0))), default);
+
+        moved.Error!.Type.Should().Be(ErrorType.Conflict);
+    }
+
+    [Fact]
     public async Task A_booking_whose_unit_stays_rented_is_offered_another_unit()
     {
         using var t = Create();
