@@ -71,7 +71,8 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
         }
         return new PolicyTermsDto(policy.PricingPolicyId, policy.Version, policy.DepositMonths, policy.GraceDays,
             policy.LateFeePercentPerWeek, policy.EarlyTerminationPercent, policy.SuspendAfterDays, policy.ClearOutAfterDays,
-            policy.CancelFreeHours, discounts, policy.EndReminderDays, policy.OverstayFeePercent, policy.MoveOutAfterDays);
+            policy.CancelFreeHours, discounts, policy.EndReminderDays, policy.OverstayFeePercent, policy.MoveOutAfterDays,
+            policy.CentralStorageKeepDays);
     }
 
     public async Task<Result<PricingPolicyDto>> CreatePolicyAsync(CreatePricingPolicyRequest request, CancellationToken ct)
@@ -104,6 +105,7 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
             EndReminderDays = request.EndReminderDays,
             OverstayFeePercent = request.OverstayFeePercent,
             MoveOutAfterDays = request.MoveOutAfterDays,
+            CentralStorageKeepDays = request.CentralStorageKeepDays,
             Status = PricingPolicyStatus.Draft,
         };
         uow.Repository<PricingPolicy>().Add(policy);
@@ -141,6 +143,7 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
         policy.EndReminderDays = request.EndReminderDays;
         policy.OverstayFeePercent = request.OverstayFeePercent;
         policy.MoveOutAfterDays = request.MoveOutAfterDays;
+        policy.CentralStorageKeepDays = request.CentralStorageKeepDays;
         await uow.SaveChangesAsync(ct);
         return await GetPolicyAsync(policyId, ct);
     }
@@ -173,6 +176,7 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
             EndReminderDays = source.EndReminderDays,
             OverstayFeePercent = source.OverstayFeePercent,
             MoveOutAfterDays = source.MoveOutAfterDays,
+            CentralStorageKeepDays = source.CentralStorageKeepDays,
             Status = PricingPolicyStatus.Draft,
         };
         foreach (var price in source.UnitPrices)
@@ -342,5 +346,6 @@ public sealed class PricingService(IUnitOfWork uow, ICurrentUser currentUser) : 
                 p.BasePricePerMonth, p.Discount3Month, p.Discount6Month, p.Discount12Month)).ToList(),
         policy.FeeTypes.OrderBy(f => f.Code)
             .Select(ToDto).ToList(),
-        EndReminderDays: policy.EndReminderDays, OverstayFeePercent: policy.OverstayFeePercent, MoveOutAfterDays: policy.MoveOutAfterDays);
+        EndReminderDays: policy.EndReminderDays, OverstayFeePercent: policy.OverstayFeePercent, MoveOutAfterDays: policy.MoveOutAfterDays,
+        CentralStorageKeepDays: policy.CentralStorageKeepDays);
 }

@@ -24,6 +24,8 @@ public class PricingPolicy
     public decimal OverstayFeePercent { get; set; } = 150;
     /// <summary>Days of overstay after which staff may move the goods to the central warehouse and free the unit.</summary>
     public int MoveOutAfterDays { get; set; } = 7;
+    /// <summary>Days goods moved to the central warehouse are kept for the customer to collect.</summary>
+    public int CentralStorageKeepDays { get; set; } = 90;
     public PricingPolicyStatus Status { get; set; }
 
     public User CreatedByUser { get; set; } = null!;

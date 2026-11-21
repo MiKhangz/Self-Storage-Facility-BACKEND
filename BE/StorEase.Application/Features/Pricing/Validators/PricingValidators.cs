@@ -20,6 +20,7 @@ public sealed class CreatePricingPolicyRequestValidator : AbstractValidator<Crea
         RuleFor(x => x.EndReminderDays).InclusiveBetween(1, 60);
         RuleFor(x => x.OverstayFeePercent).InclusiveBetween(0, 500);
         RuleFor(x => x.MoveOutAfterDays).InclusiveBetween(1, 90);
+        RuleFor(x => x.CentralStorageKeepDays).InclusiveBetween(1, 365);
     }
 }
 
@@ -40,6 +41,7 @@ public sealed class UpdatePricingPolicyRequestValidator : AbstractValidator<Upda
         RuleFor(x => x.EndReminderDays).InclusiveBetween(1, 60);
         RuleFor(x => x.OverstayFeePercent).InclusiveBetween(0, 500);
         RuleFor(x => x.MoveOutAfterDays).InclusiveBetween(1, 90);
+        RuleFor(x => x.CentralStorageKeepDays).InclusiveBetween(1, 365);
     }
 }
 

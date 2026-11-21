@@ -21,7 +21,8 @@ public sealed record PricingPolicyDto(
     PriceVersionAuditDto? Audit = null,
     int EndReminderDays = 10,
     decimal OverstayFeePercent = 150,
-    int MoveOutAfterDays = 7);
+    int MoveOutAfterDays = 7,
+    int CentralStorageKeepDays = 90);
 
 public sealed record UnitPriceDto(
     int UnitPriceId,
@@ -49,7 +50,8 @@ public sealed record CreatePricingPolicyRequest(
     int CancelFreeHours,
     int EndReminderDays = 10,
     decimal OverstayFeePercent = 150,
-    int MoveOutAfterDays = 7);
+    int MoveOutAfterDays = 7,
+    int CentralStorageKeepDays = 90);
 
 public sealed record UpdatePricingPolicyRequest(
     DateOnly EffectiveFrom,
@@ -64,7 +66,8 @@ public sealed record UpdatePricingPolicyRequest(
     int CancelFreeHours,
     int EndReminderDays = 10,
     decimal OverstayFeePercent = 150,
-    int MoveOutAfterDays = 7);
+    int MoveOutAfterDays = 7,
+    int CentralStorageKeepDays = 90);
 
 public sealed record UpsertUnitPriceRequest(
     decimal BasePricePerMonth,
@@ -78,7 +81,8 @@ public sealed record FeeTypeRequest(string Code, string Name, decimal Amount, bo
 public sealed record PolicyTermsDto(
     int PricingPolicyId, int Version, int DepositMonths, int GraceDays, decimal LateFeePercentPerWeek, decimal EarlyTerminationPercent,
     int SuspendAfterDays, int ClearOutAfterDays, int CancelFreeHours, IReadOnlyList<SizeDiscountDto> Discounts,
-    int EndReminderDays = 10, decimal OverstayFeePercent = 150, int MoveOutAfterDays = 7);
+    int EndReminderDays = 10, decimal OverstayFeePercent = 150, int MoveOutAfterDays = 7,
+    int CentralStorageKeepDays = 90);
 
 /// <summary>Percent off the monthly rent for a stay of at least 3, 6 or 12 months.</summary>
 public sealed record SizeDiscountDto(int UnitTypeId, decimal Discount3Month, decimal Discount6Month, decimal Discount12Month);

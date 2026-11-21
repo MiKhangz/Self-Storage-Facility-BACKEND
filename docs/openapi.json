@@ -6939,6 +6939,10 @@
           "moveOutAfterDays": {
             "type": "integer",
             "format": "int32"
+          },
+          "centralStorageKeepDays": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -8879,6 +8883,10 @@
           "moveOutAfterDays": {
             "type": "integer",
             "format": "int32"
+          },
+          "centralStorageKeepDays": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -9003,6 +9011,10 @@
             "format": "double"
           },
           "moveOutAfterDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "centralStorageKeepDays": {
             "type": "integer",
             "format": "int32"
           }
@@ -10861,6 +10873,10 @@
             "format": "double"
           },
           "moveOutAfterDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "centralStorageKeepDays": {
             "type": "integer",
             "format": "int32"
           }

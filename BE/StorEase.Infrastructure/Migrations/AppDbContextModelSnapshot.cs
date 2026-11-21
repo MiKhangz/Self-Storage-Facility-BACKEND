@@ -964,6 +964,11 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<int>("CancelFreeHours")
                         .HasColumnType("int");
 
+                    b.Property<int>("CentralStorageKeepDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(90);
+
                     b.Property<int>("ClearOutAfterDays")
                         .HasColumnType("int");
 

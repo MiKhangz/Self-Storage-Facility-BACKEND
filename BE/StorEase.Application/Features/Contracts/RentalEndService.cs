@@ -32,8 +32,9 @@ public interface IRentalEndService
     Task<Result<IReadOnlyList<RentalEndDto>>> ListAsync(bool overstayOnly, CancellationToken ct);
     Task<Result<RentalEndDto>> RecordContactAsync(int contractId, RecordEndContactRequest request, CancellationToken ct);
     /// <summary>
-    /// After the overstay grace, staff move the goods to the central warehouse: the contract closes, the deposit pays the
-    /// overstay fee and any unpaid rent (the rest is refunded), and the unit goes to the next booking.
+    /// After the overstay grace, or when unpaid rent reaches the clear-out stage, staff move the goods to the central
+    /// warehouse: the contract closes, the deposit pays the overstay fee and any unpaid rent (the rest is refunded), and
+    /// the unit goes to the next booking. The goods are kept there for the policy's keep days.
     /// </summary>
     Task<Result<RentalEndDto>> MoveToCentralStorageAsync(int contractId, CancellationToken ct);
 }
@@ -138,12 +139,17 @@ public class RentalEndService(IUnitOfWork uow, ICurrentUser currentUser, IEmailS
                 .FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
             if (contract is null)
                 return Error.NotFound("Contract not found.");
-            if (contract.Status != ContractStatus.Overstay)
-                return Error.Conflict($"Only an overstaying rental can be moved out; this one is {contract.Status}.");
-            var days = today.DayNumber - contract.EndDate.DayNumber;
-            var wait = policy?.MoveOutAfterDays ?? 7;
-            if (days < wait)
-                return Error.Conflict($"Goods can be moved out after {wait} days past the end date; it has been {days}.");
+            var openCases = await uow.Repository<OverdueCase>().Query()
+                .Where(o => o.ContractId == contract.ContractId && o.ResolvedAt == null).ToListAsync(ct);
+            if (contract.Status == ContractStatus.Overstay)
+            {
+                var days = today.DayNumber - contract.EndDate.DayNumber;
+                var wait = policy?.MoveOutAfterDays ?? 7;
+                if (days < wait)
+                    return Error.Conflict($"Goods can be moved out after {wait} days past the end date; it has been {days}.");
+            }
+            else if (!openCases.Any(o => o.Stage == OverdueStage.ClearOut))
+                return Error.Conflict("Goods can be moved out only from an overstaying rental or an overdue case at the clear-out stage.");
 
             if (policy is not null)
                 await UpdateOverstayFeeAsync(contract, policy, today, ct);
@@ -165,6 +171,12 @@ public class RentalEndService(IUnitOfWork uow, ICurrentUser currentUser, IEmailS
             DepositRefundService.Owe(uow, reservation, refund, unitReturn);
             await DepositCover.ApplyAsync(uow, contract, contract.DepositAmount, DateTime.UtcNow, ct);
 
+            // What the deposit did not cover stays owed on its invoice; the case itself is finished.
+            foreach (var o in openCases.Where(o => o.ResolvedAt == null))
+            {
+                o.ResolvedAt = DateTime.UtcNow;
+                o.Stage = OverdueStage.Resolved;
+            }
             contract.Status = ContractStatus.Closed;
             contract.MovedToCentralStorageAt = DateTime.UtcNow;
             foreach (var code in contract.AccessCodes.Where(a => a.IsActive))
@@ -175,6 +187,13 @@ public class RentalEndService(IUnitOfWork uow, ICurrentUser currentUser, IEmailS
         }, ct);
         if (!moved.IsSuccess)
             return moved.Error;
+        var customer = await uow.Repository<Contract>().Query().Where(c => c.ContractId == moved.Value)
+            .Select(c => new { c.Customer, c.StorageUnit.UnitCode }).FirstAsync(ct);
+        var keepUntil = today.AddDays(policy?.CentralStorageKeepDays ?? 90);
+        await TryEmailAsync(customer.Customer, $"Đồ trong kho {customer.UnitCode} đã được chuyển về kho tổng",
+            $"Đồ trong kho {customer.UnitCode} đã được chuyển về kho tổng của StorEase. Tiền cọc đã được dùng để trả các khoản còn nợ. " +
+            $"Bạn có thể nhận lại đồ đến hết ngày {keepUntil:dd/MM/yyyy} sau khi thanh toán phần còn nợ (nếu có). " +
+            "Sau ngày này, StorEase gửi thông báo cuối cùng trước khi xử lý số đồ không được nhận.", ct);
         return (await ProjectAsync(moved.Value, policy, today, ct))!;
     }
 

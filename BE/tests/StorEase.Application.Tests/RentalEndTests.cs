@@ -107,6 +107,43 @@ public class RentalEndTests
     }
 
     [Fact]
+    public async Task Unpaid_rent_at_the_clear_out_stage_ends_in_the_central_warehouse()
+    {
+        using var t = Create();
+        var id = Rent(t, Today.AddMonths(2));
+        var invoice = new Invoice
+        {
+            InvoiceNumber = "INV-LATE", ContractId = id, CustomerId = CustomerId, IssueDate = Today.AddDays(-20), DueDate = Today.AddDays(-13),
+            TotalAmount = 600_000m, Status = InvoiceStatus.Overdue,
+        };
+        t.Db.Add(invoice);
+        t.Db.SaveChanges();
+        var overdue = new OverdueCase
+        {
+            ContractId = id, InvoiceId = invoice.InvoiceId, OverdueSince = Today.AddDays(-12), DaysOverdue = 13,
+            Stage = OverdueStage.Suspended, AccessSuspendedAt = DateTime.UtcNow,
+        };
+        t.Db.Add(overdue);
+        t.Db.Contracts.Find(id)!.Status = ContractStatus.Suspended;
+        t.Db.SaveChanges();
+
+        var early = await As(t, Staff).MoveToCentralStorageAsync(id, default);
+        t.Db.OverdueCases.Find(overdue.OverdueCaseId)!.Stage = OverdueStage.ClearOut;
+        t.Db.SaveChanges();
+        t.Db.ChangeTracker.Clear();
+        var moved = await As(t, Staff).MoveToCentralStorageAsync(id, default);
+
+        early.Error!.Type.Should().Be(ErrorType.Conflict, "a locked-out renter keeps the goods until the clear-out stage");
+        moved.IsSuccess.Should().BeTrue(moved.Error?.Message);
+        t.Db.ChangeTracker.Clear();
+        t.Db.Contracts.Find(id)!.Status.Should().Be(ContractStatus.Closed);
+        t.Db.Contracts.Find(id)!.MovedToCentralStorageAt.Should().NotBeNull();
+        t.Db.OverdueCases.Find(overdue.OverdueCaseId)!.ResolvedAt.Should().NotBeNull();
+        // Deposit 900,000 − unpaid rent 600,000.
+        t.Db.DepositRefunds.Should().ContainSingle(r => r.Amount == 300_000m);
+    }
+
+    [Fact]
     public async Task A_renewal_still_waiting_keeps_the_rental_running_past_its_end_date()
     {
         using var t = Create();
