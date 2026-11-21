@@ -63,4 +63,37 @@ public class ReturnSettlementTests
         (await t.Db.ReturnInspections.SingleAsync()).OtherDeduction.Should().Be(200_000m);
         pastDate.IsSuccess.Should().BeFalse("a return date in the past is refused");
     }
+
+    [Fact]
+    public async Task Settling_pays_late_rent_from_the_deposit_and_leaves_no_code_working()
+    {
+        using var t = Create();
+        var contractId = SeedActiveContract(t, earlyTerminationPercent: 0);
+        var ops = new FakeCurrentUser(98, Roles.BusinessOperationsManager);
+        // Late rent locked the customer out: an overdue invoice, its case, and a suspended (not expired) code.
+        var invoice = new Invoice
+        {
+            ContractId = contractId, CustomerId = CustomerId, InvoiceNumber = "INV-LATE", IssueDate = VietnamTime.Today.AddDays(-20),
+            DueDate = VietnamTime.Today.AddDays(-15), TotalAmount = 300_000m, Status = InvoiceStatus.Overdue,
+        };
+        t.Db.Add(invoice);
+        t.Db.SaveChanges();
+        t.Db.Add(new OverdueCase { ContractId = contractId, InvoiceId = invoice.InvoiceId, OverdueSince = VietnamTime.Today.AddDays(-14),
+            Stage = OverdueStage.Suspended, AccessSuspendedAt = DateTime.UtcNow.AddDays(-1) });
+        t.Db.Add(new AccessCode { ContractId = contractId, CodeHash = "x", IssuedAt = DateTime.UtcNow.AddDays(-30),
+            ExpiresAt = DateTime.UtcNow.AddDays(60), IsActive = false, SuspendedAt = DateTime.UtcNow.AddDays(-1) });
+        t.Db.SaveChanges();
+        t.Db.ChangeTracker.Clear();
+
+        var id = (await new ReturnService(t.Uow, Customer).RequestAsync(
+            new CreateReturnRequest(contractId, VietnamTime.Today.AddDays(1), null, RefundMethod.Cash, null), default)).Value!.UnitReturnId;
+        await new ReturnService(t.Uow, Staff).ApproveAsync(id, new ApproveReturnRequest(DateTime.UtcNow.AddDays(1)), default);
+        await new ReturnService(t.Uow, Staff).InspectAsync(id, new CreateReturnInspectionRequest(ConditionResult.Good, 0m, 0m, 0m), default);
+        var settled = await new ReturnService(t.Uow, ops).SettleAsync(id, default);
+
+        settled.Value!.RefundAmount.Should().Be(700_000m);
+        t.Db.ChangeTracker.Clear();
+        t.Db.Invoices.Single(i => i.InvoiceNumber == "INV-LATE").Status.Should().Be(InvoiceStatus.Paid, "the deposit paid it");
+        t.Db.AccessCodes.Where(a => a.ContractId == contractId).Should().OnlyContain(a => !a.IsActive, "a closed rental opens nothing");
+    }
 }

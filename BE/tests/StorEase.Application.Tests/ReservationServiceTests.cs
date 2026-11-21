@@ -266,6 +266,18 @@ public class ReservationServiceTests
     }
 
     [Fact]
+    public async Task A_unit_offered_to_one_booking_is_not_given_to_another()
+    {
+        using var t = Create();
+        var id = await Reserve(t);
+        await As(t, Staff).AssignUnitAsync(id, new AssignUnitRequest(A102), default);
+
+        var second = await As(t, OtherCustomer).CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn, 3), default);
+
+        second.Error!.Type.Should().Be(ErrorType.Conflict, "A-101 is held and A-102 is offered to the first customer");
+    }
+
+    [Fact]
     public async Task Declining_the_proposed_unit_cancels_with_the_whole_deposit_refunded()
     {
         using var t = Create();

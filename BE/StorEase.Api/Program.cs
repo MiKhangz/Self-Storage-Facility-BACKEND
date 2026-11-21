@@ -9,6 +9,7 @@ using StorEase.Api.Controllers;
 using StorEase.Api.Middleware;
 using StorEase.Application;
 using StorEase.Application.Common;
+using StorEase.Application.Features.Auth;
 using StorEase.Application.Interfaces;
 using StorEase.Infrastructure;
 using StorEase.Infrastructure.Persistence.Seed;
@@ -73,6 +74,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 if (string.IsNullOrEmpty(context.Request.Headers.Authorization))
                     context.Token = AuthController.SessionToken(context.Request);
                 return Task.CompletedTask;
+            },
+            // A disabled or demoted account loses access on its next request, not when its token expires.
+            OnTokenValidated = async context =>
+            {
+                var uow = context.HttpContext.RequestServices.GetRequiredService<IUnitOfWork>();
+                if (!await SessionCheck.StillValidAsync(uow, context.Principal?.FindFirst("sub")?.Value,
+                        context.Principal?.FindFirst("role")?.Value, context.HttpContext.RequestAborted))
+                    context.Fail("This account is no longer active.");
             },
         };
         options.TokenValidationParameters = new TokenValidationParameters

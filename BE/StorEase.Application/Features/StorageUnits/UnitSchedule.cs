@@ -98,6 +98,16 @@ public static class UnitSchedule
         foreach (var b in bookings.Where(b => EndOf(b.MoveInDate, b.RentalMonths) >= from))
             busy.Add(b.UnitId);
 
+        // A unit offered to another booking instead of its held one is taken until that customer answers.
+        var proposals = await uow.Repository<Reservation>().Query()
+            .Where(r => r.ProposedStorageUnitId != null && unitIds.Contains(r.ProposedStorageUnitId.Value)
+                && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
+                && r.MoveInDate <= to && r.ReservationId != (exceptReservationId ?? 0))
+            .Select(r => new { UnitId = r.ProposedStorageUnitId!.Value, r.MoveInDate, r.RentalMonths })
+            .ToListAsync(ct);
+        foreach (var p in proposals.Where(p => EndOf(p.MoveInDate, p.RentalMonths) >= from))
+            busy.Add(p.UnitId);
+
         // A unit offered to a renewing renter is held until they answer.
         var offered = await uow.Repository<Renewal>().Query()
             .Where(r => r.TransferStorageUnitId != null && unitIds.Contains(r.TransferStorageUnitId.Value)

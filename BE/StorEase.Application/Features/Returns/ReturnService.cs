@@ -195,7 +195,7 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
             contract.Status = ContractStatus.Closed;
 
             var codes = await uow.Repository<AccessCode>().Query()
-                .Where(a => a.ContractId == contract.ContractId && a.IsActive).ToListAsync(ct);
+                .Where(a => a.ContractId == contract.ContractId).ToListAsync(ct);
             foreach (var code in codes)
                 code.IsActive = false;
 
