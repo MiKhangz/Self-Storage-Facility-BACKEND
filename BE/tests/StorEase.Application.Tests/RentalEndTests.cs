@@ -99,6 +99,24 @@ public class RentalEndTests
         t.Db.DepositRefunds.Should().ContainSingle(r => r.Amount == 540_000m);
         t.Db.UnitReturns.Should().ContainSingle(r => r.ContractId == id && r.Status == ReturnStatus.Completed);
         t.Db.StorageUnits.Find(A101)!.Status.Should().Be(StorageUnitStatus.Reserved, "the next customer's booking holds it");
+        t.Db.Invoices.Where(i => i.ContractId == id).Should().OnlyContain(i => i.Status == InvoiceStatus.Paid,
+            "the deposit paid the overstay fee, so nothing is left to pay online");
+    }
+
+    [Fact]
+    public async Task A_renewal_still_waiting_keeps_the_rental_running_past_its_end_date()
+    {
+        using var t = Create();
+        var id = Rent(t, Today.AddDays(-1));
+        t.Db.Add(new Domain.Entities.Renewal { ContractId = id, RequestedAt = DateTime.UtcNow, ExtendMonths = 3, NewEndDate = Today.AddMonths(3),
+            NewMonthlyRent = 900_000m, Status = Features.Renewals.RenewalStatus.Requested });
+        t.Db.SaveChanges();
+
+        var run = await As(t, Staff).RunAsync(Today, default);
+
+        run.Overstayed.Should().Be(0);
+        t.Db.ChangeTracker.Clear();
+        t.Db.Contracts.Find(id)!.Status.Should().Be(ContractStatus.Active);
     }
 
     [Fact]

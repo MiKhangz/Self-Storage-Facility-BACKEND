@@ -8794,7 +8794,8 @@
           "Cash",
           "BankTransfer",
           "Gateway",
-          "Card"
+          "Card",
+          "Deposit"
         ],
         "type": "string"
       },

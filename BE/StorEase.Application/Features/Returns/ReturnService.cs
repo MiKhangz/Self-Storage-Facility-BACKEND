@@ -25,7 +25,14 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
     /// <summary>Days the customer has to empty the unit, counted from the return request.</summary>
     public const int MoveOutDays = 15;
 
-    public async Task<Result<ReturnDto>> RequestAsync(CreateReturnRequest request, CancellationToken ct)
+    public Task<Result<ReturnDto>> RequestAsync(CreateReturnRequest request, CancellationToken ct) =>
+        RequestAsync(request, atEndDate: false, ct);
+
+    /// <summary>
+    /// <paramref name="atEndDate"/>: the renter hands back on the contract's end date (they declined to renew), so the
+    /// date may be beyond the usual move-out window and is also the move-out deadline.
+    /// </summary>
+    internal async Task<Result<ReturnDto>> RequestAsync(CreateReturnRequest request, bool atEndDate, CancellationToken ct)
     {
         var created = await uow.InTransactionAsync<int>(async () =>
         {
@@ -49,7 +56,7 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
             var today = VietnamTime.Today;
             if (request.PlannedReturnDate < today)
                 return Error.Validation("The return date cannot be in the past.");
-            var deadline = today.AddDays(MoveOutDays);
+            var deadline = atEndDate ? request.PlannedReturnDate : today.AddDays(MoveOutDays);
             if (request.PlannedReturnDate > deadline)
                 return Error.Validation($"The unit must be emptied within {MoveOutDays} days, by {deadline:dd/MM/yyyy}.");
 
@@ -181,6 +188,7 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
             var (refund, shortfall) = DepositSettlement.Calculate(contract.DepositAmount, damage + penalty, outstanding);
 
             inspection.RefundAmount = refund;
+            await DepositCover.ApplyAsync(uow, contract, Math.Max(contract.DepositAmount - damage - penalty, 0m), DateTime.UtcNow, ct);
             var reservation = (await uow.Repository<Reservation>().FindAsync(contract.ReservationId, ct))!;
             DepositRefundService.Owe(uow, reservation, refund, unitReturn);
             unitReturn.Status = ReturnStatus.Completed;

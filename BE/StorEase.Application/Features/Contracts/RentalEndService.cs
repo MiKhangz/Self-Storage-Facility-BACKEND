@@ -68,9 +68,11 @@ public class RentalEndService(IUnitOfWork uow, ICurrentUser currentUser, IEmailS
         foreach (var c in toRemind)
             c.EndReminderAt = now;
 
-        // 2. Past the end date and not handed back: access stops and the overstay fee starts.
+        // 2. Past the end date, not handed back and no renewal waiting for an answer: access stops and the overstay fee
+        // starts. A renewal still waiting keeps the rental running; once it is rejected, the next run applies this.
         var overstaying = await uow.Repository<Contract>().Query().Include(c => c.AccessCodes)
-            .Where(c => Running.Contains(c.Status) && c.EndDate < today && !openReturns.Contains(c.ContractId))
+            .Where(c => Running.Contains(c.Status) && c.EndDate < today && !openReturns.Contains(c.ContractId)
+                && !waitingRenewals.Contains(c.ContractId))
             .ToListAsync(ct);
         foreach (var c in overstaying)
         {
@@ -161,6 +163,7 @@ public class RentalEndService(IUnitOfWork uow, ICurrentUser currentUser, IEmailS
             await uow.SaveChangesAsync(ct);
             var reservation = (await uow.Repository<Reservation>().FindAsync(contract.ReservationId, ct))!;
             DepositRefundService.Owe(uow, reservation, refund, unitReturn);
+            await DepositCover.ApplyAsync(uow, contract, contract.DepositAmount, DateTime.UtcNow, ct);
 
             contract.Status = ContractStatus.Closed;
             contract.MovedToCentralStorageAt = DateTime.UtcNow;

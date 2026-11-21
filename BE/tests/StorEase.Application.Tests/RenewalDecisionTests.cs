@@ -117,11 +117,23 @@ public class RenewalDecisionTests
     }
 
     [Fact]
-    public async Task Declining_the_offered_unit_drops_the_renewal_and_keeps_the_contract_as_it_was()
+    public async Task Declining_the_offered_unit_drops_the_renewal_and_hands_back_on_the_end_date()
     {
         var (t, renewalId, contractId) = Seed();
         using var _ = t;
-        BookNext(t);
+        // The rental ends 40 days from now, beyond the usual 15-day move-out window.
+        var end = VietnamTime.Today.AddDays(40);
+        var c = t.Db.Contracts.Find(contractId)!;
+        c.StartDate = end.AddMonths(-3);
+        c.EndDate = end;
+        t.Db.Renewals.Find(renewalId)!.NewEndDate = end.AddMonths(3);
+        t.Db.Add(new Reservation
+        {
+            CustomerId = OtherCustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, StorageUnitId = A101, ReservationCode = "RS-NEXT",
+            MoveInDate = end.AddDays(1), RentalMonths = 3, Status = ReservationStatus.Confirmed, CreatedAt = DateTime.UtcNow,
+        });
+        t.Db.SaveChanges();
+        t.Db.ChangeTracker.Clear();
         await As(t, StaffId, Roles.FacilityManager).ApproveAsync(renewalId, default);
 
         var declined = await As(t, CustomerId, Roles.StorageCustomer).DeclineTransferAsync(renewalId, default);
@@ -130,6 +142,8 @@ public class RenewalDecisionTests
         t.Db.ChangeTracker.Clear();
         var contract = t.Db.Contracts.Find(contractId)!;
         contract.StorageUnitId.Should().Be(A101);
-        contract.EndDate.Should().Be(End);
+        contract.EndDate.Should().Be(end);
+        t.Db.UnitReturns.Should().ContainSingle(r => r.ContractId == contractId && r.PlannedReturnDate == end && r.MoveOutDeadline == end,
+            "declining hands the unit back on the end date, however far off it is");
     }
 }

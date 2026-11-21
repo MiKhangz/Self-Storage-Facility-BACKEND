@@ -149,6 +149,8 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
             if (renewal.Status != RenewalStatus.AwaitingCustomer)
                 return Error.Conflict($"No unit change is waiting for your answer; this renewal is {renewal.Status}.");
             var contract = renewal.Contract;
+            if (contract.Status != ContractStatus.Active)
+                return Error.Conflict($"Only an Active contract can be renewed; this one is {contract.Status}.");
             var target = (await uow.Repository<StorageUnit>().FindAsync(renewal.TransferStorageUnitId!.Value, ct))!;
             if (!await UnitSchedule.IsFreeAsync(uow, target.StorageUnitId, VietnamTime.Today, renewal.NewEndDate, ct, exceptContractId: contract.ContractId))
                 return Error.Conflict($"Unit {target.UnitCode} was taken meanwhile; staff will offer another.");
@@ -174,12 +176,14 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
             return Error.NotFound("Renewal not found.");
         if (renewal.Status != RenewalStatus.AwaitingCustomer)
             return Error.Conflict($"No unit change is waiting for your answer; this renewal is {renewal.Status}.");
+        // Hand back on the end date: no early-return penalty, so the deposit comes back in full after inspection.
+        var handBack = await new ReturnService(uow, currentUser).RequestAsync(
+            new CreateReturnRequest(renewal.ContractId, renewal.Contract.EndDate, "Không gia hạn: kho đã có khách đặt tiếp", null, null),
+            atEndDate: true, ct);
+        if (!handBack.IsSuccess)
+            return handBack.Error;
         renewal.Status = RenewalStatus.Rejected;
         await uow.SaveChangesAsync(ct);
-        // Hand back on the end date: no early-return penalty, so the deposit comes back in full after inspection.
-        // When the end date is still beyond the move-out window, the renter requests the return later as usual.
-        await new ReturnService(uow, currentUser).RequestAsync(
-            new CreateReturnRequest(renewal.ContractId, renewal.Contract.EndDate, "Không gia hạn: kho đã có khách đặt tiếp", null, null), ct);
         return await GetAsync(id, ct);
     }
 

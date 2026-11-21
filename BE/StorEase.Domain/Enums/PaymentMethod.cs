@@ -5,5 +5,7 @@ public enum PaymentMethod
     Cash,
     BankTransfer,
     Gateway,
-    Card
+    Card,
+    /// <summary>Taken from the deposit when the rental closed.</summary>
+    Deposit
 }
