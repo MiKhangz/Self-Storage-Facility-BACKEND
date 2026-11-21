@@ -47,7 +47,8 @@ public sealed class ReportService(IUnitOfWork uow, ICurrentUser currentUser) : I
         var monthStart = VietnamTime.ToUtc(new DateTime(today.Year, today.Month, 1));
         var contracts = uow.Repository<Contract>().Query().Where(c => scope.Contains(c.StorageUnit.FacilityId));
         var activeContracts = await contracts.CountAsync(c => c.Status == ContractStatus.Active
-            || c.Status == ContractStatus.Overdue || c.Status == ContractStatus.Suspended || c.Status == ContractStatus.PendingReturn, ct);
+            || c.Status == ContractStatus.Overdue || c.Status == ContractStatus.Suspended || c.Status == ContractStatus.PendingReturn
+            || c.Status == ContractStatus.Overstay, ct);
         var upcoming = await uow.Repository<Reservation>().Query().CountAsync(r => scope.Contains(r.FacilityId)
             && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
             && r.MoveInDate >= today && r.MoveInDate <= today.AddDays(7), ct);
@@ -57,7 +58,9 @@ public sealed class ReportService(IUnitOfWork uow, ICurrentUser currentUser) : I
         var outstanding = await invoices.Where(i => i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.Overdue)
             .Select(i => i.TotalAmount - i.PaidAmount).ToListAsync(ct);
         var revenue = await uow.Repository<Payment>().Query()
-            .Where(p => p.Status == PaymentStatus.Succeeded && p.PaidAt >= monthStart && invoices.Select(i => i.InvoiceId).Contains(p.InvoiceId))
+            // Money taken from the deposit was already collected when the deposit was paid.
+            .Where(p => p.Status == PaymentStatus.Succeeded && p.Method != PaymentMethod.Deposit && p.PaidAt >= monthStart
+                && invoices.Select(i => i.InvoiceId).Contains(p.InvoiceId))
             .Select(p => p.Amount).ToListAsync(ct);
         var openTickets = await uow.Repository<SupportTicket>().Query().CountAsync(t => scope.Contains(t.FacilityId)
             && t.Status != SupportTicketStatus.Resolved && t.Status != SupportTicketStatus.Closed, ct);
@@ -100,9 +103,10 @@ public sealed class ReportService(IUnitOfWork uow, ICurrentUser currentUser) : I
         var start = VietnamTime.ToUtc(from.ToDateTime(TimeOnly.MinValue));
         var end = VietnamTime.ToUtc(to.AddDays(1).ToDateTime(TimeOnly.MinValue));
         var invoiceIds = InScope(uow.Repository<Invoice>().Query(), scope).Select(i => i.InvoiceId);
-        // Refunded payments were collected first, so they count in both columns.
+        // Refunded payments were collected first, so they count in both columns. Money taken from the deposit was
+        // already collected when the deposit was paid, so it is left out.
         var payments = await uow.Repository<Payment>().Query()
-            .Where(p => (p.Status == PaymentStatus.Succeeded || p.Status == PaymentStatus.Refunded)
+            .Where(p => (p.Status == PaymentStatus.Succeeded || p.Status == PaymentStatus.Refunded) && p.Method != PaymentMethod.Deposit
                 && p.PaidAt >= start && p.PaidAt < end && invoiceIds.Contains(p.InvoiceId))
             .Select(p => new { p.PaidAt, p.Amount, p.Method, p.Status })
             .ToListAsync(ct);

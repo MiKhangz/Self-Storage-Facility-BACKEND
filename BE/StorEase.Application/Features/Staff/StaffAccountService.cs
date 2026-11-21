@@ -137,7 +137,7 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
             foreach (var row in current.Where(r => !wanted.Contains(r.FacilityId)))
                 uow.Repository<StaffFacility>().Remove(row);
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = VietnamTime.Today;
             foreach (var facilityId in wanted.Except(current.Select(r => r.FacilityId)))
                 uow.Repository<StaffFacility>().Add(
                     new StaffFacility { UserId = userId, FacilityId = facilityId, AssignedDate = today });
@@ -149,7 +149,7 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
     /// <summary>Describes open work that ties <paramref name="userId"/> to one of the facilities, or null if none.</summary>
     private async Task<Error?> OpenWorkAsync(int userId, List<int> facilityIds, CancellationToken ct)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        var today = VietnamTime.Today;
         var shifts = await uow.Repository<Shift>().Query()
             .CountAsync(s => s.UserId == userId && facilityIds.Contains(s.FacilityId) && s.ShiftDate >= today, ct);
         var tickets = await uow.Repository<SupportTicket>().Query()

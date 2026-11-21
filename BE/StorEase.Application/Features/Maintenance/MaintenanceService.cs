@@ -186,7 +186,7 @@ public class MaintenanceService(IUnitOfWork uow, ICurrentUser currentUser) : IMa
     private async Task<bool> HoldsUnitAsync(int customerId, int storageUnitId, CancellationToken ct) =>
         await uow.Repository<Contract>().Query().AnyAsync(c => c.CustomerId == customerId && c.StorageUnitId == storageUnitId
             && (c.Status == ContractStatus.Active || c.Status == ContractStatus.Overdue || c.Status == ContractStatus.Suspended
-                || c.Status == ContractStatus.PendingReturn), ct)
+                || c.Status == ContractStatus.PendingReturn || c.Status == ContractStatus.Overstay), ct)
         || await uow.Repository<Reservation>().Query().AnyAsync(r => r.CustomerId == customerId && r.StorageUnitId == storageUnitId
             && r.Status == ReservationStatus.Confirmed, ct);
 }

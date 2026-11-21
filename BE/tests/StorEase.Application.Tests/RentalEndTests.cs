@@ -1,6 +1,7 @@
 using FluentAssertions;
 using StorEase.Application.Common;
 using StorEase.Application.Features.Contracts;
+using StorEase.Application.Features.Reports;
 using StorEase.Application.Features.Returns;
 using StorEase.Application.Features.Returns.Dtos;
 using StorEase.Domain.Entities;
@@ -101,6 +102,8 @@ public class RentalEndTests
         t.Db.StorageUnits.Find(A101)!.Status.Should().Be(StorageUnitStatus.Reserved, "the next customer's booking holds it");
         t.Db.Invoices.Where(i => i.ContractId == id).Should().OnlyContain(i => i.Status == InvoiceStatus.Paid,
             "the deposit paid the overstay fee, so nothing is left to pay online");
+        var revenue = await new ReportService(t.Uow, Staff).RevenueAsync(Today.AddDays(-1), Today.AddDays(1), null, default);
+        revenue.Value!.Collected.Should().Be(0m, "money taken from the deposit was collected when the deposit was paid");
     }
 
     [Fact]
