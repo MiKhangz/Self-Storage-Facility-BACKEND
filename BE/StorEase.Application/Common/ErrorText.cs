@@ -48,6 +48,7 @@ public static class ErrorText
         ["An unexpected error occurred."] = "Đã có lỗi xảy ra. Vui lòng thử lại.",
         ["No other unit is waiting for your answer."] = "Không có kho nào khác đang chờ bạn xác nhận.",
         ["The appointment must be between today and the move-in date."] = "Lịch hẹn phải từ hôm nay đến ngày dọn vào.",
+        ["The appointment time has already passed."] = "Giờ hẹn này đã qua.",
         ["The appointment must be during opening hours (07:00–21:00)."] = "Lịch hẹn phải trong giờ mở cửa (07:00–21:00).",
 
         // Not found

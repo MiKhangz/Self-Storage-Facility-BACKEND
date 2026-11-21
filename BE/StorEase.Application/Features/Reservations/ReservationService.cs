@@ -306,6 +306,8 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
         // Stored in UTC like every other moment; the rules read it in Vietnam time.
         var at = VietnamTime.ToUtc(request.At);
         var day = VietnamTime.DayOf(at);
+        if (at < DateTime.UtcNow)
+            return Error.Validation("The appointment time has already passed.");
         if (day < VietnamTime.Today || day > reservation.MoveInDate)
             return Error.Validation("The appointment must be between today and the move-in date.");
         if (at.AddHours(7).Hour is < 7 or >= 21)

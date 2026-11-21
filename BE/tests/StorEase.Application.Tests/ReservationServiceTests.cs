@@ -330,6 +330,18 @@ public class ReservationServiceTests
     }
 
     [Fact]
+    public async Task An_appointment_time_that_has_passed_is_refused()
+    {
+        using var t = Create();
+        var id = await Reserve(t);
+
+        var past = await As(t, Customer).SetAppointmentAsync(
+            id, new SetAppointmentRequest(DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7).AddMinutes(-1), DateTimeKind.Unspecified)), default);
+
+        past.Error!.Message.Should().Contain("already passed");
+    }
+
+    [Fact]
     public async Task A_booking_whose_unit_stays_rented_is_offered_another_unit()
     {
         using var t = Create();
