@@ -21,6 +21,13 @@ public static class UnitSchedule
         ContractStatus.Suspended, ContractStatus.Overstay,
     ];
 
+    /// <summary>
+    /// Contracts still on their unit. One at a time: the index allows only one Active, Draft or Overstay, and the others
+    /// can return to those (a payment, the end date), which would fail that save.
+    /// </summary>
+    public static IQueryable<Contract> HoldingContracts(IUnitOfWork uow) =>
+        uow.Repository<Contract>().Query().Where(c => Holding.Contains(c.Status));
+
     /// <summary>The last day a booking covers.</summary>
     public static DateOnly EndOf(DateOnly moveIn, int months) => moveIn.AddMonths(months).AddDays(-1);
 

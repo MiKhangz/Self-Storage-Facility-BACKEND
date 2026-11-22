@@ -293,7 +293,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
 
     /// <summary>
     /// The drafted contract follows the booking to its new unit, unsigned because it named the old one. When that unit
-    /// still carries another contract until move-in (one Active, Draft or Overstay per unit), the draft ends instead and
+    /// still carries another contract until move-in (one contract at a time on a unit), the draft ends instead and
     /// staff draw it up again.
     /// </summary>
     private async Task MoveDraftAsync(int reservationId, int unitId, CancellationToken ct)
@@ -303,8 +303,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             && c.Status == ContractStatus.Draft && c.StorageUnitId != unitId, ct);
         if (draft is null)
             return;
-        if (await contracts.AnyAsync(c => c.StorageUnitId == unitId
-                && (c.Status == ContractStatus.Active || c.Status == ContractStatus.Draft || c.Status == ContractStatus.Overstay), ct))
+        if (await UnitSchedule.HoldingContracts(uow).AnyAsync(c => c.StorageUnitId == unitId, ct))
         {
             draft.Status = ContractStatus.Terminated;
             return;

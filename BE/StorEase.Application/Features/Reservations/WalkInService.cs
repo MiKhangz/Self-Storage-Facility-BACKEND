@@ -7,6 +7,7 @@ using StorEase.Application.Features.Invoices.Dtos;
 using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.Reservations.Dtos;
 using StorEase.Application.Features.Reservations.Validators;
+using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
@@ -99,9 +100,8 @@ public class WalkInService(
             if (unit.Status != StorageUnitStatus.Available)
                 return Error.Conflict($"Unit {unit.UnitCode} is {unit.Status}, not Available.");
             // Business rule 1: a Draft contract already claims its unit.
-            if (await uow.Repository<Contract>().Query().AnyAsync(c => c.StorageUnitId == unit.StorageUnitId
-                    && (c.Status == ContractStatus.Active || c.Status == ContractStatus.Draft), ct))
-                return Error.Conflict($"Unit {unit.UnitCode} already has an Active or Draft contract.");
+            if (await UnitSchedule.HoldingContracts(uow).AnyAsync(c => c.StorageUnitId == unit.StorageUnitId, ct))
+                return Error.Conflict($"Unit {unit.UnitCode} already has a contract that has not ended.");
 
             var customer = await ResolveCustomerAsync(request, ct);
             if (!customer.IsSuccess)

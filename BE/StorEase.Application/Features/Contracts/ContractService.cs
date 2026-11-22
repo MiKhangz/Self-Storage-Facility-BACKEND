@@ -39,10 +39,9 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
             if (reservation.Status != ReservationStatus.Confirmed || reservation.StorageUnitId is not { } unitId)
                 return Error.Conflict($"A contract is drafted for a Confirmed reservation with a unit assigned; this one is {reservation.Status}.");
 
-            // Business rule 1: one Active/Draft contract per unit (also a filtered unique index).
-            if (await uow.Repository<Contract>().Query().AnyAsync(c => c.StorageUnitId == unitId
-                    && (c.Status == ContractStatus.Active || c.Status == ContractStatus.Draft), ct))
-                return Error.Conflict("The unit already has an Active or Draft contract.");
+            // Business rule 1: one contract at a time on a unit.
+            if (await UnitSchedule.HoldingContracts(uow).AnyAsync(c => c.StorageUnitId == unitId, ct))
+                return Error.Conflict("The unit already has a contract that has not ended.");
 
             // The rent and deposit the customer was quoted when booking, even if a new price was published since.
             var terms = await RentCalculator.TermsAsync(uow, reservation.FacilityId, reservation.UnitTypeId, reservation.MoveInDate, reservation.RentalMonths, ct,
@@ -107,12 +106,11 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
             if (contract.SignedAt is null)
                 return Error.Conflict("The customer has not signed the contract yet.");
 
-            // Business rule 1: one Active/Draft contract per unit. The DB has a filtered unique index too.
-            var clash = await uow.Repository<Contract>().Query().AnyAsync(c =>
-                c.StorageUnitId == contract.StorageUnitId && c.ContractId != contract.ContractId
-                && (c.Status == ContractStatus.Active || c.Status == ContractStatus.Draft), ct);
+            // Business rule 1: one contract at a time on a unit.
+            var clash = await UnitSchedule.HoldingContracts(uow).AnyAsync(c =>
+                c.StorageUnitId == contract.StorageUnitId && c.ContractId != contract.ContractId, ct);
             if (clash)
-                return Error.Conflict("The unit already has another Active or Draft contract.");
+                return Error.Conflict("The unit already has another contract that has not ended.");
 
             contract.Status = ContractStatus.Active;
             return accessCodes.Issue(contract).Code;

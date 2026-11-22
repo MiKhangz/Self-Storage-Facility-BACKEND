@@ -124,6 +124,11 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
             {
                 var unit = (await uow.Repository<StorageUnit>().FindAsync(contract.StorageUnitId, ct))!;
                 var free = await UnitSchedule.FreeUnitsAsync(uow, unit.FacilityId, unit.UnitTypeId, VietnamTime.Today, renewal.NewEndDate, ct);
+                // Free for the period is not enough to move onto: a draft for a later rental already claims its unit.
+                var freeIds = free.Select(u => u.StorageUnitId).ToList();
+                var claimed = await UnitSchedule.HoldingContracts(uow).Where(c => freeIds.Contains(c.StorageUnitId))
+                    .Select(c => c.StorageUnitId).ToListAsync(ct);
+                free.RemoveAll(u => claimed.Contains(u.StorageUnitId));
                 if (free.Count == 0)
                     return Error.Conflict($"Unit {unit.UnitCode} is booked by the next customer and no other unit of this size is free; reject the renewal.");
                 renewal.TransferStorageUnitId = free[0].StorageUnitId;
@@ -152,7 +157,8 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
             if (contract.Status != ContractStatus.Active)
                 return Error.Conflict($"Only an Active contract can be renewed; this one is {contract.Status}.");
             var target = (await uow.Repository<StorageUnit>().FindAsync(renewal.TransferStorageUnitId!.Value, ct))!;
-            if (!await UnitSchedule.IsFreeAsync(uow, target.StorageUnitId, VietnamTime.Today, renewal.NewEndDate, ct, exceptContractId: contract.ContractId))
+            if (await UnitSchedule.HoldingContracts(uow).AnyAsync(c => c.StorageUnitId == target.StorageUnitId, ct)
+                || !await UnitSchedule.IsFreeAsync(uow, target.StorageUnitId, VietnamTime.Today, renewal.NewEndDate, ct, exceptContractId: contract.ContractId))
                 return Error.Conflict($"Unit {target.UnitCode} was taken meanwhile; staff will offer another.");
 
             // The contract moves now so the old unit is ready for the next customer; access codes belong to the contract and carry over.
