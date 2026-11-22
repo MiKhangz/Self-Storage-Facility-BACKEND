@@ -61,6 +61,13 @@ public class RentalEndService(IUnitOfWork uow, ICurrentUser currentUser, IEmailS
         var waitingRenewals = uow.Repository<Domain.Entities.Renewal>().Query()
             .Where(r => r.Status == Renewals.RenewalStatus.Requested || r.Status == Renewals.RenewalStatus.AwaitingCustomer).Select(r => r.ContractId);
 
+        // An offer of another unit waits only until the end date: then it lapses and that unit is free again.
+        var lapsed = await uow.Repository<Domain.Entities.Renewal>().Query()
+            .Where(r => r.Status == Renewals.RenewalStatus.AwaitingCustomer && r.Contract.EndDate < today).ToListAsync(ct);
+        foreach (var r in lapsed)
+            r.Status = Renewals.RenewalStatus.Rejected;
+        await uow.SaveChangesAsync(ct);
+
         // 1. "Your rental ends soon": once, when the end date comes within the reminder window and nothing is decided.
         var horizon = today.AddDays(policy.EndReminderDays);
         var toRemind = await uow.Repository<Contract>().Query().Include(c => c.Customer).Include(c => c.StorageUnit)
@@ -71,7 +78,7 @@ public class RentalEndService(IUnitOfWork uow, ICurrentUser currentUser, IEmailS
             c.EndReminderAt = now;
 
         // 2. Past the end date, not handed back and no renewal waiting for an answer: access stops and the overstay fee
-        // starts. A renewal still waiting keeps the rental running; once it is rejected, the next run applies this.
+        // starts. A renewal waiting for staff keeps the rental running; once it is rejected, the next run applies this.
         var overstaying = await uow.Repository<Contract>().Query().Include(c => c.AccessCodes)
             .Where(c => Running.Contains(c.Status) && c.EndDate < today && !openReturns.Contains(c.ContractId)
                 && !waitingRenewals.Contains(c.ContractId))

@@ -23,7 +23,7 @@ public interface IRenewalService
     /// </summary>
     Task<Result<RenewalDto>> ApproveAsync(int id, CancellationToken ct);
 
-    /// <summary>T-01: the contract is left as it is.</summary>
+    /// <summary>T-01: the contract is left as it is. Also withdraws an offer of another unit the renter has not answered.</summary>
     Task<Result<RenewalDto>> RejectAsync(int id, CancellationToken ct);
 
     /// <summary>The renter agrees to move to the unit offered: the contract moves there and is extended.</summary>
@@ -123,6 +123,8 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
                     exceptReservationId: contract.ReservationId, exceptContractId: contract.ContractId))
             {
                 var unit = (await uow.Repository<StorageUnit>().FindAsync(contract.StorageUnitId, ct))!;
+                if (contract.EndDate < VietnamTime.Today)
+                    return Error.Conflict($"The rental has ended and the next customer booked unit {unit.UnitCode}; reject the renewal.");
                 var free = await UnitSchedule.FreeUnitsAsync(uow, unit.FacilityId, unit.UnitTypeId, VietnamTime.Today, renewal.NewEndDate, ct);
                 // Free for the period is not enough to move onto: a draft for a later rental already claims its unit.
                 var freeIds = free.Select(u => u.StorageUnitId).ToList();
@@ -156,6 +158,8 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
             var contract = renewal.Contract;
             if (contract.Status != ContractStatus.Active)
                 return Error.Conflict($"Only an Active contract can be renewed; this one is {contract.Status}.");
+            if (contract.EndDate < VietnamTime.Today)
+                return Error.Conflict("The rental has ended, so the offer of another unit is closed.");
             var target = (await uow.Repository<StorageUnit>().FindAsync(renewal.TransferStorageUnitId!.Value, ct))!;
             if (await UnitSchedule.HoldingContracts(uow).AnyAsync(c => c.StorageUnitId == target.StorageUnitId, ct)
                 || !await UnitSchedule.IsFreeAsync(uow, target.StorageUnitId, VietnamTime.Today, renewal.NewEndDate, ct, exceptContractId: contract.ContractId))
@@ -183,9 +187,12 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
         if (renewal.Status != RenewalStatus.AwaitingCustomer)
             return Error.Conflict($"No unit change is waiting for your answer; this renewal is {renewal.Status}.");
         // Hand back on the end date: no early-return penalty, so the deposit comes back in full after inspection.
+        // Once that date has passed it is a normal hand-back from today.
+        var today = VietnamTime.Today;
+        var ended = renewal.Contract.EndDate < today;
         var handBack = await new ReturnService(uow, currentUser).RequestAsync(
-            new CreateReturnRequest(renewal.ContractId, renewal.Contract.EndDate, "Không gia hạn: kho đã có khách đặt tiếp", null, null),
-            atEndDate: true, ct);
+            new CreateReturnRequest(renewal.ContractId, ended ? today : renewal.Contract.EndDate, "Không gia hạn: kho đã có khách đặt tiếp", null, null),
+            atEndDate: !ended, ct);
         if (!handBack.IsSuccess)
             return handBack.Error;
         renewal.Status = RenewalStatus.Rejected;
@@ -216,8 +223,8 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
         var renewal = await Managed().FirstOrDefaultAsync(r => r.RenewalId == id, ct);
         if (renewal is null)
             return Error.NotFound("Renewal not found.");
-        if (renewal.Status != RenewalStatus.Requested)
-            return Error.Conflict($"Only a Requested renewal can be rejected; this one is {renewal.Status}.");
+        if (renewal.Status is not (RenewalStatus.Requested or RenewalStatus.AwaitingCustomer))
+            return Error.Conflict($"Only a renewal still waiting can be rejected; this one is {renewal.Status}.");
         renewal.Status = RenewalStatus.Rejected;
         renewal.ApprovedBy = currentUser.UserId;
         await uow.SaveChangesAsync(ct);
