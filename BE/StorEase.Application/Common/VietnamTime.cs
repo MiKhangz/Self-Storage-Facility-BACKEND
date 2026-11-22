@@ -14,6 +14,9 @@ public static class VietnamTime
     /// <summary>The Vietnam calendar day of a stored (UTC) moment.</summary>
     public static DateOnly DayOf(DateTime utc) => DateOnly.FromDateTime(utc + Offset);
 
+    /// <summary>The UTC moment a Vietnam calendar day begins.</summary>
+    public static DateTime StartOf(DateOnly day) => ToUtc(day.ToDateTime(TimeOnly.MinValue));
+
     public static DateTime ToUtc(DateTime value) => value.Kind switch
     {
         DateTimeKind.Utc => value,

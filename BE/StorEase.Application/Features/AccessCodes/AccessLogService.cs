@@ -44,12 +44,12 @@ public class AccessLogService(IUnitOfWork uow, ICurrentUser currentUser) : IAcce
             return Error.Validation("'from' must not be after 'to'.");
         if (from is not null)
         {
-            var start = from.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            var start = VietnamTime.StartOf(from.Value);
             query = query.Where(l => l.AccessTime >= start);
         }
         if (to is not null)
         {
-            var end = to.Value.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            var end = VietnamTime.StartOf(to.Value.AddDays(1));
             query = query.Where(l => l.AccessTime < end);
         }
 

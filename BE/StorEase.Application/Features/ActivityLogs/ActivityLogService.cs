@@ -79,12 +79,12 @@ public class ActivityLogService(IUnitOfWork uow) : IActivityLogService
             query = query.Where(l => l.Action.Contains(action));
         if (from is not null)
         {
-            var start = from.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            var start = VietnamTime.StartOf(from.Value);
             query = query.Where(l => l.CreatedAt >= start);
         }
         if (to is not null)
         {
-            var end = to.Value.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            var end = VietnamTime.StartOf(to.Value.AddDays(1));
             query = query.Where(l => l.CreatedAt < end);
         }
 
