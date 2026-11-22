@@ -56,6 +56,7 @@ builder.Services.AddControllers(options =>
     })
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
+builder.Services.AddAuthLimits();
 
 // Off for tools that start the app without wanting side effects (OpenAPI export sets Billing__RunInBackground=false).
 if (builder.Configuration.GetValue("Billing:RunInBackground", true))
@@ -156,6 +157,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseCors(AnyOriginCors);
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

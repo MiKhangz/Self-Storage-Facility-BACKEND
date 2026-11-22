@@ -2,6 +2,8 @@ using System.Text.RegularExpressions;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using StorEase.Api.Middleware;
 using StorEase.Application.Features.Auth;
 using StorEase.Application.Features.Auth.Dtos;
 
@@ -37,6 +39,8 @@ public class AuthController(IAuthService auth) : ApiControllerBase
     private static readonly Regex TabId = new("^[a-f0-9]{16}$", RegexOptions.Compiled);
 
     [HttpPost("login")]
+    [EnableRateLimiting(AuthLimits.PerAddress)]
+    [LimitAttempts(20, 5, PerAddress = true)]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request, CancellationToken ct)
     {
         var result = await auth.LoginAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString(), ct);
@@ -79,6 +83,7 @@ public class AuthController(IAuthService auth) : ApiControllerBase
 
     /// <summary>Creates a customer account in Pending and emails a verification link.</summary>
     [HttpPost("register")]
+    [EnableRateLimiting(AuthLimits.PerAddress)]
     [ProducesResponseType<RegisterResponse>(StatusCodes.Status201Created)]
     public async Task<ActionResult<RegisterResponse>> Register(RegisterRequest request, CancellationToken ct)
     {
@@ -87,6 +92,7 @@ public class AuthController(IAuthService auth) : ApiControllerBase
     }
 
     [HttpPost("verify-email")]
+    [EnableRateLimiting(AuthLimits.PerAddress)]
     public async Task<IActionResult> VerifyEmail(VerifyEmailRequest request, CancellationToken ct)
     {
         var result = await auth.VerifyEmailAsync(request, ct);
@@ -95,6 +101,8 @@ public class AuthController(IAuthService auth) : ApiControllerBase
 
     /// <summary>Always 204, whether or not the email has an account.</summary>
     [HttpPost("resend-verification")]
+    [EnableRateLimiting(AuthLimits.PerAddress)]
+    [LimitAttempts(5, 15)]
     public async Task<IActionResult> ResendVerification(ResendVerificationRequest request, CancellationToken ct)
     {
         var result = await auth.ResendVerificationAsync(request, ct);
@@ -103,6 +111,8 @@ public class AuthController(IAuthService auth) : ApiControllerBase
 
     /// <summary>Always 204, whether or not the email has an account.</summary>
     [HttpPost("forgot-password")]
+    [EnableRateLimiting(AuthLimits.PerAddress)]
+    [LimitAttempts(5, 15)]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken ct)
     {
         var result = await auth.ForgotPasswordAsync(request, ct);
@@ -110,6 +120,7 @@ public class AuthController(IAuthService auth) : ApiControllerBase
     }
 
     [HttpPost("reset-password")]
+    [EnableRateLimiting(AuthLimits.PerAddress)]
     public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken ct)
     {
         var result = await auth.ResetPasswordAsync(request, ct);

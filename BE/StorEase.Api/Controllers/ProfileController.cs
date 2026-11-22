@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using StorEase.Api.Middleware;
 using StorEase.Application.Features.Users;
 
 namespace StorEase.Api.Controllers;
@@ -24,6 +25,7 @@ public class ProfileController(IProfileService profile) : ApiControllerBase
     }
 
     [HttpPost("password")]
+    [LimitAttempts(10, 15)]
     public async Task<IActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken ct)
     {
         var result = await profile.ChangePasswordAsync(request, ct);
