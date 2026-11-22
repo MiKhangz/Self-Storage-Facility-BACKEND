@@ -10,7 +10,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 |---|---|---|---|---|
 | **Khang** | F01, F02, F03, F04, F14, F15 | 49 | 34 | E01, E02, E03, E04, E09, E10, E13, E14, E17, E18, E20, E21 |
 | **Trường** | F05, F07, F08, F09, F13 | 57 | 17 | E06, E07, E16, E23, E24 |
-| **Thiện** | F06, F10, F11, F12 | 80 | 26 | E05, E05b, E05c, E08, E11, E12, E15, E19, E22 |
+| **Thiện** | F06, F10, F11, F12 | 80 | 29 | E05, E05b, E05c, E08, E11, E12, E15, E19, E22, E25 |
 
 ## Khang
 
@@ -395,6 +395,10 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `BE/tests/StorEase.Application.Tests/StaffTaskServiceTests.cs`
 - **Frontend**
   - `src/staff/pages/ShiftsPage.jsx`
+  - `src/staff/shifts.js`
+- **Frontend tests**
+  - `e2e/07-shifts.spec.js`: E25
+  - `tests/shifts.test.mjs`
 
 
 ## Shared

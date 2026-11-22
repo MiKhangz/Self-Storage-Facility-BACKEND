@@ -56,7 +56,7 @@ RULES = [
     ('Shifts & staff tasks', 'Thiện', 'F12', [
         'BE:StorEase.Api/Controllers/ShiftsController.cs', 'BE:StorEase.Api/Controllers/StaffTasksController.cs',
         'BE:StorEase.Application/Features/Staff/*', 'BE:tests/*/ShiftServiceTests.cs', 'BE:tests/*/StaffTaskServiceTests.cs',
-        'FE:src/staff/pages/ShiftsPage.jsx']),
+        'FE:src/staff/pages/ShiftsPage.jsx', 'FE:src/staff/shifts.js', 'FE:tests/shifts.test.mjs', 'FE:e2e/07-shifts.spec.js']),
     ('Language', 'Khang', 'F14', ['FE:src/i18n/*', 'FE:tests/fill.test.mjs', 'FE:e2e/06-language.spec.js']),
     # ---- Trường
     ('Invoices, payments & pricing', 'Trường', 'F07', [
@@ -174,7 +174,7 @@ def e2e_ids():
 
 
 # Which person each E2E test belongs to (spec files hold several people's tests).
-E2E_OWNER = {'E01': 'Khang', 'E02': 'Khang', 'E03': 'Khang', 'E04': 'Khang', 'E09': 'Khang', 'E10': 'Khang', 'E13': 'Khang', 'E14': 'Khang', 'E17': 'Khang', 'E18': 'Khang', 'E20': 'Khang', 'E21': 'Khang', 'E05': 'Thiện', 'E05b': 'Thiện', 'E05c': 'Thiện', 'E08': 'Thiện', 'E11': 'Thiện', 'E12': 'Thiện', 'E15': 'Thiện', 'E19': 'Thiện', 'E22': 'Thiện', 'E06': 'Trường', 'E07': 'Trường', 'E16': 'Trường', 'E23': 'Trường', 'E24': 'Trường'}
+E2E_OWNER = {'E01': 'Khang', 'E02': 'Khang', 'E03': 'Khang', 'E04': 'Khang', 'E09': 'Khang', 'E10': 'Khang', 'E13': 'Khang', 'E14': 'Khang', 'E17': 'Khang', 'E18': 'Khang', 'E20': 'Khang', 'E21': 'Khang', 'E05': 'Thiện', 'E05b': 'Thiện', 'E05c': 'Thiện', 'E08': 'Thiện', 'E11': 'Thiện', 'E12': 'Thiện', 'E15': 'Thiện', 'E19': 'Thiện', 'E22': 'Thiện', 'E06': 'Trường', 'E07': 'Trường', 'E16': 'Trường', 'E23': 'Trường', 'E24': 'Trường', 'E25': 'Thiện'}
 
 
 def page(owned):

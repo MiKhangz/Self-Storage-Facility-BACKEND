@@ -11,7 +11,7 @@ flows end to end — backend, frontend and tests — and answers for them at the
 |---|---|---|---|---|---|
 | **Khang** (leader) | The customer's front door, through move-in | 1 Storage Unit Reservation · 2 Storage Check-in and Handover (F06) · 7 Support Request and Issue Handling | F01 F02 F03 F04 F06 F14 F15 | 189 | 43 |
 | **Trường** | The money side | 3 Rented Storage Unit Management · 4 Business Rules, Fee Management and Revenue Monitoring · 6 Storage Renewal and Overdue Handling | F05 F07 F08 F09 F13 | 127 | 41 |
-| **Thiện** | The facility side | 2 Storage Check-in and Handover (F10) · 5 Facility Storage and Staff Management | F10 F11 F12 | 84 | 23 |
+| **Thiện** | The facility side | 2 Storage Check-in and Handover (F10) · 5 Facility Storage and Staff Management | F10 F11 F12 | 85 | 21 |
 
 ## Contribution split (agreed 9 Nov 2026)
 
@@ -91,9 +91,10 @@ Khang presents and demos F06; the backend stays Trường's and the screens Thi�
   Maintenance; a settlement with nothing to pay back shows any shortfall.
 - **F11 Facility & Unit Setup:** deactivate a facility; close, reopen or remove a floor; edit, retire or restore a
   unit; the maintenance order cycle from create to done or cancelled.
-- **F12 Users & Audit:** staff accounts and the activity log are done and tested (E12, E22). Section D, shifts and
-  tasks, is BUILT: add a shift (only for an active person assigned to the facility, not in the past), give a task
-  inside it, the assignee moves it to Done, only a manager cancels.
+- **F12 Users & Audit:** staff accounts and the activity log are done and tested (E12, E22). Section D: shifts are
+  done and tested (E25): add a shift (only for an active person assigned to the facility, not in the past), and the
+  person sees it on the Dashboard and in Staff & Shifts. Staff tasks are NO SCREEN: give a task inside a shift, the
+  assignee moves it to Done, only a manager cancels, all through the API.
 
 ## Shared rules
 
