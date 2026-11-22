@@ -102,6 +102,13 @@ public class WalkInService(
             // Business rule 1: a Draft contract already claims its unit.
             if (await UnitSchedule.HoldingContracts(uow).AnyAsync(c => c.StorageUnitId == unit.StorageUnitId, ct))
                 return Error.Conflict($"Unit {unit.UnitCode} already has a contract that has not ended.");
+            // Available is only about today; the same period rule as booking online.
+            var lastDay = UnitSchedule.EndOf(request.MoveInDate, request.RentalMonths);
+            var free = await UnitSchedule.FreeUnitsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, lastDay, ct);
+            if (free.All(u => u.StorageUnitId != unit.StorageUnitId))
+                return Error.Conflict($"Unit {unit.UnitCode} is booked or rented for part of this stay.");
+            if (free.Count <= await UnitSchedule.UnplacedBookingsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, lastDay, ct))
+                return Error.Conflict("No unit of this type is available at this facility.");
 
             var customer = await ResolveCustomerAsync(request, ct);
             if (!customer.IsSuccess)

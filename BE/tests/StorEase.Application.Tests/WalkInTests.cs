@@ -56,6 +56,47 @@ public class WalkInTests
         (await t.Db.Payments.SingleAsync()).Method.Should().Be(PaymentMethod.Cash);
     }
 
+    [Theory]
+    [InlineData(true, 10)]
+    [InlineData(false, 10)]
+    public async Task Walk_in_does_not_take_a_unit_promised_for_part_of_the_stay(bool offered, int startsIn)
+    {
+        using var t = Create();
+        SeedPolicy(t);
+        // A-101 still reads Available: it is only offered, or held since before bookings marked their unit.
+        t.Db.Add(new Reservation
+        {
+            CustomerId = OtherCustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, StorageUnitId = offered ? A102 : A101,
+            ProposedStorageUnitId = offered ? A101 : null, ReservationCode = "RS-PROMISED", MoveInDate = VietnamTime.Today.AddDays(startsIn),
+            RentalMonths = 1, Status = ReservationStatus.Pending, CreatedAt = DateTime.UtcNow,
+        });
+        t.Db.SaveChanges();
+
+        var booked = await Service(t, Staff).BookAsync(
+            new WalkInReservationRequest(CustomerId, null, FacilityId, SmallTypeId, A101, VietnamTime.Today, 1), default);
+
+        booked.Error!.Message.Should().Contain("booked or rented for part of this stay");
+    }
+
+    [Fact]
+    public async Task Walk_in_leaves_a_unit_for_a_booking_still_waiting_for_one()
+    {
+        using var t = Create();
+        SeedPolicy(t);
+        t.Db.StorageUnits.Find(A102)!.Status = StorageUnitStatus.Retired;
+        t.Db.Add(new Reservation
+        {
+            CustomerId = OtherCustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, ReservationCode = "RS-WAITING",
+            MoveInDate = VietnamTime.Today.AddDays(1), RentalMonths = 1, Status = ReservationStatus.Confirmed, CreatedAt = DateTime.UtcNow,
+        });
+        t.Db.SaveChanges();
+
+        var booked = await Service(t, Staff).BookAsync(
+            new WalkInReservationRequest(CustomerId, null, FacilityId, SmallTypeId, A101, VietnamTime.Today, 1), default);
+
+        booked.Error!.Message.Should().Be("No unit of this type is available at this facility.");
+    }
+
     [Fact]
     public async Task Walk_in_refuses_a_taken_unit_another_facility_and_an_email_that_already_exists()
     {
