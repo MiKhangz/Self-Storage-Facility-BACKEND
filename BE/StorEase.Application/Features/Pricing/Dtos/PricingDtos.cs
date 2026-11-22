@@ -37,6 +37,25 @@ public sealed record UnitPriceDto(
 
 public sealed record FeeTypeDto(int FeeTypeId, int PricingPolicyId, string Code, string Name, decimal Amount, bool IsPercentage);
 
+/// <summary>The terms of a price version, checked the same when it is created and when it is edited.</summary>
+public interface IPricingPolicyTerms
+{
+    DateOnly EffectiveFrom { get; }
+    DateOnly? EffectiveTo { get; }
+    int DepositMonths { get; }
+    int GraceDays { get; }
+    int NoticeDays { get; }
+    decimal LateFeePercentPerWeek { get; }
+    decimal EarlyTerminationPercent { get; }
+    int SuspendAfterDays { get; }
+    int ClearOutAfterDays { get; }
+    int CancelFreeHours { get; }
+    int EndReminderDays { get; }
+    decimal OverstayFeePercent { get; }
+    int MoveOutAfterDays { get; }
+    int CentralStorageKeepDays { get; }
+}
+
 public sealed record CreatePricingPolicyRequest(
     DateOnly EffectiveFrom,
     DateOnly? EffectiveTo,
@@ -51,7 +70,7 @@ public sealed record CreatePricingPolicyRequest(
     int EndReminderDays = 10,
     decimal OverstayFeePercent = 150,
     int MoveOutAfterDays = 7,
-    int CentralStorageKeepDays = 90);
+    int CentralStorageKeepDays = 90) : IPricingPolicyTerms;
 
 public sealed record UpdatePricingPolicyRequest(
     DateOnly EffectiveFrom,
@@ -67,7 +86,7 @@ public sealed record UpdatePricingPolicyRequest(
     int EndReminderDays = 10,
     decimal OverstayFeePercent = 150,
     int MoveOutAfterDays = 7,
-    int CentralStorageKeepDays = 90);
+    int CentralStorageKeepDays = 90) : IPricingPolicyTerms;
 
 public sealed record UpsertUnitPriceRequest(
     decimal BasePricePerMonth,
