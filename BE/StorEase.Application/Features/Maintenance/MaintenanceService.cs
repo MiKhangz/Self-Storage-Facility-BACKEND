@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.Maintenance.Dtos;
+using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
@@ -156,7 +157,7 @@ public class MaintenanceService(IUnitOfWork uow, ICurrentUser currentUser) : IMa
                 // A repair finished on a floor that is closed leaves the unit off the market until the floor reopens.
                 var floorOpen = await uow.Repository<Floor>().Query().AnyAsync(f => f.FloorId == unit.FloorId && f.Status == FloorStatus.Open, ct);
                 if (!otherLive && floorOpen)
-                    unit.Status = StorageUnitStatus.Available;
+                    await UnitSchedule.PutBackAsync(uow, unit, ct);
             }
 
             await uow.SaveChangesAsync(ct);

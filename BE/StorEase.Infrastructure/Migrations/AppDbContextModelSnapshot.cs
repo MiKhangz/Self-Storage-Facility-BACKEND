@@ -1177,6 +1177,9 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<int?>("StorageUnitId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("UnitBlocked")
+                        .HasColumnType("bit");
+
                     b.Property<int>("UnitTypeId")
                         .HasColumnType("int");
 

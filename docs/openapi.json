@@ -9518,6 +9518,9 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "unitBlocked": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false

@@ -41,7 +41,9 @@ public static class UnitSchedule
     public static async Task<bool> IsFreeAsync(
         IUnitOfWork uow, int storageUnitId, DateOnly from, DateOnly to, CancellationToken ct,
         int? exceptReservationId = null, int? exceptContractId = null) =>
-        !(await BusyAsync(uow, [storageUnitId], from, to, exceptReservationId, exceptContractId, ct)).Contains(storageUnitId);
+        await uow.Repository<StorageUnit>().Query().AnyAsync(u => u.StorageUnitId == storageUnitId
+            && u.Status != StorageUnitStatus.Retired && u.Status != StorageUnitStatus.Maintenance, ct)
+        && !(await BusyAsync(uow, [storageUnitId], from, to, exceptReservationId, exceptContractId, ct)).Contains(storageUnitId);
 
     /// <summary>
     /// Bookings of that size and facility overlapping the period that hold no unit yet (made before units were held at
@@ -57,6 +59,13 @@ public static class UnitSchedule
             .Select(r => new { r.MoveInDate, r.RentalMonths })
             .ToListAsync(ct);
         return bookings.Count(b => EndOf(b.MoveInDate, b.RentalMonths) >= from);
+    }
+
+    /// <summary>A unit back from repair or retirement: waiting for the booking that holds it, else on sale.</summary>
+    public static Task PutBackAsync(IUnitOfWork uow, StorageUnit unit, CancellationToken ct)
+    {
+        unit.Status = StorageUnitStatus.Available;
+        return ReleaseAsync(uow, unit, ct);
     }
 
     /// <summary>

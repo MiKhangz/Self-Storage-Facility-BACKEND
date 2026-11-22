@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.Facilities.Dtos;
+using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
@@ -80,7 +81,7 @@ public class FloorService(IUnitOfWork uow, ICurrentUser currentUser) : IFloorSer
                 // shortcut: a unit held in Maintenance for return damage without an order is released too; staff
                 // set it back from the unit board. Track who took a unit off the market if that becomes common.
                 foreach (var unit in units.Where(u => u.Status == StorageUnitStatus.Maintenance && !underRepair.Contains(u.StorageUnitId)))
-                    unit.Status = StorageUnitStatus.Available;
+                    await UnitSchedule.PutBackAsync(uow, unit, ct);
             }
         }
         floor.FloorNumber = request.FloorNumber;

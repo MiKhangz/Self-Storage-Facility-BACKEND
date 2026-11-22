@@ -27,7 +27,8 @@ public sealed record ReservationDto(
     InvoiceStatus? DepositStatus = null,
     int? ProposedStorageUnitId = null,
     string? ProposedUnitCode = null,
-    DateTime? HandoverSlot = null);
+    DateTime? HandoverSlot = null,
+    bool UnitBlocked = false);
 
 public sealed record CancelReservationRequest(string? Reason);
 

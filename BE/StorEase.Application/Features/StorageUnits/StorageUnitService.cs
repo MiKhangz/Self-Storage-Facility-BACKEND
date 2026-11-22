@@ -113,7 +113,10 @@ public class StorageUnitService(IUnitOfWork uow, ICurrentUser currentUser) : ISt
         if (unit.Status != from)
             return Error.Conflict($"Unit {unit.UnitCode} is {unit.Status}; only an {from} unit can become {to}.");
 
-        unit.Status = to;
+        if (retired)
+            unit.Status = to;
+        else
+            await UnitSchedule.PutBackAsync(uow, unit, ct);
         await uow.SaveChangesAsync(ct);
         return await GetAsync(storageUnitId, ct);
     }

@@ -122,6 +122,7 @@ public static class ErrorText
         ["This person is not assigned to the facility."] = "Người này không được giao cho cơ sở.",
 
         // Booking and handover
+        ["The unit was not ready for this customer, so this is not a no-show; cancel the booking to refund the deposit."] = "Kho chưa sẵn sàng cho khách nên không tính là không đến; hãy huỷ đơn để hoàn tiền cọc.",
         ["A reservation can only be marked as a no-show after its handover appointment day."] = "Chỉ đánh dấu không đến nhận kho sau ngày hẹn bàn giao.",
         ["Give either an existing customer or a new customer, not both."] = "Chọn khách hàng cũ hoặc khách hàng mới, không chọn cả hai.",
         ["Move-in date cannot be in the past."] = "Ngày nhận kho không được ở quá khứ.",

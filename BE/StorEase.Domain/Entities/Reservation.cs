@@ -22,6 +22,11 @@ public class Reservation
     /// <summary>Another unit staff (or the daily job) offer instead of the one held; the customer accepts or cancels with a full refund.</summary>
     public int? ProposedStorageUnitId { get; set; }
     public DateTime? ProposedAt { get; set; }
+    /// <summary>
+    /// StorEase has no usable unit for this booking. Set by the daily job; once the handover day comes it stays set, so a
+    /// unit freed late that day does not turn our delay into the customer's no-show.
+    /// </summary>
+    public bool UnitBlocked { get; set; }
     public ReservationStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
 
