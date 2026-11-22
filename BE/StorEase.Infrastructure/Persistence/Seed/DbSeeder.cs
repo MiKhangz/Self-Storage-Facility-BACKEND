@@ -77,7 +77,7 @@ public class DbSeeder(AppDbContext db, IPasswordHasher hasher, ILogger<DbSeeder>
         {
             var policy = db.PricingPolicies.Add(new PricingPolicy
             {
-                CreatedBy = ops.UserId, Version = 1, EffectiveFrom = new DateOnly(2026, 10, 1), DepositMonths = 1,
+                CreatedBy = ops.UserId, Version = 1, EffectiveFrom = new DateOnly(2026, 10, 1), DepositMonths = 2,
                 GraceDays = 5, NoticeDays = 30, LateFeePercentPerWeek = 2, SuspendAfterDays = 8, ClearOutAfterDays = 13,
                 CancelFreeHours = 24, Status = PricingPolicyStatus.Active,
             }).Entity;
