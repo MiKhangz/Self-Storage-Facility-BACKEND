@@ -25,6 +25,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<Handover> Handovers => Set<Handover>();
     public DbSet<HandoverPhoto> HandoverPhotos => Set<HandoverPhoto>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
     public DbSet<Contract> Contracts => Set<Contract>();
     public DbSet<AccessCode> AccessCodes => Set<AccessCode>();

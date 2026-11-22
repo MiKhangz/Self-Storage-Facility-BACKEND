@@ -819,6 +819,45 @@ namespace StorEase.Infrastructure.Migrations
                     b.ToTable("MaintenanceOrder", (string)null);
                 });
 
+            modelBuilder.Entity("StorEase.Domain.Entities.Notification", b =>
+                {
+                    b.Property<int>("NotificationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("NotificationId"));
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Link")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("NotificationId");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.ToTable("Notification", (string)null);
+                });
+
             modelBuilder.Entity("StorEase.Domain.Entities.NotificationPreference", b =>
                 {
                     b.Property<int>("NotificationPreferenceId")
@@ -2131,6 +2170,17 @@ namespace StorEase.Infrastructure.Migrations
                     b.Navigation("StorageUnit");
 
                     b.Navigation("Ticket");
+                });
+
+            modelBuilder.Entity("StorEase.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("StorEase.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("StorEase.Domain.Entities.NotificationPreference", b =>

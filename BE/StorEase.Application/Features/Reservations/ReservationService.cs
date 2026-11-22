@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.DepositRefunds;
 using StorEase.Application.Features.Invoices;
+using StorEase.Application.Features.Notifications;
 using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Features.Reservations.Dtos;
@@ -116,7 +117,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             await NotifyAsync(dto.Value, "Đã nhận yêu cầu đặt kho",
                 $"Chúng tôi đã nhận yêu cầu đặt kho {dto.Value.UnitTypeName} tại {facility.Name}, dọn vào ngày {dto.Value.MoveInDate:dd/MM/yyyy}. " +
                 $"Kho dự kiến: {expected.UnitCode} (nhân viên xác nhận trước ngày dọn vào)." +
-                (dto.Value.DepositAmount is { } amount ? $"\nVui lòng thanh toán tiền cọc {amount:N0} ₫ trước ngày dọn vào." : ""), ct);
+                (dto.Value.DepositAmount is { } amount ? $"\nVui lòng thanh toán tiền cọc {Money.Text(amount)} ₫ trước ngày dọn vào." : ""), ct);
         return dto;
     }
 
@@ -498,8 +499,8 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
         await NotifyAsync(dto.Value, noShow ? "Đặt kho đã hết hạn" : "Đặt kho đã được huỷ",
             $"Đơn {dto.Value.ReservationCode} đã {(noShow ? "hết hạn do không đến nhận kho" : "được huỷ")}" +
             (closed.Value.OurFault ? " vì StorEase chưa có kho sẵn sàng như đã hẹn." : ".") +
-            (closed.Value.Refundable ? $" Tiền cọc {closed.Value.Paid:N0} ₫ sẽ được hoàn lại."
-                : closed.Value.Paid > 0 ? $" Tiền cọc {closed.Value.Paid:N0} ₫ không được hoàn." : ""), ct);
+            (closed.Value.Refundable ? $" Tiền cọc {Money.Text(closed.Value.Paid)} ₫ sẽ được hoàn lại."
+                : closed.Value.Paid > 0 ? $" Tiền cọc {Money.Text(closed.Value.Paid)} ₫ không được hoàn." : ""), ct);
         return new ReservationCancellationDto(dto.Value, closed.Value.Paid, closed.Value.Refundable);
     }
 
@@ -583,8 +584,12 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             r.UnitBlocked));
     }
 
+    /// <summary>The bell always; email as well.</summary>
     private async Task NotifyAsync(ReservationDto reservation, string subject, string body, CancellationToken ct)
     {
+        NotificationService.Add(uow, reservation.CustomerId, subject, $"{body}\nMã đặt kho: {reservation.ReservationCode}",
+            $"/booking/confirmed/{reservation.ReservationId}");
+        await uow.SaveChangesAsync(ct);
         var to = await uow.Repository<User>().Query().Where(u => u.UserId == reservation.CustomerId)
             .Select(u => u.Email).FirstOrDefaultAsync(ct);
         if (to is not null)

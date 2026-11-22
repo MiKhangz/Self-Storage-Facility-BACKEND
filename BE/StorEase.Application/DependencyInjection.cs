@@ -53,6 +53,7 @@ public static class DependencyInjection
         services.AddScoped<IShiftService, ShiftService>();
         services.AddScoped<IActivityLogService, ActivityLogService>();
         services.AddScoped<IProfileService, ProfileService>();
+        services.AddScoped<Features.Notifications.INotificationService, Features.Notifications.NotificationService>();
         services.AddScoped<IFloorService, FloorService>();
         services.AddScoped<IHandoverEvidenceService, HandoverEvidenceService>();
         services.AddScoped<IReminderService, ReminderService>();

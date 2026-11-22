@@ -5,6 +5,7 @@ using StorEase.Application.Features.Invoices;
 using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.Returns;
 using StorEase.Application.Features.StorageUnits;
+using StorEase.Application.Features.Notifications;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
@@ -95,7 +96,7 @@ public class RentalEndService(IUnitOfWork uow, ICurrentUser currentUser, IEmailS
         await uow.SaveChangesAsync(ct);
 
         foreach (var c in toRemind)
-            await TryEmailAsync(c.Customer, "Kỳ thuê kho sắp kết thúc",
+            await NotifyAsync(c.Customer, $"/my-storage/units/{c.ContractId}", "Kỳ thuê kho sắp kết thúc",
                 $"Kỳ thuê kho {c.StorageUnit.UnitCode} (hợp đồng {c.ContractNumber}) kết thúc ngày {c.EndDate:dd/MM/yyyy}. " +
                 "Vui lòng gia hạn hoặc gửi yêu cầu trả kho trên StorEase; nhân viên sẽ gọi để xác nhận.", ct);
         return new RentalEndRunDto(toRemind.Count, overstaying.Count, fees);
@@ -194,7 +195,7 @@ public class RentalEndService(IUnitOfWork uow, ICurrentUser currentUser, IEmailS
         var customer = await uow.Repository<Contract>().Query().Where(c => c.ContractId == moved.Value)
             .Select(c => new { c.Customer, c.StorageUnit.UnitCode }).FirstAsync(ct);
         var keepUntil = today.AddDays(policy?.CentralStorageKeepDays ?? 90);
-        await TryEmailAsync(customer.Customer, $"Đồ trong kho {customer.UnitCode} đã được chuyển về kho tổng",
+        await NotifyAsync(customer.Customer, "/payments", $"Đồ trong kho {customer.UnitCode} đã được chuyển về kho tổng",
             $"Đồ trong kho {customer.UnitCode} đã được chuyển về kho tổng của StorEase. Tiền cọc đã được dùng để trả các khoản còn nợ. " +
             $"Bạn có thể nhận lại đồ đến hết ngày {keepUntil:dd/MM/yyyy} sau khi thanh toán phần còn nợ (nếu có). " +
             "Sau ngày này, StorEase gửi thông báo cuối cùng trước khi xử lý số đồ không được nhận.", ct);
@@ -266,8 +267,11 @@ public class RentalEndService(IUnitOfWork uow, ICurrentUser currentUser, IEmailS
         return query.Where(c => facilityIds.Contains(c.StorageUnit.FacilityId));
     }
 
-    private async Task TryEmailAsync(User user, string subject, string body, CancellationToken ct)
+    /// <summary>The bell always; email as well.</summary>
+    private async Task NotifyAsync(User user, string link, string subject, string body, CancellationToken ct)
     {
+        NotificationService.Add(uow, user.UserId, subject, body, link);
+        await uow.SaveChangesAsync(ct);
         try { await email.SendAsync(user.Email, subject, body, ct); }
         catch { /* a reminder that fails to send is not worth failing the daily run */ }
     }
