@@ -9184,24 +9184,6 @@
         },
         "additionalProperties": false
       },
-      "QuoteFeeDto": {
-        "type": "object",
-        "properties": {
-          "code": {
-            "type": "string",
-            "nullable": true
-          },
-          "name": {
-            "type": "string",
-            "nullable": true
-          },
-          "amount": {
-            "type": "number",
-            "format": "double"
-          }
-        },
-        "additionalProperties": false
-      },
       "ReadNotificationsRequest": {
         "type": "object",
         "properties": {
@@ -10808,13 +10790,6 @@
           "depositAmount": {
             "type": "number",
             "format": "double"
-          },
-          "fees": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/QuoteFeeDto"
-            },
-            "nullable": true
           },
           "totalAmount": {
             "type": "number",

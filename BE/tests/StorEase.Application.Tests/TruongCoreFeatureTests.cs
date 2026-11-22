@@ -40,8 +40,7 @@ public sealed class TruongCoreFeatureTests
         result.Value.MonthlyRent.Should().Be(900_000m);
         result.Value.RentSubtotal.Should().Be(2_700_000m);
         result.Value.DepositAmount.Should().Be(1_800_000m);
-        result.Value.Fees.Single().Amount.Should().Be(135_000m);
-        result.Value.TotalAmount.Should().Be(4_635_000m);
+        result.Value.TotalAmount.Should().Be(4_500_000m, "no invoice charges the policy's fee types, so the quote leaves them out");
     }
 
     [Fact]

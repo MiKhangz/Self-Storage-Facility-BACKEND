@@ -26,8 +26,6 @@ public sealed record UnitAvailabilityDto(
     int RentalMonths = 1,
     string? ExpectedUnitCode = null);
 
-public sealed record QuoteFeeDto(string Code, string Name, decimal Amount);
-
 public sealed record UnitPriceQuoteDto(
     int FacilityId,
     int UnitTypeId,
@@ -38,7 +36,6 @@ public sealed record UnitPriceQuoteDto(
     decimal MonthlyRent,
     decimal RentSubtotal,
     decimal DepositAmount,
-    IReadOnlyList<QuoteFeeDto> Fees,
     decimal TotalAmount,
     string? ExpectedUnitCode = null);
 

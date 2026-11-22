@@ -139,15 +139,10 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
             return terms.Error;
         var (policy, monthlyRent, deposit, _) = terms.Value;
         var rentSubtotal = Money.Round(monthlyRent * rentalMonths);
-        var fees = await uow.Repository<FeeType>().Query()
-            .Where(f => f.PricingPolicyId == policy.PricingPolicyId)
-            .Select(f => new { f.Code, f.Name, f.Amount, f.IsPercentage })
-            .ToListAsync(ct);
-        var quoteFees = fees.Select(f => new QuoteFeeDto(f.Code, f.Name,
-            Money.Round(f.IsPercentage ? rentSubtotal * f.Amount / 100m : f.Amount))).ToList();
-        var total = Money.Round(rentSubtotal + deposit + quoteFees.Sum(f => f.Amount));
+        // Only what is billed: no invoice charges the policy's fee types.
+        var total = Money.Round(rentSubtotal + deposit);
         return new UnitPriceQuoteDto(facilityId, unitTypeId, moveInDate, rentalMonths,
-            policy.PricingPolicyId, policy.Version, monthlyRent, rentSubtotal, deposit, quoteFees, total, availability.Value.ExpectedUnitCode);
+            policy.PricingPolicyId, policy.Version, monthlyRent, rentSubtotal, deposit, total, availability.Value.ExpectedUnitCode);
     }
 
     private static Expression<Func<UnitType, UnitTypeDto>> ProjectUnitType() =>
