@@ -143,7 +143,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 ### Contracts & customers (F05)
 
 - **Controllers and routes**
-  - `BE/StorEase.Api/Controllers/ContractsController.cs`: `POST /api/contracts`, `GET /api/contracts`, `GET /api/contracts/{id}`, `POST /api/contracts/{id}/sign`, `POST /api/contracts/{id}/sign-at-desk`, `GET /api/contracts/export`, `POST /api/contracts/{id}/terminate`, `POST /api/contracts/{id}/access-codes`, `GET /api/contracts/{id}/access-code`, `POST /api/contracts/{id}/access-codes/request`
+  - `BE/StorEase.Api/Controllers/ContractsController.cs`: `POST /api/contracts`, `GET /api/contracts`, `GET /api/contracts/{id}`, `POST /api/contracts/{id}/sign`, `POST /api/contracts/{id}/sign-at-desk`, `GET /api/contracts/export`, `POST /api/contracts/{id}/access-codes`, `GET /api/contracts/{id}/access-code`, `POST /api/contracts/{id}/access-codes/request`
   - `BE/StorEase.Api/Controllers/CustomersController.cs`: `GET /api/customers`, `GET /api/customers/{id}`
 - **Services, DTOs, validators, jobs**
   - `BE/StorEase.Application/Features/Contracts/ContractQueries.cs`
@@ -164,7 +164,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 - **Controllers and routes**
   - `BE/StorEase.Api/Controllers/FacilityPricesController.cs`: `GET /api/facilities/{facilityId:int}/price-versions`, `POST /api/facilities/{facilityId:int}/price-versions`, `PUT /api/facilities/{facilityId:int}/price-versions/{versionId}/unit-prices/{unitTypeId}`, `DELETE /api/facilities/{facilityId:int}/price-versions/{versionId}/unit-prices/{unitTypeId}`, `POST /api/facilities/{facilityId:int}/price-versions/{versionId}/publish`, `DELETE /api/facilities/{facilityId:int}/price-versions/{versionId}`
   - `BE/StorEase.Api/Controllers/InvoicesController.cs`: `GET /api/invoices`, `GET /api/invoices/{id}`, `POST /api/invoices/{id}/payments/online`, `POST /api/invoices/{id}/payments/manual`, `POST /api/invoices/{id}/adjustments`, `GET /api/invoices/{id}/reminders`, `POST /api/invoices/{id}/reminders`
-  - `BE/StorEase.Api/Controllers/PaymentsController.cs`: `GET /api/payments`, `POST /api/payments/{id}/refund`, `POST /api/payments/gateway-callback`, `GET /api/payments/vnpay-ipn`, `GET /api/payments/vnpay-return`, `POST /api/payments/{paymentCode}/simulate-success`
+  - `BE/StorEase.Api/Controllers/PaymentsController.cs`: `GET /api/payments`, `POST /api/payments/{id}/refund`, `GET /api/payments/vnpay-ipn`, `GET /api/payments/vnpay-return`, `POST /api/payments/{paymentCode}/simulate-success`
   - `BE/StorEase.Api/Controllers/PricingPoliciesController.cs`: `GET /api/pricing-policies`, `GET /api/pricing-policies/current-terms`, `GET /api/pricing-policies/{id}`, `POST /api/pricing-policies`, `PUT /api/pricing-policies/{id}`, `POST /api/pricing-policies/{id}/copy`, `DELETE /api/pricing-policies/{id}`, `POST /api/pricing-policies/{id}/activate`, `PUT /api/pricing-policies/{id}/unit-prices/{unitTypeId}`, `POST /api/pricing-policies/{id}/fee-types`, `PUT /api/fee-types/{feeTypeId}`, `DELETE /api/fee-types/{feeTypeId}`
 - **Services, DTOs, validators, jobs**
   - `BE/StorEase.Application/Features/Invoices/Dtos/InvoiceDtos.cs`

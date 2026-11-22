@@ -252,17 +252,16 @@ In one transaction: contract `Draft` → `Active`, unit `Reserved` → `Occupied
 
 `409` when: the reservation is not `Confirmed` · the contract belongs to another reservation or
 unit · the contract is not `Draft` · the customer has not signed yet · the unit is not `Reserved`.
-Activation is live: the contract becomes `Active`, the unit `Occupied`, and a 6-digit access code is issued (valid until the day after `endDate`, hash only stored). `409` also when another `Active`/`Draft` contract holds the unit. Any `409` leaves everything unchanged.
+Activation is live: the contract becomes `Active`, the unit `Occupied`, and a 6-digit access code is issued (valid until the day after `endDate`, hash only stored). `409` also when another contract that has not ended holds the unit, or when an early handover would take days promised to another customer. Any `409` leaves everything unchanged.
 
 ### More contract endpoints (Nhân)
 
 | Method | Route | Who | Success |
 |---|---|---|---|
 | `GET` | `/api/contracts/export?status=` | Staff | `200` `text/csv` (UTF-8 with BOM), same columns as the list |
-| `POST` | `/api/contracts/{id}/terminate` | `FacilityManager` | `200` `ContractDto` with `status: "Terminated"` |
 | `POST` | `/api/contracts/{id}/access-codes` | Staff | `201` `{ accessCodeId, contractId, code, issuedAt, expiresAt }` |
 
-`terminate`: allowed from `Active`, `Overdue`, `Suspended`, `PendingReturn`; the unit goes back to `Available` and every active access code is revoked. `409` for `Draft`, `Closed`, `Terminated`.
+There is no `terminate`: a rental ends through a return or a move to the central warehouse, which settle the deposit.
 `access-codes`: re-issues a code for an `Active` contract and revokes the previous one (`409` otherwise). `code` is plaintext and shown once.
 
 ### Access codes and logs (Nhân, BE-34..38)
@@ -273,7 +272,7 @@ Activation is live: the contract becomes `Active`, the unit `Occupied`, and a 6-
 | `GET` | `/api/contracts/{id}/access-code` | Staff, or the owning customer | `200` `AccessCodeSummaryDto` |
 | `POST` | `/api/contracts/{id}/access-codes/request` | `StorageCustomer` (own) | `201` `AccessCodeDto` (plaintext `code`, once) |
 | `GET` | `/api/access-logs?storageUnitId=&customerId=&from=&to=&page=&pageSize=` | `FacilityManager` | `200` `PagedResult<AccessLogDto>` |
-| `GET` | `/api/access-logs/mine?from=&to=&page=&pageSize=` | `StorageCustomer` | `200` `PagedResult<AccessLogDto>` (own only) |
+| `GET` | `/api/access-logs/mine?from=&to=&page=&pageSize=` | `StorageCustomer` | `200` `PagedResult<AccessLogDto>` (own only); `from` and `to` are Vietnam days, as in every log |
 
 ```jsonc
 // AccessCodeSummaryDto — the plaintext is never returned again
@@ -518,8 +517,8 @@ staff, **M** facility manager, **B** business operations, **A** admin, **anon** 
 |---|---|---|
 | `POST /api/auth/register` | anon | `201`; account is `Pending` until the emailed link is opened (Development: `Active` at once, no email) |
 | `POST /api/auth/verify-email` | anon | `{ token }` → `204` |
-| `POST /api/auth/resend-verification` | anon | always `204` |
-| `POST /api/auth/forgot-password` | anon | always `204`; link valid 30 min, works once |
+| `POST /api/auth/resend-verification` | anon | `204` whether or not the account exists; `429` after 5 in 15 minutes for one account |
+| `POST /api/auth/forgot-password` | anon | `204` whether or not the account exists; `429` after 5 in 15 minutes for one email; link valid 30 min, works once |
 | `POST /api/auth/reset-password` | anon | `{ token, newPassword }` → `204` |
 | `GET/PUT /api/users/me` | any | own profile |
 | `POST /api/users/me/password` | any | `{ currentPassword, newPassword }` |
@@ -535,7 +534,8 @@ Login of a `Pending` account answers `403` "verify your email".
 | `POST /api/facilities` · `PUT /api/facilities/{id}` · `POST /api/facilities/{id}/deactivate|activate` | A |
 | `GET /api/facilities/{id}/unit-board` | S, M, B, A |
 | `GET/POST /api/facilities/{id}/floors` · `PUT/DELETE /api/floors/{id}` | M (own facility), A |
-| `GET /api/storage-units/{id}` · `POST /api/storage-units` · `PUT /api/storage-units/{id}` · `POST .../{id}/retire|restore` | M, A |
+| `GET /api/storage-units` · `GET /api/storage-units/{id}` | anon; `note` is filled only for staff |
+| `POST /api/storage-units` · `PUT /api/storage-units/{id}` · `POST .../{id}/retire|restore` | M, A |
 
 ### Reservations, contract draft, handover (Khang)
 
@@ -550,8 +550,9 @@ Login of a `Pending` account answers `403` "verify your email".
 | `POST /api/handovers/{id}/photos` | S | multipart field `file`, JPEG/PNG/WebP ≤ 5 MB |
 | `GET /api/handovers/{id}/photos/{photoId}` | any (customer own) | the image |
 
-Creating a reservation also raises its deposit invoice (`DEP<code>`, due on move-in day); the handover
-answers `409` until it is paid.
+Creating a reservation also raises its deposit invoice (`DEP<code>`, due when the 24-hour hold ends, or on move-in
+day if sooner); the handover answers `409` until it is paid. The hourly job cancels a booking with none of its
+deposit paid 24 hours after it was made.
 
 ### Rental terms (public)
 
@@ -582,12 +583,11 @@ Every `/api/pricing-policies` route (list, get, create, edit, unit prices, activ
 | Method & route | Who | Notes |
 |---|---|---|
 | `POST /api/invoices/{id}/payments/online` | C | returns `{ paymentId, paymentCode, amount, status: "Pending", checkoutUrl }`; nothing credited yet |
-| `POST /api/payments/gateway-callback` | anon | `{ paymentCode, status, amount, referenceNo, signature }`, HMAC-SHA256 of `code|status|amount(0.00)|ref` with `PaymentGateway:Secret` |
-| `POST /api/payments/{paymentCode}/simulate-success` | C | **Development only** — stands in for the gateway |
-| `GET /api/deposit-refunds?status=Pending&page=&pageSize=` | C (own), FM (own facilities), B, A | Deposits owed back: one per refundable cancellation (`source` `Cancellation`) and per return settled with a refund (`UnitReturn`). Pending first, oldest first. |
+| `POST /api/payments/{paymentCode}/simulate-success` | C | **Development only**, and only without VNPay keys — stands in for the gateway |
+| `GET /api/deposit-refunds?status=Pending&page=&pageSize=` | C (own), FM (own facilities), B, A | Deposits owed back: one per refundable cancellation (`source` `Cancellation`), per return settled with a refund (`Return`) and per payment that landed on a closed booking (`LatePayment`). Pending first, oldest first. |
 | `POST /api/deposit-refunds/{id}/paid` `{method: Cash\|BankTransfer, referenceNo?}` | B | Marks it `Paid` (time and who). A bank transfer needs `referenceNo` (`400`); already paid `409`. |
 | `GET /api/payments/vnpay-ipn?vnp_...` | anon | VNPay's IPN, checked by `vnp_SecureHash` (HMAC-SHA512, `PaymentGateway:VnPayHashSecret`). Always `200` `{ RspCode, Message }`: `00` recorded, `97` bad signature, `01` unknown payment, `04` wrong amount, `02` already settled otherwise |
-| `GET /api/payments/vnpay-return?vnp_...` | anon | The frontend forwards VNPay's return parameters; same check, `200` `InvoiceDto` or `401`/`404`/`400`/`409` |
+| `GET /api/payments/vnpay-return?vnp_...` | anon | The frontend forwards VNPay's return parameters; same check, `200` `InvoiceDto` or `401`/`404`/`400`/`409`. Both refuse a message without `vnp_ResponseCode` and `vnp_TransactionStatus` (`400`, IPN `04`) |
 | `POST /api/invoices/{id}/payments/manual` | S, M | cash at the counter |
 | `GET /api/payments?invoiceId=&status=` | any | customer sees own |
 | `POST /api/payments/{id}/refund` | B | `{ reason }` |
@@ -600,11 +600,11 @@ A background job runs hourly (idempotent per day): issues each month's rent invo
 late-fee line of `lateFeePercentPerWeek` per full week past grace, locks out at `suspendAfterDays` (access
 codes suspended, contract `Suspended`), flags `ClearOut` at `clearOutAfterDays`, and emails reminders 3 days
 before due and weekly once overdue (honouring `emailReminders`). Paying in full resolves the case and
-restores access.
+restores access. A closed or terminated rental and a closed booking's deposit are not chased.
 
 | Method & route | Who |
 |---|---|
-| `POST /api/billing/run?date=2026-10-14` | B, A — run the job now |
+| `POST /api/billing/run` | B, A — run the job now, for today. `?date=` another day is `400`, except in Development with `Billing:AllowOtherDates` on (E2E only) |
 | `GET /api/overdue-cases?stage=&openOnly=true` · `GET /api/overdue-cases/{id}` | S, M, B, A |
 | `POST /api/overdue-cases/{id}/lockout` · `POST /api/overdue-cases/{id}/restore-access` | M, B |
 | `GET /api/invoices/{id}/reminders` | S, M, B, A |
@@ -617,6 +617,6 @@ restores access.
 | `GET /api/reports/dashboard?facilityId=` | M (own facilities), B, A |
 | `GET /api/reports/occupancy?facilityId=` | M, B, A |
 | `GET /api/reports/revenue?from=&to=&facilityId=` | M, B, A — defaults to the last 12 months |
-| `GET /api/activity-logs?userId=&action=&from=&to=` | A — every write by a signed-in user, plus logins |
+| `GET /api/activity-logs?userId=&action=&from=&to=` | A — every write by a signed-in user, plus logins; `from` and `to` are Vietnam days |
 
 Reset the local demo database: `powershell -ExecutionPolicy Bypass -File scripts/reset-demo.ps1`.

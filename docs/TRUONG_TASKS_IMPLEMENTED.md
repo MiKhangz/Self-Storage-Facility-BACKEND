@@ -39,8 +39,9 @@ endpoints verify the VNPay signature and settle the payment idempotently:
 - `GET /api/payments/vnpay-ipn`
 - `POST /api/payments/vnpay-ipn` (form callback)
 
-The existing `POST /api/payments/gateway-callback` remains available for the internal signed callback, and
-`POST /api/payments/{paymentCode}/simulate-success` remains Development-only.
+`POST /api/payments/{paymentCode}/simulate-success` remains Development-only, and works only while the VNPay keys
+are not set. The internal signed `POST /api/payments/gateway-callback` was removed on 22 Nov 2026: nothing called it
+once VNPay was connected.
 
 ## T-03: draft pricing policy update
 
