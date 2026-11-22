@@ -48,10 +48,10 @@ public class WalkInReservationRequestValidator : AbstractValidator<WalkInReserva
 
 public interface IWalkInService
 {
-    /// <summary>Customers matching a name, email or phone, for staff at the desk.</summary>
+    /// <summary>Customers matching a name, email or phone, for staff at the desk. Citizen IDs show their last four digits.</summary>
     Task<Result<PagedResult<CustomerSummaryDto>>> SearchCustomersAsync(string? search, int page, int pageSize, CancellationToken ct);
 
-    /// <summary>One customer's contact details, for staff.</summary>
+    /// <summary>One customer's contact details. The whole citizen ID only where that customer booked, and for roles that see every facility.</summary>
     Task<Result<CustomerSummaryDto>> GetCustomerAsync(int userId, CancellationToken ct);
 
     /// <summary>
@@ -73,14 +73,27 @@ public class WalkInService(
             var term = search.Trim();
             query = query.Where(u => u.FullName.Contains(term) || u.Email.Contains(term) || u.PhoneNumber.Contains(term));
         }
-        return await query.OrderBy(u => u.FullName).Select(ToSummary).ToPagedResultAsync(page, pageSize, ct);
+        var found = await query.OrderBy(u => u.FullName).Select(ToSummary).ToPagedResultAsync(page, pageSize, ct);
+        // A search reaches every customer, so it shows only enough of the ID to compare with the card at the desk.
+        return new PagedResult<CustomerSummaryDto>(found.Items.Select(Masked).ToList(), found.Page, found.PageSize, found.TotalCount);
     }
 
     public async Task<Result<CustomerSummaryDto>> GetCustomerAsync(int userId, CancellationToken ct)
     {
         var dto = await Customers().Where(u => u.UserId == userId).Select(ToSummary).FirstOrDefaultAsync(ct);
-        return dto is null ? Error.NotFound("Customer not found.") : dto;
+        if (dto is null)
+            return Error.NotFound("Customer not found.");
+        if (StaffScope.SeesAllFacilities(currentUser.Role))
+            return dto;
+        var facilityIds = StaffScope.FacilityIdsOf(uow, currentUser.UserId);
+        var bookedHere = await uow.Repository<Reservation>().Query()
+            .AnyAsync(r => r.CustomerId == userId && facilityIds.Contains(r.FacilityId), ct);
+        return bookedHere ? dto : Masked(dto);
     }
+
+    private static CustomerSummaryDto Masked(CustomerSummaryDto customer) => customer.CitizenId is { Length: > 4 } id
+        ? customer with { CitizenId = new string('*', id.Length - 4) + id[^4..] }
+        : customer;
 
     private IQueryable<User> Customers() => uow.Repository<User>().Query().Where(u => u.Role.RoleName == Roles.StorageCustomer);
 
