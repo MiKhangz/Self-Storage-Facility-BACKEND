@@ -22,7 +22,7 @@ public class HandoversController(IHandoverService handovers, IHandoverEvidenceSe
     }
 
     [HttpGet]
-    [Authorize(Roles = Roles.Staff)]
+    [Authorize(Roles = Roles.Staff + "," + Roles.BusinessOperationsManager)] // Business Ops settle deposits against the handover's note and photos
     public async Task<ActionResult<PagedResult<HandoverDetailDto>>> List(
         [FromQuery] HandoverStatus? status, int page = 1, int pageSize = 20, CancellationToken ct = default)
     {

@@ -10,7 +10,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 |---|---|---|---|---|
 | **Khang** | F01, F02, F03, F04, F14, F15 | 49 | 34 | E01, E02, E03, E04, E09, E10, E13, E14, E17, E18, E20, E21 |
 | **Trường** | F05, F07, F08, F09, F13 | 57 | 17 | E06, E07, E16, E23, E24 |
-| **Thiện** | F06, F10, F11, F12 | 79 | 26 | E05, E05b, E05c, E08, E11, E12, E15, E19, E22 |
+| **Thiện** | F06, F10, F11, F12 | 80 | 26 | E05, E05b, E05c, E08, E11, E12, E15, E19, E22 |
 
 ## Khang
 
@@ -264,6 +264,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `BE/StorEase.Application/Features/Handovers/HandoverService.cs`
   - `BE/StorEase.Application/Features/Handovers/Validators/CreateHandoverRequestValidator.cs`
 - **Backend tests**
+  - `BE/tests/StorEase.Api.Tests/HandoverRolesTests.cs`
   - `BE/tests/StorEase.Application.Tests/AccessCodeManagementTests.cs`
   - `BE/tests/StorEase.Application.Tests/CheckInTests.cs`
   - `BE/tests/StorEase.Application.Tests/HandoverServiceTests.cs`

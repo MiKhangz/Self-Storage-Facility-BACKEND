@@ -290,7 +290,7 @@ leaves everything unchanged.
 
 | Method | Route | Who | Success |
 |---|---|---|---|
-| `GET` | `/api/handovers?status=&page=&pageSize=` | Staff | `200` `PagedResult<HandoverDetailDto>` |
+| `GET` | `/api/handovers?status=&page=&pageSize=` | Staff (own facilities), `BusinessOperationsManager` (every facility, read only) | `200` `PagedResult<HandoverDetailDto>`: note, photos, who handed over and when; never the access code |
 | `POST` | `/api/handovers/{id}/cancel` | Staff | `204` |
 
 `cancel` works only on the day of the handover (Vietnam time), while the contract is `Active` and before any rent is
