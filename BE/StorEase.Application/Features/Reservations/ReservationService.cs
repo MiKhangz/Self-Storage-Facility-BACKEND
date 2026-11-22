@@ -329,6 +329,8 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             return Error.NotFound("Reservation not found.");
         if (reservation.Status is not (ReservationStatus.Pending or ReservationStatus.Confirmed))
             return Error.Conflict($"Only a booking not yet handed over can get an appointment; this one is {reservation.Status}.");
+        if (await InvoiceBook.DepositOpenAsync(uow, reservationId, ct))
+            return Error.Conflict("The deposit has not been paid yet.");
         // A missed appointment cannot be moved, or the no-show rule could be dodged.
         if (reservation.HandoverSlot < DateTime.UtcNow)
             return Error.Conflict("The appointment time has passed, so it can no longer be changed.");

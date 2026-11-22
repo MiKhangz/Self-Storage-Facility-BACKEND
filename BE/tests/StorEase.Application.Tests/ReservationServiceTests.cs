@@ -334,6 +334,32 @@ public class ReservationServiceTests
         night.Error!.Type.Should().Be(ErrorType.Validation);
     }
 
+    [Theory]
+    [InlineData(0, InvoiceStatus.Issued, false)]
+    [InlineData(400_000, InvoiceStatus.Issued, false)]
+    [InlineData(0, InvoiceStatus.Overdue, false)]
+    [InlineData(900_000, InvoiceStatus.Paid, true)]
+    public async Task An_appointment_needs_the_deposit_paid(int paid, InvoiceStatus status, bool allowed)
+    {
+        using var t = Create();
+        var id = await Reserve(t);
+        t.Db.Add(new Invoice
+        {
+            ReservationId = id, CustomerId = CustomerId, InvoiceNumber = "DEP-APPOINTMENT", IssueDate = VietnamTime.Today,
+            DueDate = MoveIn, TotalAmount = 900_000m, PaidAmount = paid, Status = status,
+        });
+        await t.Db.SaveChangesAsync();
+
+        foreach (var user in new[] { Customer, Staff })
+        {
+            var set = await As(t, user).SetAppointmentAsync(id, new SetAppointmentRequest(MoveIn.ToDateTime(new TimeOnly(9, 0))), default);
+
+            set.IsSuccess.Should().Be(allowed, "neither the customer nor staff book a handover before the deposit is paid");
+            if (!allowed)
+                set.Error!.Message.Should().Be("The deposit has not been paid yet.");
+        }
+    }
+
     [Fact]
     public async Task An_appointment_time_that_has_passed_is_refused()
     {

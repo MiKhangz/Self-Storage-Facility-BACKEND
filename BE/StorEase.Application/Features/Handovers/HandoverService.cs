@@ -3,6 +3,7 @@ using StorEase.Application.Common;
 using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Features.Contracts;
 using StorEase.Application.Features.Handovers.Dtos;
+using StorEase.Application.Features.Invoices;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
@@ -66,9 +67,7 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser, IContrac
                 return Error.Conflict($"The reservation must be Confirmed with a unit assigned; it is {reservation.Status}.");
 
             // The deposit comes before the keys (DEMO_PLAN step order); no deposit invoice means none was due.
-            var depositOpen = await uow.Repository<Invoice>().Query().AnyAsync(i => i.ReservationId == reservation.ReservationId
-                && i.ContractId == null && i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.WrittenOff, ct);
-            if (depositOpen)
+            if (await InvoiceBook.DepositOpenAsync(uow, reservation.ReservationId, ct))
                 return Error.Conflict("The deposit has not been paid yet.");
 
             var contract = await uow.Repository<Contract>().FindAsync(request.ContractId, ct);

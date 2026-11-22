@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
 
@@ -15,6 +17,11 @@ public static class InvoiceBook
     public static string DepositNumber(Reservation reservation) => $"DEP{reservation.ReservationCode}";
 
     public static string MonthlyNumber(int contractId, DateOnly period) => $"INV{period:yyyyMM}C{contractId}";
+
+    /// <summary>The booking still owes its deposit; no deposit invoice means none was due.</summary>
+    public static Task<bool> DepositOpenAsync(IUnitOfWork uow, int reservationId, CancellationToken ct) =>
+        uow.Repository<Invoice>().Query().AnyAsync(i => i.ReservationId == reservationId
+            && i.ContractId == null && i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.WrittenOff, ct);
 
     public static InvoiceItem Line(string description, decimal unitAmount, int quantity = 1, int? feeTypeId = null) => new()
     {
