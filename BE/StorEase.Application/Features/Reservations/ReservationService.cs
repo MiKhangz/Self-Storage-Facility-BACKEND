@@ -48,7 +48,8 @@ public interface IReservationService
     Task<Result<ReservationDto>> SetAppointmentAsync(int reservationId, SetAppointmentRequest request, CancellationToken ct);
 
     /// <summary>
-    /// Daily job: bookings whose appointment day (or move-in day) has passed without a handover expire and the deposit is
+    /// Daily job: bookings without their deposit after <see cref="ReservationService.DepositHoldHours"/> are cancelled.
+    /// Bookings whose appointment day (or move-in day) has passed without a handover expire and the deposit is
     /// forfeited, unless StorEase had no unit ready: then an early appointment is cleared, and after move-in day the
     /// booking is cancelled with the whole deposit back. Bookings starting soon whose held unit is blocked are flagged
     /// for staff and offered another free unit. Returns (expired as no-show, proposed).
@@ -58,6 +59,9 @@ public interface IReservationService
 
 public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmailService email) : IReservationService
 {
+    /// <summary>How long a booking holds its unit before any of the deposit is paid.</summary>
+    public const int DepositHoldHours = 24;
+
     public async Task<Result<ReservationDto>> CreateAsync(CreateReservationRequest request, CancellationToken ct)
     {
         var facility = await uow.Repository<Facility>().Query()
@@ -117,7 +121,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             await NotifyAsync(dto.Value, "Đã nhận yêu cầu đặt kho",
                 $"Chúng tôi đã nhận yêu cầu đặt kho {dto.Value.UnitTypeName} tại {facility.Name}, dọn vào ngày {dto.Value.MoveInDate:dd/MM/yyyy}. " +
                 $"Kho dự kiến: {dto.Value.UnitCode} (nhân viên xác nhận trước ngày dọn vào)." +
-                (dto.Value.DepositAmount is { } amount ? $"\nVui lòng thanh toán tiền cọc {Money.Text(amount)} ₫ trước ngày dọn vào." : ""), ct);
+                (dto.Value.DepositAmount is { } amount ? $"\nVui lòng thanh toán tiền cọc {Money.Text(amount)} ₫ trong {DepositHoldHours} giờ và không muộn hơn ngày dọn vào, nếu không đơn sẽ bị huỷ." : ""), ct);
         return dto;
     }
 
@@ -351,6 +355,17 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
     public async Task<(int Expired, int Proposed)> RunDailyAsync(DateOnly today, int lookAheadDays, CancellationToken ct)
     {
         runningAsJob = true;
+        // Nobody blocks a unit for free: a booking without any of its deposit lets go of it after a day.
+        var heldSince = DateTime.UtcNow.AddHours(-DepositHoldHours);
+        var deposits = uow.Repository<Invoice>().Query();
+        var unpaid = await uow.Repository<Reservation>().Query()
+            .Where(r => (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed) && r.CreatedAt <= heldSince
+                && deposits.Any(i => i.ReservationId == r.ReservationId && i.ContractId == null && i.PaidAmount == 0
+                    && i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.WrittenOff))
+            .Select(r => r.ReservationId).ToListAsync(ct);
+        foreach (var id in unpaid)
+            await CloseAsync(id, noShow: false, ct, unpaid: true);
+
         // Missed appointments: the deposit is forfeited, as the customer was told when booking.
         var open = await uow.Repository<Reservation>().Query()
             .Where(r => r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
@@ -450,7 +465,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
         CloseAsync(reservationId, noShow: true, ct);
 
     /// <param name="refundAnyway">StorEase could not give the unit promised (offer turned down, or not ready by the handover day), so the deposit comes back in full.</param>
-    private async Task<Result<ReservationCancellationDto>> CloseAsync(int reservationId, bool noShow, CancellationToken ct, bool refundAnyway = false, DateOnly? today = null)
+    private async Task<Result<ReservationCancellationDto>> CloseAsync(int reservationId, bool noShow, CancellationToken ct, bool refundAnyway = false, DateOnly? today = null, bool unpaid = false)
     {
         var closed = await uow.InExclusiveTransactionAsync<(int Id, decimal Paid, bool Refundable, bool OurFault)>(async () =>
         {
@@ -464,7 +479,11 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
                 return Error.Conflict("A reservation can only be marked as a no-show after its handover appointment day.");
             if (noShow && await MissIsOursAsync(reservation, ct))
                 return Error.Conflict("The unit was not ready for this customer, so this is not a no-show; cancel the booking to refund the deposit.");
-            var ourFault = !noShow && (refundAnyway || reservation.UnitBlocked || await IsBlockedAsync(reservation, ct));
+            // Read under the lock: a payment may have landed since the job looked.
+            if (unpaid && await uow.Repository<Invoice>().Query()
+                    .AnyAsync(i => i.ReservationId == reservationId && i.ContractId == null && i.PaidAmount > 0, ct))
+                return Error.Conflict("The deposit was paid meanwhile.");
+            var ourFault = !noShow && !unpaid && (refundAnyway || reservation.UnitBlocked || await IsBlockedAsync(reservation, ct));
 
             reservation.UnitBlocked = false;
             reservation.Status = noShow ? ReservationStatus.Expired : ReservationStatus.Cancelled;
@@ -504,7 +523,8 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
         if (!dto.IsSuccess)
             return dto.Error;
         await NotifyAsync(dto.Value, noShow ? "Đặt kho đã hết hạn" : "Đặt kho đã được huỷ",
-            $"Đơn {dto.Value.ReservationCode} đã {(noShow ? "hết hạn do không đến nhận kho" : "được huỷ")}" +
+            $"Đơn {dto.Value.ReservationCode} đã {(noShow ? "hết hạn do không đến nhận kho"
+                : unpaid ? $"được huỷ vì chưa thanh toán tiền cọc trong {DepositHoldHours} giờ" : "được huỷ")}" +
             (closed.Value.OurFault ? " vì StorEase chưa có kho sẵn sàng như đã hẹn." : ".") +
             (closed.Value.Refundable ? $" Tiền cọc {Money.Text(closed.Value.Paid)} ₫ sẽ được hoàn lại."
                 : closed.Value.Paid > 0 ? $" Tiền cọc {Money.Text(closed.Value.Paid)} ₫ không được hoàn." : ""), ct);
@@ -608,14 +628,15 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
     {
         if (amount <= 0)
             return null;
+        var holdEnds = VietnamTime.DayOf(reservation.CreatedAt.AddHours(DepositHoldHours));
         var deposit = new Invoice
         {
             ReservationId = reservation.ReservationId,
             CustomerId = reservation.CustomerId,
             InvoiceNumber = InvoiceBook.DepositNumber(reservation),
             IssueDate = VietnamTime.Today,
-            // The deposit has to be settled before the keys are handed over.
-            DueDate = reservation.MoveInDate,
+            // Due when the hold ends, and never later than the day the keys are handed over.
+            DueDate = holdEnds < reservation.MoveInDate ? holdEnds : reservation.MoveInDate,
             Status = InvoiceStatus.Issued,
         };
         deposit.InvoiceItems.Add(InvoiceBook.Line(InvoiceBook.DepositDescription, amount));
