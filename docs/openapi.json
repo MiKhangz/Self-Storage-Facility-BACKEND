@@ -2970,44 +2970,6 @@
         }
       }
     },
-    "/api/payments/gateway-callback": {
-      "post": {
-        "tags": [
-          "Payments"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GatewayCallbackRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GatewayCallbackRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/GatewayCallbackRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InvoiceDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/payments/vnpay-ipn": {
       "get": {
         "tags": [
@@ -7917,31 +7879,6 @@
         "type": "object",
         "properties": {
           "email": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "GatewayCallbackRequest": {
-        "type": "object",
-        "properties": {
-          "paymentCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "status": {
-            "$ref": "#/components/schemas/PaymentStatus"
-          },
-          "amount": {
-            "type": "number",
-            "format": "double"
-          },
-          "referenceNo": {
-            "type": "string",
-            "nullable": true
-          },
-          "signature": {
             "type": "string",
             "nullable": true
           }

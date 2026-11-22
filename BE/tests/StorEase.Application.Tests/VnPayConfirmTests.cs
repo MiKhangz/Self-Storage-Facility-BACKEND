@@ -72,8 +72,10 @@ public class VnPayConfirmTests
         (await anonymous.ConfirmVnPayAsync(forged, default)).Error!.Type.Should().Be(ErrorType.Unauthorized);
         (await anonymous.ConfirmVnPayAsync(Answer(intent, "00", amount: "100"), default)).Error!.Type.Should().Be(ErrorType.Validation);
         var cancelled = await anonymous.ConfirmVnPayAsync(Answer(intent, "24"), default);
+        var repeated = await anonymous.ConfirmVnPayAsync(Answer(intent, "24"), default);
 
         cancelled.IsSuccess.Should().BeTrue();
+        repeated.IsSuccess.Should().BeTrue("VNPay retries its answers");
         (await t.Db.Payments.SingleAsync()).Status.Should().Be(PaymentStatus.Failed);
         (await t.Db.Invoices.SingleAsync()).PaidAmount.Should().Be(0m);
     }

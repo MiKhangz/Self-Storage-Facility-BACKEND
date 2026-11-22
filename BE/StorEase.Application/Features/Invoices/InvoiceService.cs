@@ -1,6 +1,3 @@
-using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.DepositRefunds;
@@ -25,9 +22,6 @@ public interface IInvoiceService
     /// Validation = wrong amount, Conflict = already settled the other way. Repeats are harmless.
     /// </summary>
     Task<Result<InvoiceDto>> ConfirmVnPayAsync(IReadOnlyDictionary<string, string> parameters, CancellationToken ct);
-
-    /// <summary>The gateway's signed callback: credits the invoice on success. Idempotent.</summary>
-    Task<Result<InvoiceDto>> ConfirmGatewayAsync(GatewayCallbackRequest request, CancellationToken ct);
 
     /// <summary>Development only: the customer stands in for the gateway's success callback.</summary>
     Task<Result<InvoiceDto>> SimulateGatewaySuccessAsync(string paymentCode, CancellationToken ct);
@@ -81,13 +75,6 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
             ? VnPay.PaymentUrl(gateway, payment.PaymentCode, payment.Amount, clientIp ?? "127.0.0.1", DateTime.UtcNow)
             : $"{gateway.CheckoutBaseUrl}?payment={Uri.EscapeDataString(payment.PaymentCode)}";
         return new PaymentIntentDto(payment.PaymentId, payment.PaymentCode, invoice.InvoiceId, payment.Amount, payment.Status, checkoutUrl);
-    }
-
-    public async Task<Result<InvoiceDto>> ConfirmGatewayAsync(GatewayCallbackRequest request, CancellationToken ct)
-    {
-        if (!SignatureMatches(request))
-            return Error.Unauthorized("Invalid gateway signature.");
-        return await SettleGatewayPaymentAsync(request.PaymentCode, request.Status, request.Amount, Clean(request.ReferenceNo), ct);
     }
 
     public async Task<Result<InvoiceDto>> ConfirmVnPayAsync(IReadOnlyDictionary<string, string> parameters, CancellationToken ct)
@@ -326,21 +313,6 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
             return Error.Conflict("The invoice was updated by another payment. Reload and try again.");
         }
         return captured.IsSuccess ? await GetAsync(captured.Value, ct) : captured.Error;
-    }
-
-    /// <summary>Exposed for the simulated gateway and tests: the signature a genuine callback must carry.</summary>
-    public static string Sign(string secret, string paymentCode, PaymentStatus status, decimal amount, string? referenceNo)
-    {
-        var payload = $"{paymentCode}|{status}|{amount.ToString("0.00", CultureInfo.InvariantCulture)}|{referenceNo ?? ""}";
-        return Convert.ToHexString(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
-    }
-
-    private bool SignatureMatches(GatewayCallbackRequest request)
-    {
-        if (string.IsNullOrEmpty(gateway.Secret))
-            return false;
-        var expected = Sign(gateway.Secret, request.PaymentCode, request.Status, request.Amount, Clean(request.ReferenceNo));
-        return CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(expected), Encoding.ASCII.GetBytes(request.Signature.ToLowerInvariant()));
     }
 
     private IQueryable<Invoice> Query() => uow.Repository<Invoice>().Query()

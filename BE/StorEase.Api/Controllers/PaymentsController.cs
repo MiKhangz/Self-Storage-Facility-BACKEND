@@ -28,15 +28,6 @@ public sealed class PaymentsController(IInvoiceService invoices) : ApiController
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
-    /// <summary>Called by the payment gateway, authenticated by the HMAC signature in the body (no bearer token).</summary>
-    [HttpPost("gateway-callback")]
-    [AllowAnonymous]
-    public async Task<ActionResult<InvoiceDto>> GatewayCallback(GatewayCallbackRequest request, CancellationToken ct)
-    {
-        var result = await invoices.ConfirmGatewayAsync(request, ct);
-        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
-    }
-
     /// <summary>
     /// VNPay's server-to-server IPN. Answers in VNPay's format with 200 every time; RspCode 00 means the result is
     /// recorded (or was already), anything else makes VNPay retry or report the error.

@@ -103,7 +103,7 @@ public sealed class TruongCoreFeatureTests
 
         var intent = await service.PayOnlineAsync(10, new PaymentRequest(500_000, "GW-1"), default);
         var pending = await db.Db.Invoices.AsNoTracking().SingleAsync(i => i.InvoiceId == 10);
-        var paid = await service.ConfirmGatewayAsync(Callback(intent.Value!.PaymentCode, PaymentStatus.Succeeded, 500_000), default);
+        var paid = await service.SimulateGatewaySuccessAsync(intent.Value!.PaymentCode, default);
         var duplicate = await service.PayOnlineAsync(10, new PaymentRequest(1, "GW-2"), default);
         var otherCustomer = await new InvoiceService(db.Uow, new FakeCurrentUser(99, Roles.StorageCustomer), Gateway)
             .PayOnlineAsync(10, new PaymentRequest(1, null), default);
@@ -118,32 +118,6 @@ public sealed class TruongCoreFeatureTests
         otherCustomer.Error!.Type.Should().Be(ErrorType.NotFound);
         invoice.PaidAmount.Should().Be(500_000m);
         invoice.Payments.Should().ContainSingle(p => p.Status == PaymentStatus.Succeeded);
-    }
-
-    [Fact]
-    public async Task Gateway_callback_with_a_bad_signature_or_wrong_amount_credits_nothing()
-    {
-        using var db = new TestDb();
-        SeedRoleAndUser(db, 11);
-        db.Db.Invoices.Add(new Invoice
-        {
-            InvoiceId = 10, CustomerId = 11, InvoiceNumber = "INV-10", IssueDate = new DateOnly(2026, 10, 1),
-            DueDate = new DateOnly(2026, 10, 10), TotalAmount = 500_000, Status = InvoiceStatus.Issued,
-        });
-        await db.Db.SaveChangesAsync();
-        var service = new InvoiceService(db.Uow, new FakeCurrentUser(11, Roles.StorageCustomer), Gateway);
-        var code = (await service.PayOnlineAsync(10, new PaymentRequest(500_000, null), default)).Value!.PaymentCode;
-
-        var forged = await service.ConfirmGatewayAsync(Callback(code, PaymentStatus.Succeeded, 500_000) with { Signature = new string('0', 64) }, default);
-        var wrongAmount = await service.ConfirmGatewayAsync(Callback(code, PaymentStatus.Succeeded, 1), default);
-        var failed = await service.ConfirmGatewayAsync(Callback(code, PaymentStatus.Failed, 500_000), default);
-        var replayed = await service.ConfirmGatewayAsync(Callback(code, PaymentStatus.Failed, 500_000), default);
-
-        forged.Error!.Type.Should().Be(ErrorType.Unauthorized);
-        wrongAmount.Error!.Type.Should().Be(ErrorType.Conflict);
-        failed.IsSuccess.Should().BeTrue();
-        replayed.IsSuccess.Should().BeTrue("the gateway retries callbacks");
-        (await db.Db.Invoices.SingleAsync(i => i.InvoiceId == 10)).PaidAmount.Should().Be(0);
     }
 
     [Fact]
@@ -170,10 +144,7 @@ public sealed class TruongCoreFeatureTests
         again.Error!.Type.Should().Be(ErrorType.Conflict);
     }
 
-    private static readonly PaymentGatewayOptions Gateway = new() { Secret = "test-secret", CheckoutBaseUrl = "http://pay.test" };
-
-    private static GatewayCallbackRequest Callback(string code, PaymentStatus status, decimal amount) =>
-        new(code, status, amount, "REF-1", InvoiceService.Sign(Gateway.Secret, code, status, amount, "REF-1"));
+    private static readonly PaymentGatewayOptions Gateway = new() { AllowSimulation = true, CheckoutBaseUrl = "http://pay.test" };
 
     [Fact]
     public async Task Manual_payment_cannot_exceed_invoice_balance()
@@ -228,7 +199,7 @@ public sealed class TruongCoreFeatureTests
         var service = new InvoiceService(db.Uow, new FakeCurrentUser(31, Roles.StorageCustomer), Gateway);
         var intent = await service.PayOnlineAsync(30, new PaymentRequest(50_000, null), default);
 
-        var result = await service.ConfirmGatewayAsync(Callback(intent.Value!.PaymentCode, PaymentStatus.Succeeded, 50_000), default);
+        var result = await service.SimulateGatewaySuccessAsync(intent.Value!.PaymentCode, default);
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Status.Should().Be(InvoiceStatus.Overdue);

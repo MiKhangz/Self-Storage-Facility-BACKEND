@@ -11,14 +11,11 @@ public sealed class AppOptions
 }
 
 /// <summary>
-/// Bound from the <c>PaymentGateway</c> config section. There is no real provider yet: the "gateway" confirms a
-/// payment by calling back with an HMAC signature made with <see cref="Secret"/>.
+/// Bound from the <c>PaymentGateway</c> config section. With VNPay's keys payments go through VNPay; without them,
+/// in Development, through the test checkout.
 /// </summary>
 public sealed class PaymentGatewayOptions
 {
-    /// <summary>Shared secret for callback signatures. Empty means every callback is rejected.</summary>
-    public string Secret { get; init; } = string.Empty;
-
     /// <summary>Lets a signed-in customer simulate the gateway's success callback. Development only.</summary>
     public bool AllowSimulation { get; init; }
 

@@ -29,7 +29,7 @@ public sealed class InvoicesController(IInvoiceService invoices, IReminderServic
 
     /// <summary>
     /// Starts an online payment: returns a Pending payment and the checkout URL. The invoice is credited only when
-    /// the gateway confirms through <c>POST /api/payments/gateway-callback</c>.
+    /// VNPay confirms through its IPN or return URL.
     /// </summary>
     [HttpPost("{id:int}/payments/online")]
     [Authorize(Roles = Roles.StorageCustomer)]

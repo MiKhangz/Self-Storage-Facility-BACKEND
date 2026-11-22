@@ -36,7 +36,6 @@ builder.Services.AddSingleton(new AppOptions
 var gateway = builder.Configuration.GetSection("PaymentGateway").Get<PaymentGatewayOptions>() ?? new PaymentGatewayOptions();
 builder.Services.AddSingleton(new PaymentGatewayOptions
 {
-    Secret = gateway.Secret,
     CheckoutBaseUrl = gateway.CheckoutBaseUrl,
     VnPayTmnCode = gateway.VnPayTmnCode,
     VnPayHashSecret = gateway.VnPayHashSecret,
