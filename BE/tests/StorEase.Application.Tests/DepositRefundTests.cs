@@ -2,6 +2,8 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.DepositRefunds;
+using StorEase.Application.Features.Invoices;
+using StorEase.Application.Features.Invoices.Dtos;
 using StorEase.Application.Features.Returns;
 using StorEase.Application.Features.Returns.Dtos;
 using StorEase.Application.Features.Reservations;
@@ -94,5 +96,128 @@ public class DepositRefundTests
 
         validator.Validate(new MarkDepositRefundPaidRequest(RefundMethod.BankTransfer, null)).IsValid.Should().BeFalse();
         validator.Validate(new MarkDepositRefundPaidRequest(RefundMethod.Cash, null)).IsValid.Should().BeTrue();
+    }
+
+    /// <summary>A booking whose 900,000 deposit invoice was paid once for each of <paramref name="payments"/>.</summary>
+    private static (Reservation Booking, List<int> PaymentIds) PaidDeposit(TestDb t, ReservationStatus status, int payments = 1)
+    {
+        var booking = new Reservation
+        {
+            CustomerId = CustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, StorageUnitId = A101, ReservationCode = "RS-TWICE",
+            MoveInDate = VietnamTime.Today.AddDays(5), RentalMonths = 1, Status = status, CreatedAt = DateTime.UtcNow,
+        };
+        t.Db.Add(booking);
+        t.Db.SaveChanges();
+        var invoice = new Invoice
+        {
+            ReservationId = booking.ReservationId, CustomerId = CustomerId, InvoiceNumber = "DEP-TWICE", IssueDate = VietnamTime.Today,
+            DueDate = booking.MoveInDate, TotalAmount = 900_000m, PaidAmount = 900_000m * payments, Status = InvoiceStatus.Paid,
+        };
+        invoice.InvoiceItems.Add(InvoiceBook.Line(InvoiceBook.DepositDescription, 900_000m));
+        for (var i = 0; i < payments; i++)
+            invoice.Payments.Add(new Payment
+            {
+                PaymentCode = $"PY-TWICE{i}", Method = PaymentMethod.Gateway, Amount = 900_000m, PaidAt = DateTime.UtcNow, Status = PaymentStatus.Succeeded,
+            });
+        t.Db.Add(invoice);
+        t.Db.SaveChanges();
+        return (booking, invoice.Payments.Select(p => p.PaymentId).ToList());
+    }
+
+    private static Task<Result<InvoiceDto>> Refund(TestDb t, int paymentId) =>
+        new InvoiceService(t.Uow, Ops, new PaymentGatewayOptions()).RefundPaymentAsync(paymentId, new RefundRequest(null), default);
+
+    [Theory]
+    [InlineData(ReservationStatus.Pending)]
+    [InlineData(ReservationStatus.Confirmed)]
+    [InlineData(ReservationStatus.HandedOver)]
+    public async Task A_deposit_is_not_refunded_as_a_payment_but_an_overpayment_is(ReservationStatus status)
+    {
+        using var t = Create();
+        var (booking, ids) = PaidDeposit(t, status, payments: 2);
+        if (status == ReservationStatus.HandedOver)
+        {
+            t.Db.Add(new Contract
+            {
+                ReservationId = booking.ReservationId, CustomerId = CustomerId, StorageUnitId = A101, ContractNumber = "CT-TWICE",
+                StartDate = booking.MoveInDate, EndDate = booking.MoveInDate.AddMonths(1), PaymentDay = 5, DepositAmount = 900_000m,
+                Status = ContractStatus.Active,
+            });
+            t.Db.SaveChanges();
+        }
+
+        var extra = await Refund(t, ids[1]);
+        var deposit = await Refund(t, ids[0]);
+
+        extra.IsSuccess.Should().BeTrue("the customer paid twice");
+        extra.Value!.Status.Should().Be(InvoiceStatus.Paid);
+        deposit.Error!.Type.Should().Be(ErrorType.Conflict);
+    }
+
+    [Fact]
+    public async Task A_cancelled_deposit_is_paid_back_only_once()
+    {
+        using var t = Create();
+        var (booking, ids) = PaidDeposit(t, ReservationStatus.Confirmed, payments: 2);
+        await new ReservationService(t.Uow, Staff, new FakeEmailService())
+            .CancelAsync(booking.ReservationId, new CancelReservationRequest("Khách đổi ý"), default);
+
+        var refunded = await Refund(t, ids[1]);
+
+        (await t.Db.DepositRefunds.SingleAsync()).Amount.Should().Be(1_800_000m, "Deposit Refunds already owes both payments");
+        refunded.Error!.Type.Should().Be(ErrorType.Conflict);
+    }
+
+    [Fact]
+    public async Task Money_that_arrives_after_a_cancellation_can_still_be_refunded()
+    {
+        using var t = Create();
+        var (_, ids) = PaidDeposit(t, ReservationStatus.Cancelled);
+
+        var refunded = await Refund(t, ids[0]);
+
+        refunded.Value!.Status.Should().Be(InvoiceStatus.WrittenOff, "nothing else would pay it back, and the booking stays closed");
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task A_terminated_rentals_deposit_is_refunded_as_a_payment_only_when_nothing_can_settle_it(bool returnOpen, bool allowed)
+    {
+        using var t = Create();
+        var (booking, ids) = PaidDeposit(t, ReservationStatus.HandedOver);
+        var contract = new Contract
+        {
+            ReservationId = booking.ReservationId, CustomerId = CustomerId, StorageUnitId = A101, ContractNumber = "CT-ENDED",
+            StartDate = booking.MoveInDate, EndDate = booking.MoveInDate.AddMonths(1), PaymentDay = 5, DepositAmount = 900_000m,
+            Status = ContractStatus.Terminated,
+        };
+        t.Db.Add(contract);
+        if (returnOpen)
+            t.Db.Add(new UnitReturn
+            {
+                Contract = contract, RequestedAt = DateTime.UtcNow, PlannedReturnDate = VietnamTime.Today,
+                MoveOutDeadline = VietnamTime.Today, Status = ReturnStatus.Inspected,
+            });
+        t.Db.SaveChanges();
+
+        (await Refund(t, ids[0])).IsSuccess.Should().Be(allowed);
+    }
+
+    [Fact]
+    public async Task A_deduction_from_the_deposit_is_not_refunded_as_a_payment()
+    {
+        using var t = Create();
+        var invoice = new Invoice
+        {
+            CustomerId = CustomerId, InvoiceNumber = "INV-DPC", IssueDate = VietnamTime.Today, DueDate = VietnamTime.Today,
+            TotalAmount = 100_000m, PaidAmount = 100_000m, Status = InvoiceStatus.Paid,
+        };
+        var deduction = new Payment { PaymentCode = "DPC1", Method = PaymentMethod.Deposit, Amount = 100_000m, Status = PaymentStatus.Succeeded };
+        invoice.Payments.Add(deduction);
+        t.Db.Add(invoice);
+        t.Db.SaveChanges();
+
+        (await Refund(t, deduction.PaymentId)).Error!.Type.Should().Be(ErrorType.Conflict);
     }
 }

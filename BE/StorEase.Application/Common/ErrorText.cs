@@ -133,6 +133,8 @@ public static class ErrorText
         ["The contract is already signed."] = "Hợp đồng đã được ký.",
         ["The customer has not signed the contract yet."] = "Khách chưa ký hợp đồng.",
         ["The deposit has not been paid yet."] = "Tiền cọc chưa được thanh toán.",
+        ["A deduction from the deposit cannot be refunded as a payment."] = "Khoản trừ vào tiền cọc không thể hoàn như một khoản thanh toán.",
+        ["Only an overpayment of a deposit can be refunded here; the deposit itself goes back through Deposit Refunds when the booking is cancelled or the rental is settled."] = "Tại đây chỉ hoàn được phần tiền cọc trả dư; tiền cọc được hoàn ở mục Hoàn tiền cọc khi đơn bị huỷ hoặc khi quyết toán trả kho.",
         ["The handover is already cancelled."] = "Bàn giao này đã bị hủy.",
         ["The new unit must be the same size, at the same facility."] = "Kho mới phải cùng cỡ và cùng cơ sở.",
         ["The unit already has an Active or Draft contract."] = "Kho này đã có hợp đồng đang hiệu lực hoặc nháp.",

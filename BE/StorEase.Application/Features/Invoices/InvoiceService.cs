@@ -155,6 +155,11 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
                 return Error.NotFound("Payment not found.");
             if (payment.Status != PaymentStatus.Succeeded)
                 return Error.Conflict($"Only a Succeeded payment can be refunded; this one is {payment.Status}.");
+            if (payment.Method == PaymentMethod.Deposit)
+                return Error.Conflict("A deduction from the deposit cannot be refunded as a payment.");
+            if (payment.Invoice is { ContractId: null, ReservationId: { } bookingId }
+                && payment.Invoice.PaidAmount - payment.Amount < await DepositHeldAsync(payment.Invoice, bookingId, ct))
+                return Error.Conflict("Only an overpayment of a deposit can be refunded here; the deposit itself goes back through Deposit Refunds when the booking is cancelled or the rental is settled.");
 
             payment.Status = PaymentStatus.Refunded;
             if (!string.IsNullOrWhiteSpace(request.Reason))
@@ -177,6 +182,22 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
             return invoice.InvoiceId;
         }, ct);
         return done.IsSuccess ? await GetAsync(done.Value, ct) : done.Error;
+    }
+
+    /// <summary>The part of a deposit that another route pays back, so a payment refund must leave it alone.</summary>
+    private async Task<decimal> DepositHeldAsync(Invoice deposit, int reservationId, CancellationToken ct)
+    {
+        var status = await uow.Repository<Reservation>().Query().Where(r => r.ReservationId == reservationId).Select(r => r.Status).FirstAsync(ct);
+        if (status is ReservationStatus.Cancelled or ReservationStatus.Expired)
+            return (await uow.Repository<DepositRefund>().Query().Where(r => r.ReservationId == reservationId)
+                .Select(r => r.Amount).ToListAsync(ct)).Sum(); // in memory: SQLite (tests) cannot sum decimals
+        // A terminated rental without an open return or overdue case is never settled, so this is its only way back.
+        if (status == ReservationStatus.HandedOver
+            && !await uow.Repository<Contract>().Query().AnyAsync(c => c.ReservationId == reservationId && c.Status != ContractStatus.Terminated, ct)
+            && !await uow.Repository<UnitReturn>().Query().AnyAsync(r => r.Contract.ReservationId == reservationId && r.Status != ReturnStatus.Cancelled, ct)
+            && !await uow.Repository<OverdueCase>().Query().AnyAsync(o => o.Contract.ReservationId == reservationId && o.ResolvedAt == null, ct))
+            return 0m;
+        return deposit.TotalAmount;
     }
 
     public async Task<Result<PagedResult<PaymentHistoryDto>>> ListPaymentsAsync(
