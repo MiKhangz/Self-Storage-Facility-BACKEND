@@ -5,6 +5,7 @@ using StorEase.Application.Features.Contracts;
 using StorEase.Application.Features.Contracts.Dtos;
 using StorEase.Application.Features.Handovers;
 using StorEase.Application.Features.Handovers.Dtos;
+using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
@@ -145,6 +146,53 @@ public class HandoverServiceTests
         t.Db.StorageUnits.Single(u => u.StorageUnitId == A101).Status.Should().Be(StorageUnitStatus.Available);
         reassigned.IsSuccess.Should().BeTrue(reassigned.Error?.Message);
         reassigned.Value!.UnitCode.Should().Be("A-102");
+    }
+
+    /// <summary>The booking on A-101 moves in 40 days from now.</summary>
+    private static (int ReservationId, int ContractId) ReadyForLater(TestDb t)
+    {
+        var (reservationId, contractId) = SeedReadyForHandover(t, signed: true);
+        var start = VietnamTime.Today.AddDays(40);
+        t.Db.Reservations.Find(reservationId)!.MoveInDate = start;
+        var contract = t.Db.Contracts.Find(contractId)!;
+        contract.StartDate = start;
+        contract.EndDate = start.AddMonths(3).AddDays(-1);
+        t.Db.SaveChanges();
+        t.Db.ChangeTracker.Clear();
+        return (reservationId, contractId);
+    }
+
+    [Fact]
+    public async Task An_early_handover_cannot_take_the_days_promised_to_someone_else()
+    {
+        using var t = Create();
+        var (reservationId, contractId) = ReadyForLater(t);
+        t.Db.Add(new Reservation
+        {
+            CustomerId = OtherCustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, StorageUnitId = A101, ReservationCode = "RS-SOONER",
+            MoveInDate = VietnamTime.Today.AddDays(5), RentalMonths = 1, Status = ReservationStatus.Confirmed, CreatedAt = DateTime.UtcNow,
+        });
+        t.Db.SaveChanges();
+
+        var early = await RealService(t).CreateAsync(Request(reservationId, contractId), default);
+
+        early.Error!.Type.Should().Be(ErrorType.Conflict);
+        t.Db.ChangeTracker.Clear();
+        t.Db.Contracts.Find(contractId)!.Status.Should().Be(ContractStatus.Draft);
+    }
+
+    [Fact]
+    public async Task After_an_early_handover_nobody_can_book_the_days_before_the_contract_starts()
+    {
+        using var t = Create();
+        var (reservationId, contractId) = ReadyForLater(t);
+        var beforeItStarts = (From: VietnamTime.Today.AddDays(2), To: VietnamTime.Today.AddDays(20));
+        (await UnitSchedule.IsFreeAsync(t.Uow, A101, beforeItStarts.From, beforeItStarts.To, default)).Should().BeTrue("a draft holds only its period");
+
+        var early = await RealService(t).CreateAsync(Request(reservationId, contractId), default);
+
+        early.IsSuccess.Should().BeTrue(early.Error?.Message);
+        (await UnitSchedule.IsFreeAsync(t.Uow, A101, beforeItStarts.From, beforeItStarts.To, default)).Should().BeFalse("the renter is inside");
     }
 
     private static async Task<(int ReservationId, int ContractId, int HandoverId)> HandedOver(TestDb t)

@@ -8,7 +8,8 @@ namespace StorEase.Application.Features.StorageUnits;
 
 /// <summary>
 /// The one rule for "is this unit free from one date to another". A unit is busy while a contract holds it (from its
-/// start until its end date, or until today when the renter is still inside after the end date) and while a booking
+/// start, or from the handover when that came earlier, until its end date, or until today when the renter is still
+/// inside after the end date) and while a booking
 /// holds it (from its move-in date for the months booked). Booking, staff assignment, renewals and the daily job all
 /// use it, so a unit is never promised twice for the same days.
 /// </summary>
@@ -97,7 +98,9 @@ public static class UnitSchedule
         // shortcut: the overlap is finished in memory (a facility has tens of units), which keeps the query
         // portable across SQL Server and the SQLite tests; move it into SQL if a facility ever holds thousands.
         var contracts = await uow.Repository<Contract>().Query()
-            .Where(c => unitIds.Contains(c.StorageUnitId) && Holding.Contains(c.Status) && c.StartDate <= to
+            .Where(c => unitIds.Contains(c.StorageUnitId) && Holding.Contains(c.Status)
+                // Past Draft the renter is inside, even when the handover came before the start date.
+                && (c.StartDate <= to || c.Status != ContractStatus.Draft)
                 && c.ContractId != (exceptContractId ?? 0)
                 // A booking's own contract never blocks that booking.
                 && c.ReservationId != (exceptReservationId ?? 0))

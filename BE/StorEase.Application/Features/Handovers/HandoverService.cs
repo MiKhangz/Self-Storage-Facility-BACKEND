@@ -91,6 +91,11 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser, IContrac
             var unit = (await uow.Repository<StorageUnit>().FindAsync(reservation.StorageUnitId.Value, ct))!;
             if (unit.Status != StorageUnitStatus.Reserved)
                 return Error.Conflict($"Unit {unit.UnitCode} is {unit.Status}, expected Reserved.");
+            // An early handover also takes the days until move-in, which may be somebody else's.
+            var today = VietnamTime.Today;
+            if (reservation.MoveInDate > today && !await UnitSchedule.IsFreeAsync(uow, unit.StorageUnitId, today,
+                    reservation.MoveInDate.AddDays(-1), ct, exceptReservationId: reservation.ReservationId))
+                return Error.Conflict($"Unit {unit.UnitCode} is promised to another customer before this booking's move-in date, so it cannot be handed over early.");
 
             var handover = new Handover
             {
