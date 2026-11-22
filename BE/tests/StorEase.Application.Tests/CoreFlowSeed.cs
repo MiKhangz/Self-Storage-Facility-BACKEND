@@ -21,7 +21,7 @@ public static class CoreFlowSeed
     public const int A102 = 2;          // small
     public const int A104 = 3;          // large
 
-    public static readonly DateOnly MoveIn = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1);
+    public static readonly DateOnly MoveIn = VietnamTime.Today.AddDays(1);
 
     public static TestDb Create()
     {
