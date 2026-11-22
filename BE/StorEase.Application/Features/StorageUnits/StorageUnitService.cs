@@ -134,10 +134,14 @@ public class StorageUnitService(IUnitOfWork uow, ICurrentUser currentUser) : ISt
         return null;
     }
 
-    private static IQueryable<StorageUnitListItemDto> Project(IQueryable<StorageUnit> query) =>
-        query.Select(u => new StorageUnitListItemDto(
+    private IQueryable<StorageUnitListItemDto> Project(IQueryable<StorageUnit> query)
+    {
+        // The unit list is public; notes are the staff's own.
+        var staff = currentUser.Role is Roles.FacilityStaff or Roles.FacilityManager || StaffScope.SeesAllFacilities(currentUser.Role);
+        return query.Select(u => new StorageUnitListItemDto(
             u.StorageUnitId, u.UnitCode, u.FacilityId, u.FloorId, u.Floor.Name, u.Zone, u.Status,
-            u.CurrentPrice, u.UnitTypeId, u.UnitType.Code, u.UnitType.Name, u.UnitType.AreaM2, u.Note));
+            u.CurrentPrice, u.UnitTypeId, u.UnitType.Code, u.UnitType.Name, u.UnitType.AreaM2, staff ? u.Note : null));
+    }
 
     /// <summary>
     /// The active policy's monthly base price for a unit type, or 0 when none is set. Display only: quotes, deposits and
