@@ -2,7 +2,8 @@ namespace StorEase.Application.Interfaces;
 
 public interface IJwtService
 {
-    string CreateToken(int userId, string fullName, string email, string role);
+    /// <summary>A login token. <paramref name="passwordStamp"/> ends it as soon as the password changes.</summary>
+    string CreateToken(int userId, string fullName, string email, string role, string passwordStamp);
 
     /// <summary>
     /// A short-lived signed token for one job (email verification, password reset). <paramref name="stamp"/> is

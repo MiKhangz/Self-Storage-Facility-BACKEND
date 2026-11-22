@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.Auth;
 using StorEase.Application.Features.Auth.Validators;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
@@ -44,13 +45,14 @@ public interface IProfileService
 {
     Task<Result<ProfileDto>> GetAsync(CancellationToken ct);
     Task<Result<ProfileDto>> UpdateAsync(UpdateProfileRequest request, CancellationToken ct);
-    Task<Result<bool>> ChangePasswordAsync(ChangePasswordRequest request, CancellationToken ct);
+    /// <summary>Every session ends with the old password; returns a new token for the one that changed it.</summary>
+    Task<Result<string>> ChangePasswordAsync(ChangePasswordRequest request, CancellationToken ct);
     Task<Result<NotificationSettingsDto>> GetNotificationSettingsAsync(CancellationToken ct);
     Task<Result<NotificationSettingsDto>> UpdateNotificationSettingsAsync(NotificationSettingsDto request, CancellationToken ct);
 }
 
 /// <summary>Everything here acts on the signed-in user only (the <c>sub</c> claim), never on an id from the request.</summary>
-public class ProfileService(IUnitOfWork uow, ICurrentUser currentUser, IPasswordHasher hasher) : IProfileService
+public class ProfileService(IUnitOfWork uow, ICurrentUser currentUser, IPasswordHasher hasher, IJwtService jwt) : IProfileService
 {
     public static readonly NotificationSettingsDto Defaults = new(EmailReminders: true, SmsReminders: false, MarketingEmails: false);
 
@@ -78,9 +80,9 @@ public class ProfileService(IUnitOfWork uow, ICurrentUser currentUser, IPassword
         return await GetAsync(ct);
     }
 
-    public async Task<Result<bool>> ChangePasswordAsync(ChangePasswordRequest request, CancellationToken ct)
+    public async Task<Result<string>> ChangePasswordAsync(ChangePasswordRequest request, CancellationToken ct)
     {
-        var user = await uow.Repository<User>().FindAsync(currentUser.UserId, ct);
+        var user = await uow.Repository<User>().Query().Include(u => u.Role).FirstOrDefaultAsync(u => u.UserId == currentUser.UserId, ct);
         if (user is null)
             return Error.NotFound("Account not found.");
         if (!hasher.Verify(request.CurrentPassword, user.PasswordHash))
@@ -88,7 +90,7 @@ public class ProfileService(IUnitOfWork uow, ICurrentUser currentUser, IPassword
 
         user.PasswordHash = hasher.Hash(request.NewPassword);
         await uow.SaveChangesAsync(ct);
-        return true;
+        return jwt.CreateToken(user.UserId, user.FullName, user.Email, user.Role.RoleName, SessionCheck.StampOf(user.PasswordHash));
     }
 
     public async Task<Result<NotificationSettingsDto>> GetNotificationSettingsAsync(CancellationToken ct)

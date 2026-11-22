@@ -29,7 +29,10 @@ public class ProfileController(IProfileService profile) : ApiControllerBase
     public async Task<IActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken ct)
     {
         var result = await profile.ChangePasswordAsync(request, ct);
-        return result.IsSuccess ? NoContent() : Failure(result.Error);
+        if (!result.IsSuccess)
+            return Failure(result.Error);
+        AuthController.StartSession(HttpContext, result.Value);
+        return NoContent();
     }
 
     [HttpGet("notification-settings")]

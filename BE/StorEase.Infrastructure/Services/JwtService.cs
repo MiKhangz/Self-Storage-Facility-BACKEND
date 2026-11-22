@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
+using StorEase.Application.Features.Auth;
 using StorEase.Application.Interfaces;
 
 namespace StorEase.Infrastructure.Services;
@@ -11,7 +12,7 @@ public class JwtService(JwtOptions options) : IJwtService
     private SigningCredentials Credentials => new(
         new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.Key)), SecurityAlgorithms.HmacSha256);
 
-    public string CreateToken(int userId, string fullName, string email, string role)
+    public string CreateToken(int userId, string fullName, string email, string role, string passwordStamp)
     {
         var token = new JwtSecurityToken(
             issuer: options.Issuer,
@@ -22,6 +23,7 @@ public class JwtService(JwtOptions options) : IJwtService
                 new Claim("name", fullName),
                 new Claim("email", email),
                 new Claim("role", role),
+                new Claim(SessionCheck.StampClaim, passwordStamp),
             ],
             expires: DateTime.UtcNow.AddMinutes(options.ExpiresMinutes),
             signingCredentials: Credentials);

@@ -48,7 +48,7 @@ public class AuthService(
             return Error.Forbidden("This account is not active.");
 
         await activity.RecordAsync(new ActivityEntry(user.UserId, null, ActivityLogService.SignIn, "User", user.UserId.ToString(), ipAddress, true), ct);
-        var token = jwt.CreateToken(user.UserId, user.FullName, user.Email, user.RoleName);
+        var token = jwt.CreateToken(user.UserId, user.FullName, user.Email, user.RoleName, SessionCheck.StampOf(user.PasswordHash));
         return new LoginResponse(token, user.UserId, user.FullName, user.RoleName);
     }
 
@@ -150,7 +150,7 @@ public class AuthService(
 
     private static string EmailStamp(User user) => Stamp(user.Email.ToLowerInvariant());
 
-    private static string PasswordStamp(User user) => Stamp(user.PasswordHash);
+    private static string PasswordStamp(User user) => SessionCheck.StampOf(user.PasswordHash);
 
     private static string Stamp(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)))[..16];
 }

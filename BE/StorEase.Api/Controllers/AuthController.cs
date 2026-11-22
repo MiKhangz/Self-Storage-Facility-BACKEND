@@ -46,12 +46,17 @@ public class AuthController(IAuthService auth) : ApiControllerBase
         var result = await auth.LoginAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString(), ct);
         if (!result.IsSuccess)
             return Failure(result.Error);
+        StartSession(HttpContext, result.Value!.Token);
+        return Ok(result.Value);
+    }
+
+    internal static void StartSession(HttpContext http, string token)
+    {
         // Strict: the browser never sends it on a request started by another site, which is the CSRF guard.
         var options = new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Path = "/api" };
-        Response.Cookies.Append(SessionCookie(Request), result.Value!.Token, options);
-        if (TabCookie(Request) is { } tab)
-            Response.Cookies.Append(tab, result.Value.Token, options);
-        return Ok(result.Value);
+        http.Response.Cookies.Append(SessionCookie(http.Request), token, options);
+        if (TabCookie(http.Request) is { } tab)
+            http.Response.Cookies.Append(tab, token, options);
     }
 
     /// <summary>The signed-in user, so a reloaded page can pick its session back up from the cookie.</summary>

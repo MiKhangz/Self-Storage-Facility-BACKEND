@@ -48,6 +48,7 @@ public class AuthServiceTests
         result.Value.FullName.Should().Be("Nhân viên");
         var token = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.Token);
         token.Claims.Should().Contain(c => c.Type == "role" && c.Value == Roles.FacilityStaff);
+        token.Claims.Should().Contain(c => c.Type == SessionCheck.StampClaim && c.Value == SessionCheck.StampOf(t.Db.Users.Single().PasswordHash));
         token.Claims.Should().Contain(c => c.Type == "sub" && c.Value == result.Value.UserId.ToString());
     }
 
