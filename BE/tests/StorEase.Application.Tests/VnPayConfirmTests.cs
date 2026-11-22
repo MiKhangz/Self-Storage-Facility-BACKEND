@@ -77,4 +77,20 @@ public class VnPayConfirmTests
         (await t.Db.Payments.SingleAsync()).Status.Should().Be(PaymentStatus.Failed);
         (await t.Db.Invoices.SingleAsync()).PaidAmount.Should().Be(0m);
     }
+
+    [Fact]
+    public async Task The_test_checkout_pays_only_while_VNPay_is_not_configured()
+    {
+        var (t, intent) = await Pending();
+        using var _ = t;
+        var withVnPay = new PaymentGatewayOptions { VnPayTmnCode = "TESTCODE", VnPayHashSecret = "SECRET", AllowSimulation = true };
+        var withoutKeys = new PaymentGatewayOptions { AllowSimulation = true };
+
+        (await new InvoiceService(t.Uow, Customer, withVnPay).SimulateGatewaySuccessAsync(intent.PaymentCode, default))
+            .Error!.Type.Should().Be(ErrorType.NotFound);
+        (await t.Db.Invoices.AsNoTracking().SingleAsync()).PaidAmount.Should().Be(0m);
+
+        (await new InvoiceService(t.Uow, Customer, withoutKeys).SimulateGatewaySuccessAsync(intent.PaymentCode, default))
+            .Value!.Status.Should().Be(InvoiceStatus.Paid);
+    }
 }

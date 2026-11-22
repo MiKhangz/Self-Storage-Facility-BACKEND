@@ -109,7 +109,7 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
 
     public async Task<Result<InvoiceDto>> SimulateGatewaySuccessAsync(string paymentCode, CancellationToken ct)
     {
-        if (!gateway.AllowSimulation)
+        if (!gateway.AllowSimulation || gateway.UsesVnPay)
             return Error.NotFound("Payment simulation is not available.");
         var payment = await uow.Repository<Payment>().Query().Where(p => p.PaymentCode == paymentCode)
             .Select(p => new { p.Amount, p.Invoice.CustomerId }).FirstOrDefaultAsync(ct);
