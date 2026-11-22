@@ -71,19 +71,19 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
         if (!await uow.Repository<UnitType>().Query().AnyAsync(t => t.UnitTypeId == request.UnitTypeId, ct))
             return Error.NotFound("Unit type not found.");
 
-        // The booking holds the first unit free for the whole stay (the "expected unit"); staff confirm it later.
-        var lastDay = UnitSchedule.EndOf(request.MoveInDate, request.RentalMonths);
-        var free = await UnitSchedule.FreeUnitsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, lastDay, ct);
-        var unplaced = await UnitSchedule.UnplacedBookingsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, lastDay, ct);
-        if (free.Count <= unplaced)
-            return Error.Conflict("No unit of this type is available at this facility.");
-        var expected = free[0];
-
         // Without a policy there is no price, so the deposit is skipped rather than blocking the booking.
         var terms = await RentCalculator.TermsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, request.RentalMonths, ct);
 
-        var created = await uow.InTransactionAsync<int>(async () =>
+        var created = await uow.InExclusiveTransactionAsync<int>(async () =>
         {
+            // The booking holds the first unit free for the whole stay (the "expected unit"); staff confirm it later.
+            var lastDay = UnitSchedule.EndOf(request.MoveInDate, request.RentalMonths);
+            var free = await UnitSchedule.FreeUnitsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, lastDay, ct);
+            var unplaced = await UnitSchedule.UnplacedBookingsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, lastDay, ct);
+            if (free.Count <= unplaced)
+                return Error.Conflict("No unit of this type is available at this facility.");
+            var expected = free[0];
+
             var reservation = new Reservation
             {
                 CustomerId = currentUser.UserId,
@@ -116,7 +116,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
         if (dto.IsSuccess)
             await NotifyAsync(dto.Value, "Đã nhận yêu cầu đặt kho",
                 $"Chúng tôi đã nhận yêu cầu đặt kho {dto.Value.UnitTypeName} tại {facility.Name}, dọn vào ngày {dto.Value.MoveInDate:dd/MM/yyyy}. " +
-                $"Kho dự kiến: {expected.UnitCode} (nhân viên xác nhận trước ngày dọn vào)." +
+                $"Kho dự kiến: {dto.Value.UnitCode} (nhân viên xác nhận trước ngày dọn vào)." +
                 (dto.Value.DepositAmount is { } amount ? $"\nVui lòng thanh toán tiền cọc {Money.Text(amount)} ₫ trước ngày dọn vào." : ""), ct);
         return dto;
     }
@@ -154,7 +154,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
     public async Task<Result<ReservationDto>> AssignUnitAsync(
         int reservationId, AssignUnitRequest request, CancellationToken ct)
     {
-        var assigned = await uow.InTransactionAsync<(int Id, bool Proposed)>(async () =>
+        var assigned = await uow.InExclusiveTransactionAsync<(int Id, bool Proposed)>(async () =>
         {
             var reservation = await Visible().FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
             if (reservation is null)
@@ -218,7 +218,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
     public async Task<Result<ReservationDto>> ChangeUnitAsync(
         int reservationId, AssignUnitRequest request, CancellationToken ct)
     {
-        var changed = await uow.InTransactionAsync<int>(async () =>
+        var changed = await uow.InExclusiveTransactionAsync<int>(async () =>
         {
             var reservation = await Visible().Include(r => r.StorageUnit)
                 .FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
@@ -260,7 +260,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
 
     public async Task<Result<ReservationDto>> AcceptProposedUnitAsync(int reservationId, CancellationToken ct)
     {
-        var accepted = await uow.InTransactionAsync<int>(async () =>
+        var accepted = await uow.InExclusiveTransactionAsync<int>(async () =>
         {
             var reservation = await Visible().Include(r => r.StorageUnit).Include(r => r.ProposedStorageUnit)
                 .FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
@@ -396,12 +396,17 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             // Without a held unit staff assign one; with an offer open the customer answers first.
             if (!blocked || r.StorageUnitId is null || r.ProposedStorageUnitId is not null)
                 continue;
-            var free = await UnitSchedule.FreeUnitsAsync(uow, r.FacilityId, r.UnitTypeId, r.MoveInDate, lastDay, ct, exceptReservationId: r.ReservationId);
-            if (free.Count == 0)
+            var offer = await uow.InExclusiveTransactionAsync<bool>(async () =>
+            {
+                var free = await UnitSchedule.FreeUnitsAsync(uow, r.FacilityId, r.UnitTypeId, r.MoveInDate, lastDay, ct, exceptReservationId: r.ReservationId);
+                if (free.Count == 0)
+                    return false;
+                r.ProposedStorageUnitId = free[0].StorageUnitId;
+                r.ProposedAt = DateTime.UtcNow;
+                return true;
+            }, ct);
+            if (!offer.Value)
                 continue; // staff see the flag on Reservations and call the customer
-            r.ProposedStorageUnitId = free[0].StorageUnitId;
-            r.ProposedAt = DateTime.UtcNow;
-            await uow.SaveChangesAsync(ct);
             proposed++;
             if (await GetAsync(r.ReservationId, ct) is { IsSuccess: true } dto)
                 await NotifyProposalAsync(dto.Value, ct);
@@ -447,7 +452,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
     /// <param name="refundAnyway">StorEase could not give the unit promised (offer turned down, or not ready by the handover day), so the deposit comes back in full.</param>
     private async Task<Result<ReservationCancellationDto>> CloseAsync(int reservationId, bool noShow, CancellationToken ct, bool refundAnyway = false, DateOnly? today = null)
     {
-        var closed = await uow.InTransactionAsync<(int Id, decimal Paid, bool Refundable, bool OurFault)>(async () =>
+        var closed = await uow.InExclusiveTransactionAsync<(int Id, decimal Paid, bool Refundable, bool OurFault)>(async () =>
         {
             var reservation = await Visible().Include(r => r.StorageUnit)
                 .FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);

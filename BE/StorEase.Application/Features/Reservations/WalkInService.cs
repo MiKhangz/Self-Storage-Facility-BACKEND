@@ -89,7 +89,7 @@ public class WalkInService(
 
     public async Task<Result<ReservationDto>> BookAsync(WalkInReservationRequest request, CancellationToken ct)
     {
-        var booked = await uow.InTransactionAsync<int>(async () =>
+        var booked = await uow.InExclusiveTransactionAsync<int>(async () =>
         {
             if (!await StaffScope.FacilityIdsOf(uow, currentUser.UserId).AnyAsync(id => id == request.FacilityId, ct))
                 return Error.NotFound("Facility not found.");

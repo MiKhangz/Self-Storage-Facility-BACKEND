@@ -105,7 +105,7 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
 
     public async Task<Result<RenewalDto>> ApproveAsync(int id, CancellationToken ct)
     {
-        var approved = await uow.InTransactionAsync<int>(async () =>
+        var approved = await uow.InExclusiveTransactionAsync<int>(async () =>
         {
             var renewal = await Managed().Include(r => r.Contract).ThenInclude(c => c.AccessCodes)
                 .FirstOrDefaultAsync(r => r.RenewalId == id, ct);
@@ -146,7 +146,7 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
 
     public async Task<Result<RenewalDto>> AcceptTransferAsync(int id, CancellationToken ct)
     {
-        var accepted = await uow.InTransactionAsync<int>(async () =>
+        var accepted = await uow.InExclusiveTransactionAsync<int>(async () =>
         {
             var renewal = await Own().Include(r => r.Contract).ThenInclude(c => c.AccessCodes)
                 .Include(r => r.Contract).ThenInclude(c => c.StorageUnit)

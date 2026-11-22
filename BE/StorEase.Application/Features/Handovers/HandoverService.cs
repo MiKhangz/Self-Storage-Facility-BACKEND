@@ -65,7 +65,7 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser, IContrac
         }, ct);
 
     public Task<Result<HandoverDto>> CreateAsync(CreateHandoverRequest request, CancellationToken ct) =>
-        uow.InTransactionAsync<HandoverDto>(async () =>
+        uow.InExclusiveTransactionAsync<HandoverDto>(async () =>
         {
             var reservation = await uow.Repository<Reservation>().FindAsync(request.ReservationId, ct);
             // Staff hand over only at facilities they work at; elsewhere the reservation does not exist for them.
