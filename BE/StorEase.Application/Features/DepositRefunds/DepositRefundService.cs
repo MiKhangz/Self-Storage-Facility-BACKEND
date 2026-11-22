@@ -69,9 +69,10 @@ public class DepositRefundService(IUnitOfWork uow, ICurrentUser currentUser) : I
 
     /// <summary>
     /// Records a deposit StorEase now owes back, as Pending, in the caller's transaction (no save). Called by a
-    /// refundable cancellation and by a return settlement with a refund.
+    /// refundable cancellation, by a payment landing on a closed booking and by a return settlement with a refund.
     /// </summary>
-    internal static void Owe(IUnitOfWork uow, Reservation reservation, decimal amount, UnitReturn? unitReturn = null)
+    internal static void Owe(IUnitOfWork uow, Reservation reservation, decimal amount, UnitReturn? unitReturn = null,
+        DepositRefundSource source = DepositRefundSource.Cancellation)
     {
         if (amount <= 0)
             return;
@@ -81,7 +82,7 @@ public class DepositRefundService(IUnitOfWork uow, ICurrentUser currentUser) : I
             FacilityId = reservation.FacilityId,
             ReservationId = reservation.ReservationId,
             UnitReturnId = unitReturn?.UnitReturnId,
-            Source = unitReturn is null ? DepositRefundSource.Cancellation : DepositRefundSource.Return,
+            Source = unitReturn is null ? source : DepositRefundSource.Return,
             Amount = Money.Round(amount),
             Method = unitReturn?.RefundMethod,
             RefundAccount = unitReturn?.RefundAccount,

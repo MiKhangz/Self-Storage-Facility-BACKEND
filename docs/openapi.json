@@ -7419,7 +7419,8 @@
       "DepositRefundSource": {
         "enum": [
           "Cancellation",
-          "Return"
+          "Return",
+          "LatePayment"
         ],
         "type": "string"
       },

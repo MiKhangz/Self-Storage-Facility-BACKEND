@@ -204,6 +204,56 @@ public class DepositRefundTests
         (await Refund(t, ids[0])).IsSuccess.Should().Be(allowed);
     }
 
+    [Theory]
+    [InlineData(ReservationStatus.Cancelled, false, false)]
+    [InlineData(ReservationStatus.Expired, false, false)]
+    [InlineData(ReservationStatus.Cancelled, true, false)] // the cancellation's own refund was already paid out
+    [InlineData(ReservationStatus.Cancelled, true, true)] // cash at the desk
+    public async Task Money_that_lands_on_a_closed_booking_is_owed_back_once(ReservationStatus status, bool refundedBefore, bool cash)
+    {
+        using var t = Create();
+        var booking = new Reservation
+        {
+            CustomerId = CustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, ReservationCode = "RS-LATE",
+            MoveInDate = VietnamTime.Today.AddDays(5), RentalMonths = 1, Status = status, CreatedAt = DateTime.UtcNow,
+        };
+        t.Db.Add(booking);
+        t.Db.SaveChanges();
+        if (refundedBefore)
+            t.Db.Add(new DepositRefund
+            {
+                CustomerId = CustomerId, FacilityId = FacilityId, ReservationId = booking.ReservationId, Amount = 100_000m,
+                Source = DepositRefundSource.Cancellation, Status = DepositRefundStatus.Paid, CreatedAt = DateTime.UtcNow,
+            });
+        var invoice = new Invoice
+        {
+            ReservationId = booking.ReservationId, CustomerId = CustomerId, InvoiceNumber = "DEP-LATE", IssueDate = VietnamTime.Today,
+            DueDate = booking.MoveInDate, TotalAmount = 900_000m, PaidAmount = refundedBefore ? 100_000m : 0m,
+            Status = refundedBefore ? InvoiceStatus.Issued : InvoiceStatus.WrittenOff,
+        };
+        var late = new Payment { PaymentCode = "PY-LATE", Method = PaymentMethod.Gateway, Amount = 800_000m, Status = PaymentStatus.Pending };
+        invoice.Payments.Add(late);
+        t.Db.Add(invoice);
+        t.Db.SaveChanges();
+        t.Db.ChangeTracker.Clear();
+        var invoices = new InvoiceService(t.Uow, cash ? Staff : Customer, new PaymentGatewayOptions { AllowSimulation = true });
+
+        for (var i = 0; i < 2; i++)
+        {
+            if (cash)
+                await invoices.RecordManualPaymentAsync(invoice.InvoiceId, new PaymentRequest(800_000m, null), default);
+            else
+                await invoices.SimulateGatewaySuccessAsync("PY-LATE", default);
+        }
+
+        t.Db.ChangeTracker.Clear();
+        var owed = t.Db.DepositRefunds.Single(r => r.Status == DepositRefundStatus.Pending);
+        owed.Source.Should().Be(DepositRefundSource.LatePayment);
+        owed.Amount.Should().Be(800_000m);
+        var paymentId = t.Db.Payments.Single(p => p.Status == PaymentStatus.Succeeded).PaymentId;
+        (await Refund(t, paymentId)).Error!.Type.Should().Be(ErrorType.Conflict, "Deposit Refunds pays it back");
+    }
+
     [Fact]
     public async Task A_deduction_from_the_deposit_is_not_refunded_as_a_payment()
     {

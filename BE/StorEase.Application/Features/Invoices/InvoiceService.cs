@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.DepositRefunds;
 using StorEase.Application.Features.Invoices.Dtos;
 using StorEase.Application.Features.OverdueCases;
 using StorEase.Application.Interfaces;
@@ -150,7 +151,7 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
 
     public async Task<Result<InvoiceDto>> RefundPaymentAsync(int paymentId, RefundRequest request, CancellationToken ct)
     {
-        var done = await uow.InTransactionAsync<int>(async () =>
+        var done = await uow.InExclusiveTransactionAsync<int>(async () =>
         {
             var payment = await uow.Repository<Payment>().Query().Include(p => p.Invoice).ThenInclude(i => i.InvoiceItems)
                 .FirstOrDefaultAsync(p => p.PaymentId == paymentId, ct);
@@ -185,6 +186,16 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
             return invoice.InvoiceId;
         }, ct);
         return done.IsSuccess ? await GetAsync(done.Value, ct) : done.Error;
+    }
+
+    /// <summary>A deposit payment can land after its booking closed (the checkout link lives 15 minutes): all of it is owed back.</summary>
+    private async Task OweBackIfClosedAsync(Invoice invoice, decimal amount, CancellationToken ct)
+    {
+        if (invoice is not { ContractId: null, ReservationId: { } bookingId })
+            return;
+        var booking = (await uow.Repository<Reservation>().FindAsync(bookingId, ct))!;
+        if (booking.Status is ReservationStatus.Cancelled or ReservationStatus.Expired)
+            DepositRefundService.Owe(uow, booking, amount, source: DepositRefundSource.LatePayment);
     }
 
     /// <summary>The part of a deposit that another route pays back, so a payment refund must leave it alone.</summary>
@@ -225,7 +236,7 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
         Result<int> settled;
         try
         {
-            settled = await uow.InTransactionAsync<int>(async () =>
+            settled = await uow.InExclusiveTransactionAsync<int>(async () =>
             {
                 var payment = await uow.Repository<Payment>().Query()
                     .Include(p => p.Invoice)
@@ -254,6 +265,7 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
                 invoice.PaidAmount = Money.Round(invoice.PaidAmount + payment.Amount);
                 if (invoice.PaidAmount >= invoice.TotalAmount)
                     invoice.Status = InvoiceStatus.Paid;
+                await OweBackIfClosedAsync(invoice, payment.Amount, ct);
                 await OverdueRules.ResolvePaidAsync(uow, invoice, DateTime.UtcNow, ct);
                 return invoice.InvoiceId;
             }, ct);
@@ -276,7 +288,7 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
         Result<int> captured;
         try
         {
-            captured = await uow.InTransactionAsync<int>(async () =>
+            captured = await uow.InExclusiveTransactionAsync<int>(async () =>
             {
                 var invoice = await Visible().Include(i => i.Payments).FirstOrDefaultAsync(i => i.InvoiceId == invoiceId, ct);
                 if (invoice is null)
@@ -300,6 +312,7 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
                     Status = PaymentStatus.Succeeded,
                 };
                 uow.Repository<Payment>().Add(payment);
+                await OweBackIfClosedAsync(invoice, payment.Amount, ct);
                 invoice.PaidAmount = Money.Round(invoice.PaidAmount + payment.Amount);
                 if (invoice.PaidAmount >= invoice.TotalAmount)
                     invoice.Status = InvoiceStatus.Paid;
