@@ -93,6 +93,9 @@ public sealed class InvoiceService(IUnitOfWork uow, ICurrentUser currentUser, Pa
     {
         if (!VnPay.SignatureMatches(gateway.VnPayHashSecret, parameters))
             return Error.Unauthorized("Invalid VNPay signature.");
+        // Our own checkout link is validly signed too; only VNPay's answer carries both results.
+        if (string.IsNullOrEmpty(parameters.GetValueOrDefault("vnp_ResponseCode")) || string.IsNullOrEmpty(parameters.GetValueOrDefault("vnp_TransactionStatus")))
+            return Error.Validation("This is not a payment result from VNPay.");
         var paymentCode = parameters.GetValueOrDefault("vnp_TxnRef") ?? "";
         var payment = await uow.Repository<Payment>().Query().Where(p => p.PaymentCode == paymentCode)
             .Select(p => new { p.Amount }).FirstOrDefaultAsync(ct);

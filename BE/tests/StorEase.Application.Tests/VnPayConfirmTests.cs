@@ -78,6 +78,36 @@ public class VnPayConfirmTests
         (await t.Db.Invoices.SingleAsync()).PaidAmount.Should().Be(0m);
     }
 
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("00", null)]
+    [InlineData(null, "00")]
+    [InlineData("", "")]
+    public async Task A_signed_message_without_both_results_records_nothing(string? response, string? transaction)
+    {
+        var (t, intent) = await Pending();
+        using var _ = t;
+        var anonymous = new InvoiceService(t.Uow, new FakeCurrentUser(0, ""), Gateway);
+        var query = HttpUtility.ParseQueryString(new Uri(intent.CheckoutUrl).Query);
+        var fields = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        foreach (var key in query.AllKeys.Where(k => k != "vnp_SecureHash"))
+            fields[key!] = query[key]!;
+        if (response is not null) fields["vnp_ResponseCode"] = response;
+        if (transaction is not null) fields["vnp_TransactionStatus"] = transaction;
+        // Empty values are not part of VNPay's signature, so adding them keeps the checkout link's one valid.
+        var signed = string.Join("&", fields.Where(f => f.Value.Length > 0)
+            .Select(f => $"{System.Net.WebUtility.UrlEncode(f.Key)}={System.Net.WebUtility.UrlEncode(f.Value)}"));
+        var message = new Dictionary<string, string>(fields) { ["vnp_SecureHash"] = VnPay.Sign("SECRET", signed) };
+
+        var replayed = await anonymous.ConfirmVnPayAsync(message, default);
+        var untouched = (await t.Db.Payments.AsNoTracking().SingleAsync()).Status;
+        var real = await anonymous.ConfirmVnPayAsync(Answer(intent, "00"), default);
+
+        replayed.Error!.Type.Should().Be(ErrorType.Validation);
+        untouched.Should().Be(PaymentStatus.Pending);
+        real.Value!.Status.Should().Be(InvoiceStatus.Paid);
+    }
+
     [Fact]
     public async Task The_test_checkout_pays_only_while_VNPay_is_not_configured()
     {
