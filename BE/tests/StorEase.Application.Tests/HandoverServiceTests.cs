@@ -6,6 +6,7 @@ using StorEase.Application.Features.Contracts.Dtos;
 using StorEase.Application.Features.Handovers;
 using StorEase.Application.Features.Handovers.Dtos;
 using StorEase.Application.Interfaces;
+using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
 using static StorEase.Application.Tests.CoreFlowSeed;
 
@@ -145,5 +146,78 @@ public class HandoverServiceTests
         t.Db.StorageUnits.Single(u => u.StorageUnitId == A101).Status.Should().Be(StorageUnitStatus.Available);
         reassigned.IsSuccess.Should().BeTrue(reassigned.Error?.Message);
         reassigned.Value!.UnitCode.Should().Be("A-102");
+    }
+
+    private static async Task<(int ReservationId, int ContractId, int HandoverId)> HandedOver(TestDb t)
+    {
+        var (reservationId, contractId) = SeedReadyForHandover(t, signed: true);
+        var created = await RealService(t).CreateAsync(Request(reservationId, contractId), default);
+        t.Db.ChangeTracker.Clear();
+        return (reservationId, contractId, created.Value!.HandoverId);
+    }
+
+    private static void AddRent(TestDb t, int contractId, decimal paid)
+    {
+        t.Db.Add(new Invoice
+        {
+            ContractId = contractId, CustomerId = CustomerId, InvoiceNumber = "INV-UNDO", IssueDate = VietnamTime.Today,
+            DueDate = VietnamTime.Today, TotalAmount = 900_000m, PaidAmount = paid, Status = InvoiceStatus.Issued,
+        });
+        t.Db.SaveChanges();
+        t.Db.ChangeTracker.Clear();
+    }
+
+    [Fact]
+    public async Task A_handover_is_not_undone_after_its_day()
+    {
+        using var t = Create();
+        var (_, contractId, id) = await HandedOver(t);
+        t.Db.Handovers.Find(id)!.HandoverTime = DateTime.UtcNow.AddDays(-1);
+        t.Db.SaveChanges();
+
+        var cancelled = await RealService(t).CancelAsync(id, default);
+
+        cancelled.Error!.Type.Should().Be(ErrorType.Conflict);
+        t.Db.ChangeTracker.Clear();
+        t.Db.Contracts.Find(contractId)!.Status.Should().Be(ContractStatus.Active);
+    }
+
+    [Fact]
+    public async Task A_handover_is_not_undone_once_rent_is_paid()
+    {
+        using var t = Create();
+        var (_, contractId, id) = await HandedOver(t);
+        AddRent(t, contractId, paid: 100_000m);
+
+        (await RealService(t).CancelAsync(id, default)).Error!.Type.Should().Be(ErrorType.Conflict);
+    }
+
+    [Fact]
+    public async Task Undoing_a_handover_stops_asking_for_its_rent()
+    {
+        using var t = Create();
+        var (_, contractId, id) = await HandedOver(t);
+        AddRent(t, contractId, paid: 0m);
+
+        (await RealService(t).CancelAsync(id, default)).IsSuccess.Should().BeTrue();
+
+        t.Db.ChangeTracker.Clear();
+        t.Db.Invoices.Single().Status.Should().Be(InvoiceStatus.WrittenOff);
+    }
+
+    [Fact]
+    public async Task An_undone_handover_never_becomes_a_no_show()
+    {
+        using var t = Create();
+        var (reservationId, _, id) = await HandedOver(t);
+        await RealService(t).CancelAsync(id, default);
+        var reservations = new StorEase.Application.Features.Reservations.ReservationService(t.Uow, Staff, new FakeEmailService());
+        await reservations.AssignUnitAsync(reservationId, new StorEase.Application.Features.Reservations.Dtos.AssignUnitRequest(A102), default);
+
+        var (expired, _) = await reservations.RunDailyAsync(MoveIn.AddDays(1), 10, default);
+
+        expired.Should().Be(0);
+        t.Db.ChangeTracker.Clear();
+        t.Db.Reservations.Find(reservationId)!.Status.Should().Be(ReservationStatus.Cancelled, "the customer came, so it closes with the deposit back");
     }
 }

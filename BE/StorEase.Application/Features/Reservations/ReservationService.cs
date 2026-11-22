@@ -414,9 +414,10 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
         r.ProposedStorageUnitId is not null || r.StorageUnitId is not { } held
         || !await UnitSchedule.IsFreeAsync(uow, held, r.MoveInDate, UnitSchedule.EndOf(r.MoveInDate, r.RentalMonths), ct, exceptReservationId: r.ReservationId);
 
-    /// <summary>A missed handover is no no-show when the unit was not ready or somebody still rents it.</summary>
+    /// <summary>A missed handover is no no-show when the unit was not ready, somebody still rents it, or the customer came and staff undid the handover.</summary>
     private async Task<bool> MissIsOursAsync(Reservation r, CancellationToken ct) =>
-        r.UnitBlocked || r.StorageUnit is { Status: StorageUnitStatus.Occupied } || await IsBlockedAsync(r, ct);
+        r.UnitBlocked || r.StorageUnit is { Status: StorageUnitStatus.Occupied } || await IsBlockedAsync(r, ct)
+        || await uow.Repository<Handover>().Query().AnyAsync(h => h.ReservationId == r.ReservationId && h.Status == HandoverStatus.Cancelled, ct);
 
     private async Task ClearAppointmentAsync(Reservation r, CancellationToken ct)
     {

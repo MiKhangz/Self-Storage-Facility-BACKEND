@@ -30,7 +30,7 @@ public class HandoversController(IHandoverService handovers, IHandoverEvidenceSe
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
-    /// <summary>Undo a handover: contract terminated, unit Available, reservation back to Confirmed waiting for a unit.</summary>
+    /// <summary>Undo a handover, on its day and before any rent is paid: contract terminated, unit Available, reservation back to Confirmed waiting for a unit.</summary>
     [HttpPost("{id:int}/cancel")]
     [Authorize(Roles = Roles.Staff)]
     public async Task<IActionResult> Cancel(int id, CancellationToken ct)

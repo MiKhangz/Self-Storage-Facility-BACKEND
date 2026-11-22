@@ -15,7 +15,7 @@ public interface IHandoverService
     Task<Result<HandoverDto>> CreateAsync(CreateHandoverRequest request, CancellationToken ct);
 
     /// <summary>
-    /// SR-02: undo a handover. The contract is terminated and its codes revoked, the unit goes back to Available and
+    /// SR-02: undo a handover, on its day and before any rent is paid. The contract is terminated and its codes revoked, the unit goes back to Available and
     /// the reservation to Confirmed without a unit, so staff assign a unit again and redraft the contract.
     /// </summary>
     Task<Result<bool>> CancelAsync(int handoverId, CancellationToken ct);
@@ -42,8 +42,16 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser, IContrac
             // Once the rental has moved on (overdue, being handed back, closed) undoing the handover would rewrite history.
             if (contract is not null && contract.Status != ContractStatus.Active)
                 return Error.Conflict($"The contract is {contract.Status}; only the handover of an Active contract can be cancelled.");
+            if (VietnamTime.DayOf(handover.HandoverTime) != VietnamTime.Today)
+                return Error.Conflict("A handover can be cancelled only on the day it was made.");
+
+            var rent = contract is null ? [] : await uow.Repository<Invoice>().Query().Where(i => i.ContractId == contract.ContractId).ToListAsync(ct);
+            if (rent.Any(i => i.PaidAmount > 0))
+                return Error.Conflict("Rent has already been paid, so the handover cannot be cancelled.");
 
             handover.Status = HandoverStatus.Cancelled;
+            foreach (var invoice in rent)
+                invoice.Status = InvoiceStatus.WrittenOff;
             if (contract is not null)
             {
                 contract.Status = ContractStatus.Terminated;
