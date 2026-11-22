@@ -75,7 +75,7 @@ public class ContractsController(IContractService contracts, IAccessCodeService 
 
     /// <summary>Rentals ending within the reminder window or already past their end date; <c>overstayOnly</c> keeps the latter.</summary>
     [HttpGet("ending")]
-    [Authorize(Roles = Roles.Staff)]
+    [Authorize(Roles = Roles.Staff + "," + Roles.BusinessOperationsManager)]
     public async Task<ActionResult<IReadOnlyList<RentalEndDto>>> Ending(bool overstayOnly = false, CancellationToken ct = default)
     {
         var result = await rentalEnds.ListAsync(overstayOnly, ct);
@@ -93,7 +93,7 @@ public class ContractsController(IContractService contracts, IAccessCodeService 
 
     /// <summary>After the overstay grace: goods go to the central warehouse, the deposit settles the fees, the unit is freed.</summary>
     [HttpPost("{id:int}/move-to-central-storage")]
-    [Authorize(Roles = Roles.FacilityManager)]
+    [Authorize(Roles = Roles.FacilityManager + "," + Roles.BusinessOperationsManager)]
     public async Task<ActionResult<RentalEndDto>> MoveToCentralStorage(int id, CancellationToken ct)
     {
         var result = await rentalEnds.MoveToCentralStorageAsync(id, ct);

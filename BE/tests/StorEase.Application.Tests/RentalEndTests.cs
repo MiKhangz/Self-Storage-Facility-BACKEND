@@ -144,6 +144,51 @@ public class RentalEndTests
     }
 
     [Fact]
+    public async Task Goods_are_not_moved_while_a_return_is_open_so_the_deposit_is_paid_out_once()
+    {
+        using var t = Create();
+        var id = Rent(t, Today.AddMonths(2));
+        (await new ReturnService(t.Uow, Customer).RequestAsync(new CreateReturnRequest(id, Today.AddDays(3), "Leaving", null, null), default))
+            .IsSuccess.Should().BeTrue();
+        // The lock-out turns PendingReturn into Suspended while the return stays open.
+        var invoice = new Invoice
+        {
+            InvoiceNumber = "INV-LATE", ContractId = id, CustomerId = CustomerId, IssueDate = Today.AddDays(-20), DueDate = Today.AddDays(-13),
+            TotalAmount = 600_000m, Status = InvoiceStatus.Overdue,
+        };
+        t.Db.Add(invoice);
+        t.Db.SaveChanges();
+        t.Db.Add(new OverdueCase { ContractId = id, InvoiceId = invoice.InvoiceId, OverdueSince = Today.AddDays(-12), DaysOverdue = 13, Stage = OverdueStage.ClearOut });
+        t.Db.Contracts.Find(id)!.Status = ContractStatus.Suspended;
+        t.Db.SaveChanges();
+        t.Db.ChangeTracker.Clear();
+
+        var moved = await As(t, Staff).MoveToCentralStorageAsync(id, default);
+
+        moved.IsSuccess.Should().BeFalse();
+        moved.Error!.Type.Should().Be(ErrorType.Conflict);
+        var returns = new ReturnService(t.Uow, Staff);
+        var returnId = t.Db.UnitReturns.Single(r => r.ContractId == id).UnitReturnId;
+        (await returns.ApproveAsync(returnId, new ApproveReturnRequest(DateTime.UtcNow.AddHours(2)), default)).IsSuccess.Should().BeTrue();
+        (await returns.InspectAsync(returnId, new CreateReturnInspectionRequest(ConditionResult.Good, 0, 0, 0), default)).IsSuccess.Should().BeTrue();
+        (await returns.SettleAsync(returnId, default)).IsSuccess.Should().BeTrue();
+        // Deposit 900,000 − rent 600,000, paid out by the return alone.
+        t.Db.DepositRefunds.Should().ContainSingle(r => r.Amount == 300_000m);
+    }
+
+    [Fact]
+    public async Task Business_operations_can_move_goods_at_any_facility()
+    {
+        using var t = Create();
+        var id = Rent(t, Today.AddDays(-8));
+        await As(t, Staff).RunAsync(Today, default);
+
+        var moved = await As(t, new FakeCurrentUser(999, Roles.BusinessOperationsManager)).MoveToCentralStorageAsync(id, default);
+
+        moved.IsSuccess.Should().BeTrue(moved.Error?.Message);
+    }
+
+    [Fact]
     public async Task A_renewal_still_waiting_keeps_the_rental_running_past_its_end_date()
     {
         using var t = Create();

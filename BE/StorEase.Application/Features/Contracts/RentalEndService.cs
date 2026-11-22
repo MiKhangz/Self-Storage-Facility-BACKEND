@@ -139,6 +139,10 @@ public class RentalEndService(IUnitOfWork uow, ICurrentUser currentUser, IEmailS
                 .FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
             if (contract is null)
                 return Error.NotFound("Contract not found.");
+            // A lock-out leaves the return open, and settling it later would pay the deposit out a second time.
+            if (await uow.Repository<UnitReturn>().Query().AnyAsync(r => r.ContractId == contract.ContractId
+                    && r.Status != ReturnStatus.Completed && r.Status != ReturnStatus.Cancelled, ct))
+                return Error.Conflict("This contract has an open return request; inspect and settle it instead of moving the goods.");
             var openCases = await uow.Repository<OverdueCase>().Query()
                 .Where(o => o.ContractId == contract.ContractId && o.ResolvedAt == null).ToListAsync(ct);
             if (contract.Status == ContractStatus.Overstay)

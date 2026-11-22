@@ -61,6 +61,7 @@ public static class ErrorText
         ["No unit change is waiting for your answer; this renewal is {0}."] = "Không có đề xuất đổi kho nào chờ bạn trả lời; yêu cầu gia hạn này: {0}.",
         ["Only an overstaying rental can be moved out; this one is {0}."] = "Chỉ chuyển đồ khi hợp đồng quá hạn trả kho; hợp đồng này: {0}.",
         ["Goods can be moved out after {0} days past the end date; it has been {1}."] = "Chỉ chuyển đồ sau {0} ngày quá hạn; hiện mới {1} ngày.",
+        ["This contract has an open return request; inspect and settle it instead of moving the goods."] = "Hợp đồng đang có yêu cầu trả kho; hãy kiểm tra và tất toán yêu cầu đó thay vì chuyển đồ.",
         ["Goods can be moved out only from an overstaying rental or an overdue case at the clear-out stage."] = "Chỉ chuyển đồ về kho tổng khi khách quá hạn trả kho hoặc khoản nợ đã tới giai đoạn dọn kho.",
         ["Customer not found."] = "Không tìm thấy khách hàng.",
         ["Deposit refund not found."] = "Không tìm thấy khoản hoàn cọc.",
