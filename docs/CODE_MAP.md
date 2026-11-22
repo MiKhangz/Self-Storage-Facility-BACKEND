@@ -8,9 +8,9 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 
 | Person | Flows | Backend files | Frontend files | E2E tests |
 |---|---|---|---|---|
-| **Khang** | F01, F02, F03, F04, F14, F15 | 40 | 32 | E01, E02, E03, E04, E09, E10, E13, E14, E17, E18, E20, E21 |
-| **Trường** | F05, F07, F08, F09, F13 | 53 | 15 | E06, E07, E16, E23 |
-| **Thiện** | F06, F10, F11, F12 | 75 | 26 | E05, E05b, E05c, E08, E11, E12, E15, E19, E22 |
+| **Khang** | F01, F02, F03, F04, F14, F15 | 49 | 34 | E01, E02, E03, E04, E09, E10, E13, E14, E17, E18, E20, E21 |
+| **Trường** | F05, F07, F08, F09, F13 | 57 | 17 | E06, E07, E16, E23 |
+| **Thiện** | F06, F10, F11, F12 | 79 | 26 | E05, E05b, E05c, E08, E11, E12, E15, E19, E22 |
 
 ## Khang
 
@@ -24,11 +24,13 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `BE/StorEase.Application/Features/Auth/Dtos/LoginRequest.cs`
   - `BE/StorEase.Application/Features/Auth/Dtos/LoginResponse.cs`
   - `BE/StorEase.Application/Features/Auth/Dtos/SessionResponse.cs`
+  - `BE/StorEase.Application/Features/Auth/SessionCheck.cs`
   - `BE/StorEase.Application/Features/Auth/Validators/AccountValidators.cs`
   - `BE/StorEase.Application/Features/Auth/Validators/LoginRequestValidator.cs`
 - **Backend tests**
   - `BE/tests/StorEase.Application.Tests/AccountAndPricingTests.cs`
   - `BE/tests/StorEase.Application.Tests/AuthServiceTests.cs`
+  - `BE/tests/StorEase.Application.Tests/SessionCheckTests.cs`
   - `BE/tests/StorEase.Application.Tests/SmtpEmailServiceTests.cs`
 - **Frontend**
   - `src/customer/auth/AuthShell.jsx`
@@ -47,16 +49,20 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 ### Profile & settings (F02)
 
 - **Controllers and routes**
+  - `BE/StorEase.Api/Controllers/NotificationsController.cs`: `GET /api/notifications`, `POST /api/notifications/read`
   - `BE/StorEase.Api/Controllers/ProfileController.cs`: `GET /api/users/me`, `PUT /api/users/me`, `POST /api/users/me/password`, `GET /api/users/me/notification-settings`, `PUT /api/users/me/notification-settings`
 - **Services, DTOs, validators, jobs**
+  - `BE/StorEase.Application/Features/Notifications/NotificationService.cs`
   - `BE/StorEase.Application/Features/Users/ProfileService.cs`
+- **Backend tests**
+  - `BE/tests/StorEase.Application.Tests/NotificationTests.cs`
 - **Frontend**
   - `src/customer/account/ProfilePage.jsx`
 
 ### Reservations, deposit & walk-in (F03 F04)
 
 - **Controllers and routes**
-  - `BE/StorEase.Api/Controllers/ReservationsController.cs`: `POST /api/reservations/walk-in`, `POST /api/reservations`, `GET /api/reservations`, `GET /api/reservations/{id}`, `POST /api/reservations/{id}/cancel`, `POST /api/reservations/{id}/no-show`, `GET /api/reservations/{id}/handover`, `POST /api/reservations/{id}/assign-unit`, `POST /api/reservations/{id}/change-unit`
+  - `BE/StorEase.Api/Controllers/ReservationsController.cs`: `POST /api/reservations/walk-in`, `POST /api/reservations`, `GET /api/reservations`, `GET /api/reservations/{id}`, `POST /api/reservations/{id}/cancel`, `POST /api/reservations/{id}/no-show`, `POST /api/reservations/{id}/accept-unit`, `POST /api/reservations/{id}/decline-unit`, `POST /api/reservations/{id}/appointment`, `GET /api/reservations/{id}/handover`, `POST /api/reservations/{id}/assign-unit`, `POST /api/reservations/{id}/change-unit`
 - **Services, DTOs, validators, jobs**
   - `BE/StorEase.Application/Features/Reservations/Dtos/AssignUnitRequest.cs`
   - `BE/StorEase.Application/Features/Reservations/Dtos/CreateReservationRequest.cs`
@@ -67,9 +73,14 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `BE/StorEase.Application/Features/Reservations/Validators/CreateReservationRequestValidator.cs`
   - `BE/StorEase.Application/Features/Reservations/WalkInService.cs`
 - **Backend tests**
+  - `BE/tests/StorEase.Application.Tests/BlockedBookingTests.cs`
+  - `BE/tests/StorEase.Application.Tests/CitizenIdTests.cs`
+  - `BE/tests/StorEase.Application.Tests/LastUnitRaceTests.cs`
   - `BE/tests/StorEase.Application.Tests/ReservationServiceTests.cs`
+  - `BE/tests/StorEase.Application.Tests/UnpaidHoldTests.cs`
   - `BE/tests/StorEase.Application.Tests/WalkInTests.cs`
 - **Frontend**
+  - `src/customer/booking/BookingActions.jsx`
   - `src/customer/booking/BookingConfirmedPage.jsx`
   - `src/customer/booking/BookingDetailsPage.jsx`
   - `src/customer/booking/BookingStepper.jsx`
@@ -80,6 +91,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `src/staff/pages/WalkInBookingPage.jsx`
 - **Frontend tests**
   - `e2e/03-desk.spec.js`: E09, E10
+  - `tests/depositDeadline.test.mjs`
 
 ### Support tickets (F15)
 
@@ -136,24 +148,28 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `BE/StorEase.Application/Features/OverdueCases/OverdueService.cs`
 - **Backend tests**
   - `BE/tests/StorEase.Application.Tests/BillingCycleTests.cs`
+  - `BE/tests/StorEase.Application.Tests/RentalEndTests.cs`
   - `BE/tests/StorEase.Application.Tests/ScopeTermsAndBillingTests.cs`
 - **Frontend**
+  - `src/staff/components/RentalEnds.jsx`
   - `src/staff/pages/OverdueCasesPage.jsx`
 
 ### Contracts & customers (F05)
 
 - **Controllers and routes**
-  - `BE/StorEase.Api/Controllers/ContractsController.cs`: `POST /api/contracts`, `GET /api/contracts`, `GET /api/contracts/{id}`, `POST /api/contracts/{id}/sign`, `POST /api/contracts/{id}/sign-at-desk`, `GET /api/contracts/export`, `POST /api/contracts/{id}/access-codes`, `GET /api/contracts/{id}/access-code`, `POST /api/contracts/{id}/access-codes/request`
+  - `BE/StorEase.Api/Controllers/ContractsController.cs`: `POST /api/contracts`, `GET /api/contracts`, `GET /api/contracts/{id}`, `POST /api/contracts/{id}/sign`, `POST /api/contracts/{id}/sign-at-desk`, `GET /api/contracts/export`, `GET /api/contracts/ending`, `POST /api/contracts/{id}/end-contact`, `POST /api/contracts/{id}/move-to-central-storage`, `POST /api/contracts/{id}/access-codes`, `GET /api/contracts/{id}/access-code`, `POST /api/contracts/{id}/access-codes/request`
   - `BE/StorEase.Api/Controllers/CustomersController.cs`: `GET /api/customers`, `GET /api/customers/{id}`
 - **Services, DTOs, validators, jobs**
   - `BE/StorEase.Application/Features/Contracts/ContractQueries.cs`
   - `BE/StorEase.Application/Features/Contracts/ContractService.cs`
   - `BE/StorEase.Application/Features/Contracts/Dtos/ContractDto.cs`
   - `BE/StorEase.Application/Features/Contracts/IContractService.cs`
+  - `BE/StorEase.Application/Features/Contracts/RentalEndService.cs`
   - `BE/StorEase.Application/Features/Contracts/Validators/CreateContractRequestValidator.cs`
 - **Backend tests**
   - `BE/tests/StorEase.Application.Tests/ContractLifecycleTests.cs`
   - `BE/tests/StorEase.Application.Tests/ContractServiceTests.cs`
+  - `BE/tests/StorEase.Application.Tests/OneContractPerUnitTests.cs`
 - **Frontend**
   - `src/staff/pages/ContractsPage.jsx`
   - `src/staff/pages/CustomerPage.jsx`
@@ -184,6 +200,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `BE/tests/StorEase.Application.Tests/FacilityPriceTests.cs`
   - `BE/tests/StorEase.Application.Tests/PricingDraftTests.cs`
   - `BE/tests/StorEase.Application.Tests/PricingPinTests.cs`
+  - `BE/tests/StorEase.Application.Tests/PricingTermsValidatorTests.cs`
   - `BE/tests/StorEase.Application.Tests/StorageUnitPricingTests.cs`
   - `BE/tests/StorEase.Application.Tests/TruongAssignedTaskTests.cs`
   - `BE/tests/StorEase.Application.Tests/TruongCoreFeatureTests.cs`
@@ -204,7 +221,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 ### Renewals (F09)
 
 - **Controllers and routes**
-  - `BE/StorEase.Api/Controllers/RenewalsController.cs`: `POST /api/renewals`, `GET /api/renewals`, `GET /api/renewals/{id}`, `POST /api/renewals/{id}/approve`, `POST /api/renewals/{id}/reject`
+  - `BE/StorEase.Api/Controllers/RenewalsController.cs`: `POST /api/renewals`, `GET /api/renewals`, `GET /api/renewals/{id}`, `POST /api/renewals/{id}/approve`, `POST /api/renewals/{id}/reject`, `POST /api/renewals/{id}/accept-transfer`, `POST /api/renewals/{id}/decline-transfer`
 - **Services, DTOs, validators, jobs**
   - `BE/StorEase.Application/Features/Renewals/Dtos/RenewalDtos.cs`
   - `BE/StorEase.Application/Features/Renewals/RenewalPricing.cs`
@@ -214,6 +231,8 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 - **Backend tests**
   - `BE/tests/StorEase.Application.Tests/RenewalDecisionTests.cs`
   - `BE/tests/StorEase.Application.Tests/RenewalPricingTests.cs`
+- **Frontend tests**
+  - `tests/renewedEndDate.test.mjs`
 
 ### Reports & dashboard (F13)
 
@@ -282,6 +301,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
 - **Backend tests**
   - `BE/tests/StorEase.Api.Tests/ActivityLogFilterTests.cs`
   - `BE/tests/StorEase.Application.Tests/ActivityLogServiceTests.cs`
+  - `BE/tests/StorEase.Application.Tests/LogDateFilterTests.cs`
   - `BE/tests/StorEase.Application.Tests/StaffAccountServiceTests.cs`
   - `BE/tests/StorEase.Application.Tests/StaffScopeTests.cs`
 - **Frontend**
@@ -301,6 +321,7 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `BE/StorEase.Api/Controllers/ReturnsController.cs`: `POST /api/returns`, `GET /api/returns`, `GET /api/returns/{id}`, `POST /api/returns/{id}/approve`, `POST /api/returns/{id}/inspection`, `POST /api/returns/{id}/settle-deposit`
 - **Services, DTOs, validators, jobs**
   - `BE/StorEase.Application/Features/DepositRefunds/DepositRefundService.cs`
+  - `BE/StorEase.Application/Features/Returns/DepositCover.cs`
   - `BE/StorEase.Application/Features/Returns/DepositSettlement.cs`
   - `BE/StorEase.Application/Features/Returns/Dtos/ReturnDtos.cs`
   - `BE/StorEase.Application/Features/Returns/ReturnService.cs`
@@ -337,11 +358,13 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `BE/StorEase.Application/Features/StorageUnits/Dtos/UnitCatalogDtos.cs`
   - `BE/StorEase.Application/Features/StorageUnits/StorageUnitService.cs`
   - `BE/StorEase.Application/Features/StorageUnits/UnitCatalogService.cs`
+  - `BE/StorEase.Application/Features/StorageUnits/UnitSchedule.cs`
   - `BE/StorEase.Application/Features/StorageUnits/Validators/StorageUnitValidators.cs`
   - `BE/StorEase.Application/Features/StorageUnits/Validators/UnitTypeValidators.cs`
 - **Backend tests**
   - `BE/tests/StorEase.Application.Tests/FloorStatusTests.cs`
   - `BE/tests/StorEase.Application.Tests/MaintenanceServiceTests.cs`
+  - `BE/tests/StorEase.Application.Tests/UnitNoteTests.cs`
   - `BE/tests/StorEase.Application.Tests/UnstaffedFacilityTests.cs`
 - **Frontend**
   - `src/customer/locations/LocationsPage.jsx`
@@ -381,10 +404,15 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `BE/StorEase.Api/Controllers/ApiControllerBase.cs`
 - **Services, DTOs, validators, jobs**
   - `BE/StorEase.Api/CurrentUser.cs`
+  - `BE/StorEase.Api/Middleware/AuthLimits.cs`
   - `BE/StorEase.Api/Middleware/ExceptionHandlingMiddleware.cs`
   - `BE/StorEase.Api/Middleware/ValidationFilter.cs`
   - `BE/StorEase.Api/Program.cs`
 - **Backend tests**
+  - `BE/tests/StorEase.Api.Tests/BillingDateTests.cs`
+  - `BE/tests/StorEase.Api.Tests/LimitAttemptsTests.cs`
+  - `BE/tests/StorEase.Api.Tests/PaymentRoutesTests.cs`
+  - `BE/tests/StorEase.Api.Tests/WarehouseRolesTests.cs`
   - `BE/tests/StorEase.Application.Tests/CoreFlowSeed.cs`
   - `BE/tests/StorEase.Application.Tests/ErrorTextTests.cs`
   - `BE/tests/StorEase.Application.Tests/ExistingDataCleanupTests.cs`
@@ -402,9 +430,13 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `src/customer/components/terms.js`
   - `src/customer/home/HomePage.jsx`
   - `src/customer/layout/CustomerLayout.jsx`
+  - `src/customer/layout/NotificationBell.jsx`
   - `src/main.tsx`
   - `src/staff/AdminLayout.jsx`
+  - `src/staff/components/DateRangePicker.jsx`
+  - `src/staff/components/dateRange.js`
   - `src/staff/components/ui.jsx`
+  - `src/staff/polling.js`
   - `src/staff/queries.js`
 - **Frontend tests**
   - `e2e/02-rental.spec.js`; also holds E02 (Khang), E03 (Khang), E04 (Khang), E05 (Thiện), E05b (Thiện), E05c (Thiện), E06 (Trường), E07 (Trường), E08 (Thiện)
@@ -412,6 +444,9 @@ Paths start with `BE/` (backend repo) or the frontend repo root. Old unrouted sc
   - `e2e/05-cancel.spec.js`; also holds E13 (Khang), E14 (Khang), E15 (Thiện)
   - `e2e/helpers.js`
   - `e2e/start-backend.mjs`
+  - `tests/dateRange.test.mjs`
+  - `tests/formatDate.test.mjs`
+  - `tests/polling.test.mjs`
 
 ## Shared folders (not listed file by file)
 

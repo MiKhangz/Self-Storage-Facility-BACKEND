@@ -9,9 +9,9 @@ flows end to end — backend, frontend and tests — and answers for them at the
 
 | Person | Story | Assignment flows | Flow tabs | Steps | Unfinished |
 |---|---|---|---|---|---|
-| **Khang** (leader) | The customer's front door, through move-in | 1 Storage Unit Reservation · 2 Storage Check-in and Handover (F06) · 7 Support Request and Issue Handling | F01 F02 F03 F04 F06 F14 F15 | 142 | 26 |
-| **Trường** | The money side | 3 Rented Storage Unit Management · 4 Business Rules, Fee Management and Revenue Monitoring · 6 Storage Renewal and Overdue Handling | F05 F07 F08 F09 F13 | 102 | 29 |
-| **Thiện** | The facility side | 2 Storage Check-in and Handover (F10) · 5 Facility Storage and Staff Management | F10 F11 F12 | 95 | 23 |
+| **Khang** (leader) | The customer's front door, through move-in | 1 Storage Unit Reservation · 2 Storage Check-in and Handover (F06) · 7 Support Request and Issue Handling | F01 F02 F03 F04 F06 F14 F15 | 189 | 43 |
+| **Trường** | The money side | 3 Rented Storage Unit Management · 4 Business Rules, Fee Management and Revenue Monitoring · 6 Storage Renewal and Overdue Handling | F05 F07 F08 F09 F13 | 127 | 41 |
+| **Thiện** | The facility side | 2 Storage Check-in and Handover (F10) · 5 Facility Storage and Staff Management | F10 F11 F12 | 84 | 23 |
 
 ## Contribution split (agreed 9 Nov 2026)
 
@@ -47,7 +47,10 @@ turn its badge to DONE in the diagram. **NO SCREEN** means the backend works and
   - F01: verification email, and the verify link turning the account Active.
   - F03: booking received; cancelled or expired, saying whether the deposit comes back.
   - F04: booking confirmed with the unit code.
-- **F03:** mark a no-show, only after the move-in date.
+- **F03:** mark a no-show, only after the appointment day (the move-in day if none). The handover appointment, the
+  24-hour unpaid hold and the missed-appointment job (D, E).
+- **F04:** the customer agrees to another unit, or declines with the deposit back (C).
+- **F02:** the notification bell (D).
 - **F04:** change the unit at handover: another of the same size; the old unit becomes Available, the new one
   Reserved, and the draft contract moves with its signature cleared.
 - **F02 SMS reminders (NOT BUILT):** the switch is saved but nothing sends SMS. Proposal: out of scope in the SRD.
@@ -59,9 +62,9 @@ turn its badge to DONE in the diagram. **NO SCREEN** means the backend works and
 ## Trường — Flow 3 Rented Unit, Flow 4 Rules & Revenue, Flow 6 Renewal & Overdue
 
 - **F05 Contract & Customer:** look up a customer and their contacts; export contracts to CSV with spreadsheet
-  formulas neutralised; terminate a contract (codes off, Occupied unit back to Available).
+  formulas neutralised.
 - **F07 Rent Payment**
-  - VNPay sandbox round trip: the customer pays, VNPay calls back; a failed payment leaves the invoice open and the
+  - VNPay sandbox round trip: the customer pays, the return page or the IPN brings the result; a failed payment leaves the invoice open and the
     customer can try again.
   - Adjust an invoice; refund a Succeeded payment; send a reminder by hand (Business Ops can too).
   - **NO SCREEN:** manage fee types in Pricing & Policies.
@@ -69,14 +72,16 @@ turn its badge to DONE in the diagram. **NO SCREEN** means the backend works and
   - **NO SCREEN:** run billing by hand.
   - Reminder emails 3 days before due, the day after, then weekly, if opted in.
   - Late fee per full week past grace; stage ClearOut with the contract still open; restore access.
-- **F09 Renewal:** reject a renewal; the contract stays unchanged.
+  - The end of a rental (C): reminder, Overstay and its fee, the move to the central warehouse.
+- **F09 Renewal:** reject a renewal; the contract stays unchanged. The offer of another unit when the next customer
+  booked this one: accept, decline, lapse (B).
 - **F13 Reports:** each role sees only its facilities; dashboard, occupancy and revenue show the right numbers.
 
 ## Khang — Flow 2, first half: F06 Handover & Access (since 19 Nov)
 
 Khang presents and demos F06; the backend stays Trường's and the screens Thiện's.
 
-- Undo a handover: Handover Cancelled, Contract Terminated, codes off, unit Available.
+- Undo a handover, on its day and before rent is paid: Handover Cancelled, Contract Terminated, codes off, unit released.
 - The hourly job closes visits at closing time; the customer reads the new code and sees their visit history.
 - The customer asks for a new code; staff revoke a code.
 

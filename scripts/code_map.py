@@ -12,6 +12,8 @@ from fnmatch import fnmatch
 from collections import defaultdict
 from xml.sax.saxutils import escape
 
+sys.stdout.reconfigure(encoding='utf-8')  # a Windows console cannot print the owners' names otherwise
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BE = os.path.join(REPO, 'BE')
 FE = os.environ.get('STOREASE_FRONTEND') or os.path.join(os.path.dirname(REPO), 'Self-Storage-Facility-FRONTEND')
@@ -23,18 +25,22 @@ RULES = [
     # ---- Khang
     ('Account & sign-in', 'Khang', 'F01', [
         'BE:StorEase.Api/Controllers/AuthController.cs', 'BE:StorEase.Application/Features/Auth/*',
-        'BE:tests/*/AuthServiceTests.cs', 'BE:tests/*/AccountAndPricingTests.cs', 'BE:tests/*/SmtpEmailServiceTests.cs',
+        'BE:tests/*/AuthServiceTests.cs', 'BE:tests/*/AccountAndPricingTests.cs', 'BE:tests/*/SmtpEmailServiceTests.cs', 'BE:tests/*/SessionCheckTests.cs',
         'FE:src/customer/auth/*', 'FE:src/staff/AdminLoginPage.jsx', 'FE:src/features/auth/*', 'FE:e2e/01-account.spec.js']),
     ('Profile & settings', 'Khang', 'F02', [
-        'BE:StorEase.Api/Controllers/ProfileController.cs', 'BE:StorEase.Application/Features/Users/*', 'FE:src/customer/account/ProfilePage.jsx']),
+        'BE:StorEase.Api/Controllers/ProfileController.cs', 'BE:StorEase.Application/Features/Users/*', 'FE:src/customer/account/ProfilePage.jsx',
+        'BE:StorEase.Api/Controllers/NotificationsController.cs', 'BE:StorEase.Application/Features/Notifications/*',
+        'BE:tests/*/NotificationTests.cs']),
     ('Reservations, deposit & walk-in', 'Khang', 'F03 F04', [
         'BE:StorEase.Api/Controllers/ReservationsController.cs', 'BE:StorEase.Application/Features/Reservations/*',
-        'BE:tests/*/ReservationServiceTests.cs', 'BE:tests/*/WalkInTests.cs',
+        'BE:tests/*/ReservationServiceTests.cs', 'BE:tests/*/WalkInTests.cs', 'BE:tests/*/CitizenIdTests.cs',
+        'BE:tests/*/BlockedBookingTests.cs', 'BE:tests/*/LastUnitRaceTests.cs', 'BE:tests/*/UnpaidHoldTests.cs',
+        'FE:tests/depositDeadline.test.mjs',
         'FE:src/customer/booking/*', 'FE:src/staff/pages/ReservationsPage.jsx', 'FE:src/staff/pages/WalkInBookingPage.jsx',
         'FE:e2e/03-desk.spec.js']),
     ('Contracts & customers', 'Trường', 'F05', [
         'BE:StorEase.Api/Controllers/ContractsController.cs', 'BE:StorEase.Api/Controllers/CustomersController.cs',
-        'BE:StorEase.Application/Features/Contracts/*', 'BE:tests/*/ContractServiceTests.cs', 'BE:tests/*/ContractLifecycleTests.cs',
+        'BE:StorEase.Application/Features/Contracts/*', 'BE:tests/*/ContractServiceTests.cs', 'BE:tests/*/ContractLifecycleTests.cs', 'BE:tests/*/OneContractPerUnitTests.cs',
         'FE:src/staff/pages/ContractsPage.jsx', 'FE:src/staff/pages/CustomerPage.jsx', 'FE:src/staff/print.js']),
     ('Access logs', 'Thiện', '—', [
         'BE:StorEase.Api/Controllers/AccessLogsController.cs', 'BE:StorEase.Application/Features/AccessCodes/AccessLogService.cs',
@@ -43,7 +49,7 @@ RULES = [
         'BE:StorEase.Api/Controllers/StaffController.cs', 'BE:StorEase.Api/Controllers/ActivityLogsController.cs',
         'BE:StorEase.Api/Middleware/ActivityLogFilter.cs', 'BE:StorEase.Application/Features/ActivityLogs/*',
         'BE:StorEase.Application/Features/Staff/StaffAccount*', 'BE:StorEase.Application/Features/Staff/*/StaffAccount*',
-        'BE:tests/*/StaffAccountServiceTests.cs', 'BE:tests/*/StaffScopeTests.cs', 'BE:tests/*/ActivityLog*Tests.cs',
+        'BE:tests/*/StaffAccountServiceTests.cs', 'BE:tests/*/StaffScopeTests.cs', 'BE:tests/*/ActivityLog*Tests.cs', 'BE:tests/*/LogDateFilterTests.cs',
         'FE:src/staff/pages/UsersPage.jsx', 'FE:src/staff/pages/InviteUserPage.jsx', 'FE:src/staff/pages/PendingBackendPages.jsx',
         'FE:src/staff/activityLabels.js', 'FE:src/staff/permissions.js', 'FE:src/staff/components/FacilityPicker.jsx',
         'FE:tests/activityLabels.test.mjs']),
@@ -65,9 +71,11 @@ RULES = [
     ('Billing job & overdue', 'Trường', 'F08', [
         'BE:StorEase.Api/Controllers/BillingController.cs', 'BE:StorEase.Api/Controllers/OverdueCasesController.cs',
         'BE:StorEase.Api/BillingWorker.cs', 'BE:StorEase.Application/Features/Billing/*', 'BE:StorEase.Application/Features/OverdueCases/*',
-        'BE:tests/*/BillingCycleTests.cs', 'BE:tests/*/ScopeTermsAndBillingTests.cs', 'FE:src/staff/pages/OverdueCasesPage.jsx']),
+        'BE:tests/*/BillingCycleTests.cs', 'BE:tests/*/ScopeTermsAndBillingTests.cs', 'FE:src/staff/pages/OverdueCasesPage.jsx',
+        'BE:tests/*/RentalEndTests.cs', 'FE:src/staff/components/RentalEnds.jsx']),
     ('Renewals', 'Trường', 'F09', [
-        'BE:StorEase.Api/Controllers/RenewalsController.cs', 'BE:StorEase.Application/Features/Renewals/*', 'BE:tests/*/Renewal*Tests.cs']),
+        'BE:StorEase.Api/Controllers/RenewalsController.cs', 'BE:StorEase.Application/Features/Renewals/*', 'BE:tests/*/Renewal*Tests.cs',
+        'FE:tests/renewedEndDate.test.mjs']),
     ('Hand-back & deposit settlement', 'Thiện', 'F10', [
         'BE:StorEase.Api/Controllers/ReturnsController.cs', 'BE:StorEase.Api/Controllers/DepositRefundsController.cs',
         'BE:StorEase.Application/Features/Returns/*', 'BE:StorEase.Application/Features/DepositRefunds/*',
@@ -87,7 +95,7 @@ RULES = [
         'BE:StorEase.Api/Controllers/StorageUnitsController.cs', 'BE:StorEase.Api/Controllers/UnitTypesController.cs',
         'BE:StorEase.Api/Controllers/MaintenanceOrdersController.cs', 'BE:StorEase.Application/Features/Facilities/*',
         'BE:StorEase.Application/Features/StorageUnits/*', 'BE:StorEase.Application/Features/Maintenance/*',
-        'BE:tests/*/FloorStatusTests.cs', 'BE:tests/*/MaintenanceServiceTests.cs', 'BE:tests/*/UnstaffedFacilityTests.cs',
+        'BE:tests/*/FloorStatusTests.cs', 'BE:tests/*/UnitNoteTests.cs', 'BE:tests/*/MaintenanceServiceTests.cs', 'BE:tests/*/UnstaffedFacilityTests.cs',
         'FE:src/customer/locations/*', 'FE:src/customer/sizes/*', 'FE:src/staff/pages/FacilitiesPage.jsx', 'FE:src/staff/pages/FacilityDetailPage.jsx',
         'FE:src/staff/pages/UnitsPage.jsx', 'FE:src/staff/pages/UnitSizesPage.jsx', 'FE:src/staff/pages/MaintenancePage.jsx',
         'FE:tests/management-csv.test.mjs']),  # tests the old src/admin screens
@@ -106,7 +114,9 @@ RULES = [
         'BE:tests/StorEase.Api.Tests/*',
         'FE:src/main.tsx', 'FE:src/api/axiosClient.js', 'FE:src/customer/components/*', 'FE:src/customer/layout/*', 'FE:src/customer/home/*',
         'FE:src/customer/account/AccountLayout.jsx', 'FE:src/customer/account/queries.js', 'FE:src/staff/AdminLayout.jsx',
-        'FE:src/staff/components/ui.jsx', 'FE:src/staff/queries.js', 'FE:e2e/helpers.js', 'FE:e2e/start-backend.mjs',
+        'FE:src/staff/components/ui.jsx', 'FE:src/staff/queries.js', 'FE:src/staff/polling.js', 'FE:tests/polling.test.mjs',
+        'FE:src/staff/components/DateRangePicker.jsx', 'FE:src/staff/components/dateRange.js', 'FE:tests/dateRange.test.mjs',
+        'FE:tests/formatDate.test.mjs', 'FE:e2e/helpers.js', 'FE:e2e/start-backend.mjs',
         'FE:e2e/02-rental.spec.js', 'FE:e2e/04-admin.spec.js', 'FE:e2e/05-cancel.spec.js']),  # several people's tests each
 ]
 SHARED_FOLDERS = ['StorEase.Domain (entities, enums)', 'StorEase.Infrastructure (DbContext, migrations, email, file storage)',
