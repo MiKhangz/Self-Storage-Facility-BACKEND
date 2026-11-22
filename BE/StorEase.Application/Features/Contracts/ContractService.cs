@@ -116,30 +116,6 @@ public class ContractService(IUnitOfWork uow, ICurrentUser currentUser, IAccessC
             return accessCodes.Issue(contract).Code;
         }, ct);
 
-    public async Task<Result<ContractDto>> TerminateAsync(int contractId, CancellationToken ct)
-    {
-        var done = await uow.InTransactionAsync<int>(async () =>
-        {
-            var contract = await Visible()
-                .Include(c => c.AccessCodes).Include(c => c.StorageUnit)
-                .FirstOrDefaultAsync(c => c.ContractId == contractId, ct);
-            if (contract is null)
-                return Error.NotFound("Contract not found.");
-            if (contract.Status is ContractStatus.Draft or ContractStatus.Closed or ContractStatus.Terminated)
-                return Error.Conflict($"A {contract.Status} contract cannot be terminated.");
-
-            contract.Status = ContractStatus.Terminated;
-            foreach (var code in contract.AccessCodes.Where(a => a.IsActive))
-                code.IsActive = false;
-            // Occupied is the only state this contract could have put the unit in.
-            if (contract.StorageUnit.Status == StorageUnitStatus.Occupied)
-                await UnitSchedule.ReleaseAsync(uow, contract.StorageUnit, ct);
-            return contract.ContractId;
-        }, ct);
-
-        return done.IsSuccess ? await GetAsync(done.Value, ct) : done.Error;
-    }
-
     public async Task<Result<string>> ExportCsvAsync(ContractStatus? status, CancellationToken ct)
     {
         var query = Visible();

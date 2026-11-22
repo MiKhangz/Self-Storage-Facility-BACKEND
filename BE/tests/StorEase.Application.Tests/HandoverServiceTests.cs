@@ -31,7 +31,6 @@ public class HandoverServiceTests
         public Task<Result<ContractDto>> GetAsync(int contractId, CancellationToken ct) => throw new NotSupportedException();
         public Task<Result<PagedResult<ContractDto>>> ListAsync(ContractStatus? status, int page, int pageSize, CancellationToken ct) => throw new NotSupportedException();
         public Task<Result<ContractDto>> SignAsync(int contractId, CancellationToken ct) => throw new NotSupportedException();
-        public Task<Result<ContractDto>> TerminateAsync(int contractId, CancellationToken ct) => throw new NotSupportedException();
         public Task<Result<string>> ExportCsvAsync(ContractStatus? status, CancellationToken ct) => throw new NotSupportedException();
         public Task<Result<ContractDto>> CreateAsync(CreateContractRequest request, CancellationToken ct) => throw new NotSupportedException();
     }

@@ -16,4 +16,8 @@ public class WarehouseRolesTests
     public void Both_roles_can_move_goods_to_the_central_warehouse(string action, string role) =>
         typeof(ContractsController).GetMethod(action)!.GetCustomAttribute<AuthorizeAttribute>()!.Roles!.Split(',')
             .Should().Contain(role);
+
+    [Fact]
+    public void A_rental_ends_only_through_a_return_or_the_warehouse_where_the_deposit_is_settled() =>
+        typeof(ContractsController).GetMethod("Terminate").Should().BeNull();
 }

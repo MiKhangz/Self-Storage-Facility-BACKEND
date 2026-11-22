@@ -100,14 +100,6 @@ public class ContractsController(IContractService contracts, IAccessCodeService 
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
-    [HttpPost("{id:int}/terminate")]
-    [Authorize(Roles = Roles.FacilityManager)]
-    public async Task<ActionResult<ContractDto>> Terminate(int id, CancellationToken ct)
-    {
-        var result = await contracts.TerminateAsync(id, ct);
-        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
-    }
-
     [HttpPost("{id:int}/access-codes")]
     [Authorize(Roles = Roles.Staff)]
     public async Task<ActionResult<AccessCodeDto>> IssueAccessCode(int id, CancellationToken ct)

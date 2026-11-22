@@ -242,7 +242,6 @@ public static class ErrorText
         ["A contract is drafted for a Confirmed reservation with a unit assigned; this one is {0}."] = "Hợp đồng chỉ soạn cho đơn đã xác nhận và đã có kho; đơn này: {0}.",
         ["A deposit is settled only after the return inspection; this return is {0}."] = "Tiền cọc chỉ được quyết toán sau khi kiểm tra trả kho; yêu cầu này: {0}.",
         ["A facility with code {0} already exists."] = "Mã cơ sở {0} đã tồn tại.",
-        ["A {0} contract cannot be terminated."] = "Không thể chấm dứt hợp đồng ở trạng thái {0}.",
         ["A {0} order cannot move to {1}."] = "Lệnh {0} không thể chuyển sang {1}.",
         ["A {0} task cannot be cancelled."] = "Không thể hủy công việc ở trạng thái {0}.",
         ["A {0} task cannot move to {1}."] = "Công việc {0} không thể chuyển sang {1}.",

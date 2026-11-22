@@ -147,34 +147,6 @@ public class ContractLifecycleTests
     }
 
     [Fact]
-    public async Task Terminate_frees_the_unit_and_revokes_codes()
-    {
-        var f = Create(Roles.FacilityManager);
-        Seed(f.Db);
-        await f.Handovers.CreateAsync(Handover(), default);
-
-        var result = await f.Contracts.TerminateAsync(1, default);
-
-        result.Value!.Status.Should().Be(ContractStatus.Terminated);
-        f.Db.Set<StorageUnit>().Single().Status.Should().Be(StorageUnitStatus.Available);
-        f.Db.Set<AccessCode>().Should().OnlyContain(a => !a.IsActive);
-    }
-
-    [Theory]
-    [InlineData(ContractStatus.Draft)]
-    [InlineData(ContractStatus.Terminated)]
-    [InlineData(ContractStatus.Closed)]
-    public async Task Terminate_refuses_draft_and_finished_contracts(ContractStatus status)
-    {
-        var f = Create(Roles.FacilityManager);
-        Seed(f.Db);
-        f.Db.Set<Contract>().Single().Status = status;
-        f.Db.SaveChanges();
-
-        (await f.Contracts.TerminateAsync(1, default)).Error!.Type.Should().Be(ErrorType.Conflict);
-    }
-
-    [Fact]
     public async Task Export_quotes_fields_and_defuses_formulas()
     {
         var f = Create();

@@ -1086,36 +1086,6 @@
         }
       }
     },
-    "/api/contracts/{id}/terminate": {
-      "post": {
-        "tags": [
-          "Contracts"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ContractDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/contracts/{id}/access-codes": {
       "post": {
         "tags": [
