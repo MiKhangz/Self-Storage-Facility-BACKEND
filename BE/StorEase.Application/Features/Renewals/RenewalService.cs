@@ -72,7 +72,7 @@ public class RenewalService(IUnitOfWork uow, ICurrentUser currentUser) : IRenewa
                 ContractId = contract.ContractId,
                 RequestedAt = DateTime.UtcNow,
                 ExtendMonths = request.ExtendMonths,
-                NewEndDate = RenewalPricing.NewEndDate(contract.EndDate, request.ExtendMonths),
+                NewEndDate = RenewalPricing.NewEndDate(contract.StartDate, contract.EndDate, request.ExtendMonths),
                 NewMonthlyRent = newRent,
                 Status = RenewalStatus.Requested,
             };

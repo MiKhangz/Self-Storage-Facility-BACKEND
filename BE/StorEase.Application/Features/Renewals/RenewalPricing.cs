@@ -1,3 +1,5 @@
+using StorEase.Application.Features.StorageUnits;
+
 namespace StorEase.Application.Features.Renewals;
 
 public static class RenewalPricing
@@ -9,5 +11,14 @@ public static class RenewalPricing
         return Math.Round(basePricePerMonth * (100m - percent) / 100m, 2);
     }
 
-    public static DateOnly NewEndDate(DateOnly currentEnd, int months) => currentEnd.AddMonths(months);
+    /// <summary>
+    /// Counted from the start date, as billing does: adding months to the end date loses days at every short month.
+    /// </summary>
+    public static DateOnly NewEndDate(DateOnly start, DateOnly currentEnd, int months)
+    {
+        var billed = 0;
+        while (start.AddMonths(billed) <= currentEnd)
+            billed++;
+        return UnitSchedule.EndOf(start, billed + months);
+    }
 }

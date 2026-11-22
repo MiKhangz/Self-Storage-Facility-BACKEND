@@ -20,9 +20,18 @@ public class RenewalPricingTests
         RenewalPricing.Rent(1_000_000m, months, 5m, 10m, 20m).Should().Be(expected);
     }
 
-    [Fact]
-    public void New_end_date_adds_the_months_to_the_current_end()
+    [Theory]
+    [InlineData("2026-12-01", "2027-02-28", 1, "2027-03-31")] // to the month's last day, not the 28th
+    [InlineData("2027-01-01", "2027-01-31", 1, "2027-02-28")]
+    [InlineData("2027-03-01", "2027-04-30", 6, "2027-10-31")]
+    [InlineData("2026-11-30", "2027-02-27", 1, "2027-03-29")] // February does not pull the later months forward
+    [InlineData("2026-10-31", "2027-01-30", 1, "2027-02-27")]
+    [InlineData("2026-10-31", "2027-02-27", 1, "2027-03-30")]
+    [InlineData("2027-12-01", "2028-01-31", 1, "2028-02-29")]
+    [InlineData("2026-12-01", "2027-03-28", 1, "2027-04-30")] // renewed under the old rule: the month already billed counts
+    [InlineData("2026-01-10", "2026-04-09", 3, "2026-07-09")]
+    public void New_end_date_keeps_to_the_rentals_own_billing_months(string start, string end, int months, string expected)
     {
-        RenewalPricing.NewEndDate(new DateOnly(2027, 1, 31), 1).Should().Be(new DateOnly(2027, 2, 28));
+        RenewalPricing.NewEndDate(DateOnly.Parse(start), DateOnly.Parse(end), months).Should().Be(DateOnly.Parse(expected));
     }
 }
