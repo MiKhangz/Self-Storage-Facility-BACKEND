@@ -46,6 +46,7 @@ public static class ErrorText
     private static readonly Dictionary<string, string> Vietnamese = new()
     {
         ["Too many attempts. Please wait a few minutes and try again."] = "Bạn đã thử quá nhiều lần. Vui lòng đợi vài phút rồi thử lại.",
+        ["Billing can only be run for today."] = "Chỉ chạy tính tiền được cho ngày hôm nay.",
         ["An unexpected error occurred."] = "Đã có lỗi xảy ra. Vui lòng thử lại.",
         ["No other unit is waiting for your answer."] = "Không có kho nào khác đang chờ bạn xác nhận.",
         ["The appointment must be between today and the move-in date."] = "Lịch hẹn phải từ hôm nay đến ngày dọn vào.",
