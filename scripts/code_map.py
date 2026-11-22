@@ -174,7 +174,7 @@ def e2e_ids():
 
 
 # Which person each E2E test belongs to (spec files hold several people's tests).
-E2E_OWNER = {'E01': 'Khang', 'E02': 'Khang', 'E03': 'Khang', 'E04': 'Khang', 'E09': 'Khang', 'E10': 'Khang', 'E13': 'Khang', 'E14': 'Khang', 'E17': 'Khang', 'E18': 'Khang', 'E20': 'Khang', 'E21': 'Khang', 'E05': 'Thiện', 'E05b': 'Thiện', 'E05c': 'Thiện', 'E08': 'Thiện', 'E11': 'Thiện', 'E12': 'Thiện', 'E15': 'Thiện', 'E19': 'Thiện', 'E22': 'Thiện', 'E06': 'Trường', 'E07': 'Trường', 'E16': 'Trường', 'E23': 'Trường'}
+E2E_OWNER = {'E01': 'Khang', 'E02': 'Khang', 'E03': 'Khang', 'E04': 'Khang', 'E09': 'Khang', 'E10': 'Khang', 'E13': 'Khang', 'E14': 'Khang', 'E17': 'Khang', 'E18': 'Khang', 'E20': 'Khang', 'E21': 'Khang', 'E05': 'Thiện', 'E05b': 'Thiện', 'E05c': 'Thiện', 'E08': 'Thiện', 'E11': 'Thiện', 'E12': 'Thiện', 'E15': 'Thiện', 'E19': 'Thiện', 'E22': 'Thiện', 'E06': 'Trường', 'E07': 'Trường', 'E16': 'Trường', 'E23': 'Trường', 'E24': 'Trường'}
 
 
 def page(owned):
