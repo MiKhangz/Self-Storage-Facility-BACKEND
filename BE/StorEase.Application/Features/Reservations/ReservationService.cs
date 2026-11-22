@@ -240,13 +240,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             unit.Status = StorageUnitStatus.Reserved;
             reservation.StorageUnitId = unit.StorageUnitId;
 
-            var drafts = await uow.Repository<Contract>().Query()
-                .Where(c => c.ReservationId == reservationId && c.Status == ContractStatus.Draft).ToListAsync(ct);
-            foreach (var draft in drafts)
-            {
-                draft.StorageUnitId = unit.StorageUnitId;
-                draft.SignedAt = null;
-            }
+            await MoveDraftAsync(reservationId, unit.StorageUnitId, ct);
             await uow.SaveChangesAsync(ct);
             if (oldUnit.Status == StorageUnitStatus.Reserved)
                 await UnitSchedule.ReleaseAsync(uow, oldUnit, ct);
@@ -278,12 +272,35 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             reservation.Status = ReservationStatus.Confirmed;
             if (proposed.Status == StorageUnitStatus.Available)
                 proposed.Status = StorageUnitStatus.Reserved;
+            await MoveDraftAsync(reservationId, proposed.StorageUnitId, ct);
             await uow.SaveChangesAsync(ct);
             if (oldUnit is { Status: StorageUnitStatus.Reserved })
                 await UnitSchedule.ReleaseAsync(uow, oldUnit, ct);
             return reservation.ReservationId;
         }, ct);
         return accepted.IsSuccess ? await GetAsync(accepted.Value, ct) : accepted.Error;
+    }
+
+    /// <summary>
+    /// The drafted contract follows the booking to its new unit, unsigned because it named the old one. When that unit
+    /// still carries another contract until move-in (one Active, Draft or Overstay per unit), the draft ends instead and
+    /// staff draw it up again.
+    /// </summary>
+    private async Task MoveDraftAsync(int reservationId, int unitId, CancellationToken ct)
+    {
+        var contracts = uow.Repository<Contract>().Query();
+        var draft = await contracts.FirstOrDefaultAsync(c => c.ReservationId == reservationId
+            && c.Status == ContractStatus.Draft && c.StorageUnitId != unitId, ct);
+        if (draft is null)
+            return;
+        if (await contracts.AnyAsync(c => c.StorageUnitId == unitId
+                && (c.Status == ContractStatus.Active || c.Status == ContractStatus.Draft || c.Status == ContractStatus.Overstay), ct))
+        {
+            draft.Status = ContractStatus.Terminated;
+            return;
+        }
+        draft.StorageUnitId = unitId;
+        draft.SignedAt = null;
     }
 
     public async Task<Result<ReservationCancellationDto>> DeclineProposedUnitAsync(int reservationId, CancellationToken ct)
@@ -495,7 +512,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             r.RentalMonths,
             r.Status,
             r.CreatedAt,
-            contracts.Where(c => c.ReservationId == r.ReservationId)
+            contracts.Where(c => c.ReservationId == r.ReservationId && c.Status != ContractStatus.Terminated)
                 .OrderByDescending(c => c.ContractId)
                 .Select(c => (int?)c.ContractId)
                 .FirstOrDefault(),

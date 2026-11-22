@@ -82,7 +82,9 @@ public static class UnitSchedule
         // portable across SQL Server and the SQLite tests; move it into SQL if a facility ever holds thousands.
         var contracts = await uow.Repository<Contract>().Query()
             .Where(c => unitIds.Contains(c.StorageUnitId) && Holding.Contains(c.Status) && c.StartDate <= to
-                && c.ContractId != (exceptContractId ?? 0))
+                && c.ContractId != (exceptContractId ?? 0)
+                // A booking's own contract never blocks that booking.
+                && c.ReservationId != (exceptReservationId ?? 0))
             .Select(c => new { c.StorageUnitId, c.EndDate, c.Status })
             .ToListAsync(ct);
         // A renter past the end date holds the unit until they leave, so nobody can count on it.

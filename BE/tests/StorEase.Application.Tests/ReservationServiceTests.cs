@@ -1,9 +1,14 @@
 using FluentAssertions;
 using StorEase.Application.Common;
+using StorEase.Application.Features.AccessCodes;
+using StorEase.Application.Features.Contracts;
+using StorEase.Application.Features.Handovers;
+using StorEase.Application.Features.Handovers.Dtos;
 using StorEase.Application.Features.Reservations;
 using StorEase.Application.Features.Reservations.Dtos;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
+using StorEase.Infrastructure.Services;
 using static StorEase.Application.Tests.CoreFlowSeed;
 
 namespace StorEase.Application.Tests;
@@ -367,5 +372,61 @@ public class ReservationServiceTests
         proposed.Should().Be(1);
         var dto = await As(t, Customer).GetAsync(id, default);
         dto.Value!.ProposedUnitCode.Should().Be("A-102");
+    }
+
+    [Fact]
+    public async Task A_bookings_own_draft_contract_does_not_block_it()
+    {
+        using var t = Create();
+        var (id, _) = SeedReadyForHandover(t, signed: true);
+
+        var (_, proposed) = await As(t, Staff).RunDailyAsync(MoveIn.AddDays(-1), 10, default);
+
+        proposed.Should().Be(0, "the draft is this booking's own paperwork");
+        t.Db.ChangeTracker.Clear();
+        t.Db.Reservations.Find(id)!.ProposedStorageUnitId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Accepting_an_offer_moves_the_draft_contract_so_the_handover_works()
+    {
+        using var t = Create();
+        var (id, contractId) = SeedReadyForHandover(t, signed: true);
+        RentOut(t, A101, MoveIn.AddDays(-90), MoveIn.AddDays(30), ContractStatus.Suspended);
+
+        (await As(t, Staff).RunDailyAsync(MoveIn.AddDays(-1), 10, default)).Proposed.Should().Be(1, "another renter still blocks A-101");
+        t.Db.ChangeTracker.Clear();
+        (await As(t, Customer).AcceptProposedUnitAsync(id, default)).Value!.StorageUnitId.Should().Be(A102);
+
+        t.Db.ChangeTracker.Clear();
+        var draft = t.Db.Contracts.Find(contractId)!;
+        draft.StorageUnitId.Should().Be(A102);
+        draft.SignedAt.Should().BeNull("the signature named the old unit");
+        var contracts = new ContractService(t.Uow, Staff,
+            new AccessCodeService(t.Uow, new Pbkdf2PasswordHasher(), Staff, TestCodes.Protector));
+        (await contracts.SignAsync(contractId, default)).IsSuccess.Should().BeTrue();
+        var handover = await new HandoverService(t.Uow, Staff, contracts)
+            .CreateAsync(new CreateHandoverRequest(id, contractId, "LK-1", null, null), default);
+        handover.IsSuccess.Should().BeTrue(handover.Error?.Message);
+    }
+
+    [Fact]
+    public async Task Accepting_a_unit_still_rented_until_move_in_ends_the_draft_to_be_drawn_up_again()
+    {
+        using var t = Create();
+        var (id, contractId) = SeedReadyForHandover(t, signed: true);
+        // A-102 is free for the stay, but its renter's Active contract is the one the unit may carry until then.
+        RentOut(t, A102, MoveIn.AddDays(-30), MoveIn.AddDays(-1));
+        t.Db.Reservations.Find(id)!.ProposedStorageUnitId = A102;
+        t.Db.SaveChanges();
+        t.Db.ChangeTracker.Clear();
+
+        var accepted = await As(t, Customer).AcceptProposedUnitAsync(id, default);
+
+        accepted.Value!.StorageUnitId.Should().Be(A102);
+        accepted.Value.ContractId.Should().BeNull("the booking waits for a new draft");
+        t.Db.ChangeTracker.Clear();
+        t.Db.Contracts.Find(contractId)!.Status.Should().Be(ContractStatus.Terminated);
+        UnitStatus(t, A102).Should().Be(StorageUnitStatus.Occupied, "the renter is still inside");
     }
 }
