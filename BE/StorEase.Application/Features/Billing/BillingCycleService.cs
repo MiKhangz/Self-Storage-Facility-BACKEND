@@ -1,4 +1,5 @@
 using StorEase.Application.Features.Contracts;
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.Invoices;
@@ -32,6 +33,11 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
 
     private static readonly ContractStatus[] BillableStatuses =
         [ContractStatus.Active, ContractStatus.Overdue, ContractStatus.Suspended, ContractStatus.PendingReturn];
+
+    /// <summary>A closed rental (settled from the deposit), a cancelled handover or a closed booking is not chased any more.</summary>
+    private static readonly Expression<Func<Invoice, bool>> StillChased = i => i.ContractId != null
+        ? i.Contract!.Status != ContractStatus.Closed && i.Contract.Status != ContractStatus.Terminated
+        : i.ReservationId == null || (i.Reservation!.Status != ReservationStatus.Cancelled && i.Reservation.Status != ReservationStatus.Expired);
 
     public async Task<Result<BillingRunDto>> RunAsync(DateOnly today, CancellationToken ct)
     {
@@ -114,12 +120,11 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
     {
         int markedOverdue = 0, opened = 0, feesUpdated = 0, lockedOut = 0, clearedOut = 0;
         var invoices = await uow.Repository<Invoice>().Query().Include(i => i.InvoiceItems)
+            .Where(StillChased)
             .Where(i => (i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.Overdue)
                 && i.PaidAmount < i.TotalAmount && i.DueDate < today
                 // The overstay fee is not late rent: it is settled from the deposit when the unit is handed back.
-                && !i.InvoiceNumber.StartsWith(RentalEndService.OverstayPrefix)
-                // A closed rental (settled from the deposit) or a cancelled handover is not chased any more.
-                && (i.ContractId == null || (i.Contract!.Status != ContractStatus.Closed && i.Contract.Status != ContractStatus.Terminated)))
+                && !i.InvoiceNumber.StartsWith(RentalEndService.OverstayPrefix))
             .ToListAsync(ct);
 
         // Late fee, grace and lock-out days are the ones each contract was signed under, not today's policy.
@@ -239,6 +244,7 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
     {
         var dueSoon = today.AddDays(DueSoonDays);
         var candidates = await uow.Repository<Invoice>().Query()
+            .Where(StillChased)
             .Where(i => i.PaidAmount < i.TotalAmount
                 && ((i.Status == InvoiceStatus.Issued && i.DueDate == dueSoon) || i.Status == InvoiceStatus.Overdue))
             .Select(i => new { i.InvoiceId, i.Status, i.DueDate })

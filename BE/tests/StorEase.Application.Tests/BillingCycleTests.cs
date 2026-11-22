@@ -118,6 +118,52 @@ public class BillingCycleTests
         (await t.Db.Contracts.SingleAsync(c => c.ContractId == contractId)).Status.Should().Be(status);
     }
 
+    [Theory]
+    [InlineData(ContractStatus.Closed)]
+    [InlineData(ContractStatus.Terminated)]
+    public async Task A_rental_that_ended_gets_no_more_reminders(ContractStatus status)
+    {
+        var (t, contractId, email) = Seed();
+        using var _ = t;
+        await Billing(t, email).RunAsync(new DateOnly(2026, 1, 5), default);
+        (await t.Db.Contracts.SingleAsync(c => c.ContractId == contractId)).Status = status;
+        (await t.Db.Invoices.SingleAsync()).Status = InvoiceStatus.Overdue; // already late when it closed
+        await t.Db.SaveChangesAsync();
+
+        await Billing(t, email).RunAsync(new DateOnly(2026, 1, 11), default);
+
+        email.Sent.Should().BeEmpty();
+        (await t.Db.Notifications.CountAsync()).Should().Be(0, "nor under the bell");
+    }
+
+    [Theory]
+    [InlineData(ReservationStatus.Cancelled)]
+    [InlineData(ReservationStatus.Expired)]
+    public async Task A_closed_bookings_deposit_is_not_chased(ReservationStatus status)
+    {
+        var (t, _, email) = Seed();
+        using var __ = t;
+        var booking = new Reservation
+        {
+            CustomerId = CustomerId, FacilityId = FacilityId, UnitTypeId = SmallTypeId, ReservationCode = "RS-SHUT",
+            MoveInDate = new DateOnly(2026, 1, 3), RentalMonths = 1, Status = status, CreatedAt = DateTime.UtcNow,
+        };
+        t.Db.Add(booking);
+        await t.Db.SaveChangesAsync();
+        // Part paid, so closing did not write it off.
+        t.Db.Add(new Invoice
+        {
+            ReservationId = booking.ReservationId, CustomerId = CustomerId, InvoiceNumber = "DEP-SHUT", IssueDate = new DateOnly(2026, 1, 1),
+            DueDate = new DateOnly(2026, 1, 3), TotalAmount = 900_000m, PaidAmount = 100_000m, Status = InvoiceStatus.Issued,
+        });
+        await t.Db.SaveChangesAsync();
+
+        await Billing(t, email).RunAsync(new DateOnly(2026, 1, 4), default);
+
+        email.Sent.Should().BeEmpty();
+        (await t.Db.Invoices.SingleAsync(i => i.InvoiceNumber == "DEP-SHUT")).Status.Should().Be(InvoiceStatus.Issued);
+    }
+
     [Fact]
     public async Task Due_soon_reminders_go_out_once_and_respect_the_opt_out()
     {
