@@ -11,6 +11,9 @@ public static class VietnamTime
 
     public static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow + Offset);
 
+    /// <summary>The wall clock in Vietnam now.</summary>
+    public static DateTime Now => DateTime.UtcNow + Offset;
+
     /// <summary>The Vietnam calendar day of a stored (UTC) moment.</summary>
     public static DateOnly DayOf(DateTime utc) => DateOnly.FromDateTime(utc + Offset);
 

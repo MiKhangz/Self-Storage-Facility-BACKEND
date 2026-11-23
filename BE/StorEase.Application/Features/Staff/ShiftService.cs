@@ -23,9 +23,6 @@ public interface IShiftService
 
 public class ShiftService(IUnitOfWork uow, ICurrentUser currentUser) : IShiftService
 {
-    // Facilities are all in Vietnam, so "now" for shift rules is a fixed UTC+7 (no DST there).
-    private static readonly TimeSpan LocalOffset = TimeSpan.FromHours(7);
-
     /// <summary>How far ahead a timetable's shifts exist, so the roster never runs out.</summary>
     public const int TimetableDays = 14;
 
@@ -47,7 +44,7 @@ public class ShiftService(IUnitOfWork uow, ICurrentUser currentUser) : IShiftSer
             if (await AssigneeErrorAsync(request.UserId, request.FacilityId, ct) is { } wrong)
                 return wrong;
 
-            if (Start(request.ShiftDate, request.StartTime) < LocalNow())
+            if (Start(request.ShiftDate, request.StartTime) < VietnamTime.Now)
                 return Error.Conflict("A shift in the past cannot be created.");
 
             var clash = await FindOverlapAsync(request.UserId, null, request.ShiftDate, request.StartTime, request.EndTime, ct);
@@ -102,9 +99,9 @@ public class ShiftService(IUnitOfWork uow, ICurrentUser currentUser) : IShiftSer
             var shift = await Manageable().FirstOrDefaultAsync(s => s.ShiftId == shiftId, ct);
             if (shift is null)
                 return Error.NotFound("Shift not found.");
-            if (End(shift.ShiftDate, shift.StartTime, shift.EndTime) <= LocalNow())
+            if (End(shift.ShiftDate, shift.StartTime, shift.EndTime) <= VietnamTime.Now)
                 return Error.Conflict("A shift that has already ended cannot be changed.");
-            if (Start(request.ShiftDate, request.StartTime) < LocalNow())
+            if (Start(request.ShiftDate, request.StartTime) < VietnamTime.Now)
                 return Error.Conflict("A shift cannot be moved into the past.");
 
             var clash = await FindOverlapAsync(shift.UserId, shift.ShiftId, request.ShiftDate, request.StartTime, request.EndTime, ct);
@@ -130,7 +127,7 @@ public class ShiftService(IUnitOfWork uow, ICurrentUser currentUser) : IShiftSer
             if (shift is null)
                 return Error.NotFound("Shift not found.");
             // A shift is a plan, not history: only one that has not begun, and carries no tasks, may go.
-            if (Start(shift.ShiftDate, shift.StartTime) <= LocalNow())
+            if (Start(shift.ShiftDate, shift.StartTime) <= VietnamTime.Now)
                 return Error.Conflict("A shift that has started cannot be deleted.");
             if (await uow.Repository<StaffTask>().Query().AnyAsync(t => t.ShiftId == shiftId, ct))
                 return Error.Conflict("This shift has tasks; remove or cancel them first.");
@@ -169,7 +166,7 @@ public class ShiftService(IUnitOfWork uow, ICurrentUser currentUser) : IShiftSer
             // Rebuild from today: drop the timetable's own future shifts that nobody changed and that carry no tasks.
             // shortcut: a day off made by deleting one of these shifts comes back when the timetable is saved again; add a skip list if managers need it.
             var today = VietnamTime.Today;
-            var now = LocalNow();
+            var now = VietnamTime.Now;
             var withTasks = uow.Repository<StaffTask>().Query().Where(t => t.ShiftId != null).Select(t => t.ShiftId!.Value);
             var old = await uow.Repository<Shift>().Query()
                 .Where(s => s.UserId == request.UserId && s.FacilityId == request.FacilityId && s.FromTimetable
@@ -210,7 +207,7 @@ public class ShiftService(IUnitOfWork uow, ICurrentUser currentUser) : IShiftSer
         var skipped = new List<string>();
         var today = VietnamTime.Today;
         var from = link.TimetableThrough is { } done && done >= today ? done.AddDays(1) : today;
-        var now = LocalNow();
+        var now = VietnamTime.Now;
         for (var day = from; day <= until; day = day.AddDays(1))
             foreach (var slot in slots.Where(s => s.Day == day.DayOfWeek))
             {
@@ -288,8 +285,6 @@ public class ShiftService(IUnitOfWork uow, ICurrentUser currentUser) : IShiftSer
 
     private static DateTime End(DateOnly date, TimeOnly start, TimeOnly end) =>
         end > start ? date.ToDateTime(end) : date.AddDays(1).ToDateTime(end);
-
-    private static DateTime LocalNow() => DateTime.UtcNow + LocalOffset;
 
     /// <summary>The administrator manages every facility; a facility manager only their own scope.</summary>
     private async Task<bool> CanManageAsync(int facilityId, CancellationToken ct)
