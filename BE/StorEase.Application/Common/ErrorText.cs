@@ -122,6 +122,7 @@ public static class ErrorText
         ["You do not manage this facility."] = "Bạn không quản lý cơ sở này.",
         ["Only a system administrator can change your own facilities."] = "Chỉ quản trị hệ thống mới đổi được cơ sở của chính bạn.",
         ["This person is not assigned to the facility."] = "Người này không được giao cho cơ sở.",
+        ["The timetable only has morning and afternoon slots."] = "Lịch làm việc chỉ có ca sáng và ca chiều.",
 
         // Booking and handover
         ["The unit was not ready for this customer, so this is not a no-show; cancel the booking to refund the deposit."] = "Kho chưa sẵn sàng cho khách nên không tính là không đến; hãy huỷ đơn để hoàn tiền cọc.",

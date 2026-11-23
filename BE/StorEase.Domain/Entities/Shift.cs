@@ -11,6 +11,8 @@ public class Shift
     public TimeOnly StartTime { get; set; }
     public TimeOnly EndTime { get; set; }
     public ShiftType ShiftType { get; set; }
+    /// <summary>Made from the staff member's weekly timetable and not changed by hand since.</summary>
+    public bool FromTimetable { get; set; }
 
     public User User { get; set; } = null!;
     public Facility Facility { get; set; } = null!;

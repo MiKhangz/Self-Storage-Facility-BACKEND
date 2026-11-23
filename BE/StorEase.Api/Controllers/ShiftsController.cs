@@ -55,4 +55,22 @@ public class ShiftsController(IShiftService shifts) : ApiControllerBase
         var result = await shifts.DeleteAsync(id, ct);
         return result.IsSuccess ? NoContent() : Failure(result.Error);
     }
+
+    /// <summary>The staff member's usual week at the facility (morning and afternoon slots per weekday).</summary>
+    [HttpGet("timetable")]
+    [Authorize(Roles = Writers)]
+    public async Task<ActionResult<TimetableDto>> GetTimetable([FromQuery] int userId, [FromQuery] int facilityId, CancellationToken ct)
+    {
+        var result = await shifts.GetTimetableAsync(userId, facilityId, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>Saves the usual week and rebuilds the person's shifts there for the next two weeks.</summary>
+    [HttpPut("timetable")]
+    [Authorize(Roles = Writers)]
+    public async Task<ActionResult<TimetableDto>> SaveTimetable(SaveTimetableRequest request, CancellationToken ct)
+    {
+        var result = await shifts.SaveTimetableAsync(request, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
 }

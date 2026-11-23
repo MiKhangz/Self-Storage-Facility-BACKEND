@@ -439,6 +439,8 @@ Customers are never returned or editable here (`404`).
 | `GET` | `/api/shifts/{id}` | `FacilityStaff`, `FacilityManager`, `BusinessOperationsManager`, `SystemAdministrator` | `200` `ShiftDto` |
 | `PUT` | `/api/shifts/{id}` `{shiftDate, startTime, endTime, shiftType}` | FacilityManager, SystemAdministrator | `200` `ShiftDto` |
 | `DELETE` | `/api/shifts/{id}` | FacilityManager, SystemAdministrator | `204` |
+| `GET` | `/api/shifts/timetable?userId=&facilityId=` | FacilityManager (own facilities), SystemAdministrator | `200` `TimetableDto` — the usual week: `slots` `[{day, shiftType}]` (Morning 07–15, Afternoon 15–23), `through` |
+| `PUT` | `/api/shifts/timetable` `{userId, facilityId, slots}` | FacilityManager (own facilities), SystemAdministrator | `200` `TimetableDto` with `skipped` (clashes). Rebuilds the person's untouched timetable shifts there for the next 14 days; the hourly job keeps 14 days ahead. A Night slot is `400`. |
 
 ```jsonc
 // POST body; times are facility-local, "HH:mm:ss"

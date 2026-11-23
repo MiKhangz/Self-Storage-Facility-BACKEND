@@ -1345,6 +1345,9 @@ namespace StorEase.Infrastructure.Migrations
                     b.Property<int>("FacilityId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("FromTimetable")
+                        .HasColumnType("bit");
+
                     b.Property<DateOnly>("ShiftDate")
                         .HasColumnType("date");
 
@@ -1382,6 +1385,14 @@ namespace StorEase.Infrastructure.Migrations
 
                     b.Property<int>("FacilityId")
                         .HasColumnType("int");
+
+                    b.Property<string>("Timetable")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateOnly?>("TimetableThrough")
+                        .HasColumnType("date");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");

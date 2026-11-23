@@ -4906,6 +4906,79 @@
         }
       }
     },
+    "/api/shifts/timetable": {
+      "get": {
+        "tags": [
+          "Shifts"
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "facilityId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimetableDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Shifts"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveTimetableRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveTimetableRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveTimetableRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimetableDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/staff": {
       "get": {
         "tags": [
@@ -7275,6 +7348,18 @@
           }
         },
         "additionalProperties": false
+      },
+      "DayOfWeek": {
+        "enum": [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday"
+        ],
+        "type": "string"
       },
       "DepositRefundDto": {
         "type": "object",
@@ -9823,6 +9908,27 @@
         },
         "additionalProperties": false
       },
+      "SaveTimetableRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "facilityId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimetableSlot"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "SessionResponse": {
         "type": "object",
         "properties": {
@@ -10491,6 +10597,51 @@
             "type": "integer",
             "format": "int32",
             "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TimetableDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "facilityId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimetableSlot"
+            },
+            "nullable": true
+          },
+          "through": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TimetableSlot": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "$ref": "#/components/schemas/DayOfWeek"
+          },
+          "shiftType": {
+            "$ref": "#/components/schemas/ShiftType"
           }
         },
         "additionalProperties": false

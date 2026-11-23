@@ -3,6 +3,7 @@ using StorEase.Application.Common;
 using StorEase.Application.Features.Billing;
 using StorEase.Application.Features.CheckIns;
 using StorEase.Application.Features.Reservations;
+using StorEase.Application.Features.Staff;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
@@ -41,6 +42,10 @@ public class BillingWorker(IServiceScopeFactory scopes, ILogger<BillingWorker> l
                 var ends = await scope.ServiceProvider.GetRequiredService<IRentalEndService>().RunAsync(VietnamTime.Today, stoppingToken);
                 if (ends.Reminded + ends.Overstayed + ends.FeesUpdated > 0)
                     logger.LogInformation("Rental ends: {@Run}", ends);
+                // Weekly timetables keep their shifts created two weeks ahead.
+                var shiftsMade = await scope.ServiceProvider.GetRequiredService<IShiftService>().ExtendTimetablesAsync(stoppingToken);
+                if (shiftsMade > 0)
+                    logger.LogInformation("Created {Count} shifts from weekly timetables", shiftsMade);
                 // Visits nobody checked out end at closing time; hourly is close enough because each ends at its closing.
                 var closed = await scope.ServiceProvider.GetRequiredService<ICheckInService>()
                     .CloseAtClosingTimeAsync(DateTime.UtcNow, stoppingToken);
