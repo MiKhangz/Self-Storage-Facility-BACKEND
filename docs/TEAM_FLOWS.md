@@ -93,7 +93,9 @@ Khang presents and demos F06; the backend stays Trường's and the screens Thi�
   unit; the maintenance order cycle from create to done or cancelled.
 - **F12 Users & Audit:** staff accounts and the activity log are done and tested (E12, E22). Section D: shifts are
   done and tested (E25): add a shift (only for an active person assigned to the facility, not in the past), and the
-  person sees it on the Dashboard and in Staff & Shifts. Staff tasks are NO SCREEN: give a task inside a shift, the
+  person sees it on the Dashboard and in Staff & Shifts. The weekly timetable is done and tested (E26): tick a
+  person's usual week (morning or afternoon per weekday) and saving makes those shifts 14 days ahead; the hourly
+  job keeps it 14 days ahead, and shifts edited by hand or with tasks are kept. Staff tasks are NO SCREEN: give a task inside a shift, the
   assignee moves it to Done, only a manager cancels, all through the API.
 
 ## Shared rules
