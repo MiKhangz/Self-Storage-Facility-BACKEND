@@ -47,8 +47,8 @@ turn its badge to DONE in the diagram. **NO SCREEN** means the backend works and
   - F01: verification email, and the verify link turning the account Active.
   - F03: booking received; cancelled or expired, saying whether the deposit comes back.
   - F04: booking confirmed with the unit code.
-- **F03:** mark a no-show, only after the appointment day (the move-in day if none). The handover appointment, the
-  24-hour unpaid hold and the missed-appointment job (D, E).
+- **F03:** mark a no-show, only after the appointment day (the move-in day if none). The handover appointment picked with the booking, the
+  1-hour unpaid hold and the missed-appointment job (D, E).
 - **F04:** the customer agrees to another unit, or declines with the deposit back (C).
 - **F02:** the notification bell (D).
 - **F04:** change the unit at handover: another of the same size; the old unit becomes Available, the new one

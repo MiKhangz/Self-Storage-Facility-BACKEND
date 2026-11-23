@@ -175,16 +175,17 @@ today's: whether a unit is free for a stay comes from `GET /api/unit-types/{id}/
 
 ```jsonc
 // request
-{ "facilityId": 1, "unitTypeId": 1, "moveInDate": "2026-10-13", "rentalMonths": 3 }
+{ "facilityId": 1, "unitTypeId": 1, "moveInDate": "2026-10-13", "rentalMonths": 3, "handoverAt": "2026-10-13T09:00:00" }
 ```
 
 Validation (mirror in Zod): `facilityId > 0`, `unitTypeId > 0`, `moveInDate` not in the past,
-`rentalMonths` 1–36.
+`rentalMonths` 1–36. `handoverAt` (optional, Vietnam time) is the handover appointment, checked like
+`POST /api/reservations/{id}/appointment`; it counts once the deposit is paid. Left out, the move-in day is the deadline.
 
 `201`, `Location: /api/reservations/{id}`, body `ReservationDto` with `status: "Pending"`. The booking holds the
 **expected unit**: the first one, by code, free for every day of the stay. It becomes `Reserved` if it is free today; one
 still rented until before move-in follows when its renter leaves. The price version is pinned and the deposit invoice
-raised (see below). `404` facility or unit type not found. `409` when no staff work at that facility, or no unit of that
+raised (see below); the customer pays it straight after booking. `404` facility or unit type not found. `409` when no staff work at that facility, or no unit of that
 size is free for the whole period.
 
 ### 5. `GET /api/reservations?status=Pending&page=1&pageSize=20`
@@ -671,7 +672,7 @@ person in or reset a password never do.
 | `POST /api/reservations/{id}/change-unit` | S, M | at the desk, `{ storageUnitId }`: an `Available` unit of the same size, free for the stay; a Draft contract moves with its signature cleared |
 | `POST /api/reservations/{id}/accept-unit` | C (own) | takes the proposed unit → `Confirmed`; `409` if it was taken meanwhile |
 | `POST /api/reservations/{id}/decline-unit` | C (own) | → `Cancelled`, whole deposit owed back |
-| `POST /api/reservations/{id}/appointment` | C (own), S, M | `{ at }` in Vietnam time, from now to the move-in day, 07:00–21:00; `409` before the deposit is paid or once the appointment has passed |
+| `POST /api/reservations/{id}/appointment` | C (own), S, M | changes the appointment picked with the booking: `{ at }` in Vietnam time, from now to the move-in day, 07:00–21:00; `409` before the deposit is paid or once the appointment has passed |
 | `POST /api/reservations/{id}/cancel` | C (own), S, M | releases the unit; deposit refundable within `cancelFreeHours`, when staff cancel, or when the unit was not ready |
 | `POST /api/reservations/{id}/no-show` | S, M | after the appointment day (the move-in day if none); deposit forfeited; `409` when the unit was not ready |
 | `GET /api/reservations/{id}/handover` | S, M | handover checklist |
@@ -680,9 +681,9 @@ person in or reset a password never do.
 | `POST /api/handovers/{id}/photos` | S, M | multipart field `file`, JPEG/PNG/WebP ≤ 5 MB |
 | `GET /api/handovers/{id}/photos/{photoId}` | any (customer own) | the image |
 
-Creating a reservation also raises its deposit invoice (`DEP<code>`, due when the 24-hour hold ends, or on move-in
-day if sooner); the handover answers `409` until it is paid. The hourly job cancels a booking with none of its
-deposit paid 24 hours after it was made.
+Creating a reservation also raises its deposit invoice (`DEP<code>`, due when the 1-hour hold ends, or on move-in
+day if sooner); the handover answers `409` until it is paid. A booking only holds once its deposit is paid: the
+hourly job cancels a booking with none of its deposit paid 1 hour after it was made.
 
 The same job closes missed handovers once the appointment day (the move-in day if none) has passed: `Expired` and the
 deposit kept. When StorEase had no unit ready it is no no-show: an early appointment is cleared, and after move-in day
