@@ -164,7 +164,7 @@ public class ShiftService(IUnitOfWork uow, ICurrentUser currentUser) : IShiftSer
 
             var link = await uow.Repository<StaffFacility>().Query()
                 .FirstAsync(s => s.UserId == request.UserId && s.FacilityId == request.FacilityId, ct);
-            link.Timetable = slots.Count == 0 ? null : string.Join(",", slots.Select(s => $"{s.Day}:{s.ShiftType}"));
+            link.Timetable = FormatTimetable(slots);
 
             // Rebuild from today: drop the timetable's own future shifts that nobody changed and that carry no tasks.
             // shortcut: a day off made by deleting one of these shifts comes back when the timetable is saved again; add a skip list if managers need it.
@@ -236,9 +236,14 @@ public class ShiftService(IUnitOfWork uow, ICurrentUser currentUser) : IShiftSer
         return (created, skipped);
     }
 
+    /// <summary>"Mon:Morning,Wed:Afternoon": short day names, so a full week (14 slots, 181 characters) fits the 200-character column.</summary>
+    public static string? FormatTimetable(IReadOnlyCollection<TimetableSlot> slots) =>
+        slots.Count == 0 ? null : string.Join(",", slots.Select(s => $"{s.Day.ToString()[..3]}:{s.ShiftType}"));
+
     private static IReadOnlyList<TimetableSlot> ParseTimetable(string? text) =>
         string.IsNullOrEmpty(text) ? [] : text.Split(',').Select(cell => cell.Split(':'))
-            .Select(p => new TimetableSlot(Enum.Parse<DayOfWeek>(p[0]), Enum.Parse<ShiftType>(p[1]))).ToList();
+            .Select(p => new TimetableSlot(Enum.GetValues<DayOfWeek>().First(d => d.ToString()[..3] == p[0][..3]), Enum.Parse<ShiftType>(p[1])))
+            .ToList();
 
     private async Task<Error?> AssigneeErrorAsync(int userId, int facilityId, CancellationToken ct)
     {

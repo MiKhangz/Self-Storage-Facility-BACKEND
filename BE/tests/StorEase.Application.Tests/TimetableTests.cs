@@ -70,6 +70,19 @@ public class TimetableTests
     }
 
     [Fact]
+    public async Task A_full_week_fits_the_column_and_reads_back()
+    {
+        var w = await SeedAsync();
+        var all = Enum.GetValues<DayOfWeek>().SelectMany(d => new[] { new TimetableSlot(d, ShiftType.Morning), new TimetableSlot(d, ShiftType.Afternoon) }).ToList();
+        // The in-memory test database does not enforce the column size, so check it here: StaffFacility.Timetable is varchar(200).
+        ShiftService.FormatTimetable(all)!.Length.Should().BeLessThanOrEqualTo(200);
+
+        (await w.As(w.Manager).SaveTimetableAsync(new(w.Staff.UserId, w.F1.FacilityId, all), default)).IsSuccess.Should().BeTrue();
+
+        (await w.As(w.Manager).GetTimetableAsync(w.Staff.UserId, w.F1.FacilityId, default)).Value!.Slots.Should().HaveCount(14);
+    }
+
+    [Fact]
     public async Task A_night_slot_or_a_staff_member_of_another_facility_is_refused()
     {
         var w = await SeedAsync();
