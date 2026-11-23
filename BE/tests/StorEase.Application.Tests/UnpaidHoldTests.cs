@@ -8,17 +8,17 @@ using static StorEase.Application.Tests.CoreFlowSeed;
 
 namespace StorEase.Application.Tests;
 
-/// <summary>A booking holds its unit for 24 hours without its deposit.</summary>
+/// <summary>A booking holds its unit for one hour without its deposit: the customer pays right after booking.</summary>
 public class UnpaidHoldTests
 {
     [Theory]
-    [InlineData(25, 0, true, ReservationStatus.Pending, true)]
-    [InlineData(25, 0, true, ReservationStatus.Confirmed, true)] // staff already confirmed the unit
-    [InlineData(23, 0, true, ReservationStatus.Pending, false)]
-    [InlineData(25, 300_000, true, ReservationStatus.Pending, false)] // part paid: staff follow up
-    [InlineData(25, 900_000, true, ReservationStatus.Pending, false)]
-    [InlineData(25, 0, false, ReservationStatus.Pending, false)] // no deposit was due
-    public async Task The_job_releases_a_unit_held_without_a_deposit_for_a_day(int hoursAgo, int paid, bool hasDeposit, ReservationStatus status, bool released)
+    [InlineData(2, 0, true, ReservationStatus.Pending, true)]
+    [InlineData(2, 0, true, ReservationStatus.Confirmed, true)] // staff already confirmed the unit
+    [InlineData(0, 0, true, ReservationStatus.Pending, false)]
+    [InlineData(2, 300_000, true, ReservationStatus.Pending, false)] // part paid: staff follow up
+    [InlineData(2, 900_000, true, ReservationStatus.Pending, false)]
+    [InlineData(2, 0, false, ReservationStatus.Pending, false)] // no deposit was due
+    public async Task The_job_releases_a_unit_held_without_a_deposit_for_an_hour(int hoursAgo, int paid, bool hasDeposit, ReservationStatus status, bool released)
     {
         using var t = Create();
         var booking = new Reservation
@@ -51,13 +51,13 @@ public class UnpaidHoldTests
         t.Db.Invoices.Single().Status.Should().Be(InvoiceStatus.WrittenOff);
         t.Db.DepositRefunds.Should().BeEmpty();
         var told = t.Db.Notifications.Single();
-        told.Body.Should().Contain("24 giờ").And.NotContain("StorEase chưa có kho", "it was not our fault");
+        told.Body.Should().Contain("1 giờ").And.NotContain("StorEase chưa có kho", "it was not our fault");
     }
 
     [Theory]
-    [InlineData(0, 0)]
-    [InlineData(20, 1)]
-    public async Task The_deposit_is_due_when_the_hold_ends_or_on_move_in_day_if_sooner(int moveInDays, int dueDays)
+    [InlineData(0)]
+    [InlineData(20)]
+    public async Task The_deposit_is_due_when_the_hold_ends_or_on_move_in_day_if_sooner(int moveInDays)
     {
         using var t = Create();
         t.Db.Add(new UnitPrice
@@ -75,6 +75,8 @@ public class UnpaidHoldTests
             .CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, today.AddDays(moveInDays), 1), default);
 
         booked.IsSuccess.Should().BeTrue(booked.Error?.Message);
-        t.Db.Invoices.Single().DueDate.Should().Be(today.AddDays(dueDays));
+        var holdEnds = VietnamTime.DayOf(DateTime.UtcNow.AddHours(ReservationService.DepositHoldHours));
+        var moveIn = today.AddDays(moveInDays);
+        t.Db.Invoices.Single().DueDate.Should().Be(holdEnds < moveIn ? holdEnds : moveIn);
     }
 }

@@ -334,6 +334,22 @@ public class ReservationServiceTests
         night.Error!.Type.Should().Be(ErrorType.Validation);
     }
 
+    [Fact]
+    public async Task The_appointment_is_picked_with_the_booking_and_follows_the_same_rules()
+    {
+        using var t = Create();
+        var nine = MoveIn.ToDateTime(new TimeOnly(9, 0));
+
+        var booked = await As(t, Customer).CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn, 3, nine), default);
+        var night = await As(t, Customer).CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn, 3, MoveIn.ToDateTime(new TimeOnly(22, 0))), default);
+        var late = await As(t, Customer).CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn, 3, nine.AddDays(1)), default);
+
+        booked.Value!.HandoverSlot.Should().Be(VietnamTime.ToUtc(nine), "stored in UTC");
+        night.Error!.Type.Should().Be(ErrorType.Validation);
+        late.Error!.Type.Should().Be(ErrorType.Validation);
+        t.Db.Reservations.Should().ContainSingle("a refused time books nothing");
+    }
+
     [Theory]
     [InlineData(0, InvoiceStatus.Issued, false)]
     [InlineData(400_000, InvoiceStatus.Issued, false)]

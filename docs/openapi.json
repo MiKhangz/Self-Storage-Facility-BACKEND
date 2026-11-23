@@ -6961,6 +6961,11 @@
           "rentalMonths": {
             "type": "integer",
             "format": "int32"
+          },
+          "handoverAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "additionalProperties": false

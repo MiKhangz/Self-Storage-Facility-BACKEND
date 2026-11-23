@@ -59,11 +59,16 @@ public interface IReservationService
 
 public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmailService email) : IReservationService
 {
-    /// <summary>How long a booking holds its unit before any of the deposit is paid.</summary>
-    public const int DepositHoldHours = 24;
+    /// <summary>How long a booking holds its unit before any of the deposit is paid: the customer pays right after
+    /// booking, so this only covers a checkout left unfinished.</summary>
+    public const int DepositHoldHours = 1;
 
     public async Task<Result<ReservationDto>> CreateAsync(CreateReservationRequest request, CancellationToken ct)
     {
+        DateTime? slot = request.HandoverAt is { } wanted ? VietnamTime.ToUtc(wanted) : null;
+        if (slot is { } s && AppointmentError(s, request.MoveInDate) is { } wrong)
+            return wrong;
+
         var facility = await uow.Repository<Facility>().Query()
             .FirstOrDefaultAsync(f => f.FacilityId == request.FacilityId && f.Status == FacilityStatus.Active, ct);
         if (facility is null)
@@ -102,6 +107,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
                 FacilityPriceVersionId = terms.IsSuccess ? terms.Value.FacilityPriceVersionId : null,
                 Status = ReservationStatus.Pending,
                 CreatedAt = DateTime.UtcNow,
+                HandoverSlot = slot,
             };
             uow.Repository<Reservation>().Add(reservation);
             // A unit free today is held now; one still rented until before move-in is held when its renter leaves.
@@ -121,6 +127,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             await NotifyAsync(dto.Value, "Đã nhận yêu cầu đặt kho",
                 $"Chúng tôi đã nhận yêu cầu đặt kho {dto.Value.UnitTypeName} tại {facility.Name}, dọn vào ngày {dto.Value.MoveInDate:dd/MM/yyyy}. " +
                 $"Kho dự kiến: {dto.Value.UnitCode} (nhân viên xác nhận trước ngày dọn vào)." +
+                (slot is { } at ? $"\nLịch hẹn nhận kho: {at.AddHours(7):HH:mm dd/MM/yyyy}; không đến đúng ngày hẹn, đơn hết hạn và tiền cọc không được hoàn." : "") +
                 (dto.Value.DepositAmount is { } amount ? $"\nVui lòng thanh toán tiền cọc {Money.Text(amount)} ₫ trong {DepositHoldHours} giờ và không muộn hơn ngày dọn vào, nếu không đơn sẽ bị huỷ." : ""), ct);
         return dto;
     }
@@ -340,16 +347,24 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             return Error.Conflict("The appointment time has passed, so it can no longer be changed.");
         // Stored in UTC like every other moment; the rules read it in Vietnam time.
         var at = VietnamTime.ToUtc(request.At);
-        var day = VietnamTime.DayOf(at);
-        if (at < DateTime.UtcNow)
-            return Error.Validation("The appointment time has already passed.");
-        if (day < VietnamTime.Today || day > reservation.MoveInDate)
-            return Error.Validation("The appointment must be between today and the move-in date.");
-        if (at.AddHours(7).Hour is < 7 or >= 21)
-            return Error.Validation("The appointment must be during opening hours (07:00–21:00).");
+        if (AppointmentError(at, reservation.MoveInDate) is { } wrong)
+            return wrong;
         reservation.HandoverSlot = at;
         await uow.SaveChangesAsync(ct);
         return await GetAsync(reservationId, ct);
+    }
+
+    /// <summary>The same rules whether the time is picked with the booking or changed later.</summary>
+    private static Error? AppointmentError(DateTime at, DateOnly moveIn)
+    {
+        var day = VietnamTime.DayOf(at);
+        if (at < DateTime.UtcNow)
+            return Error.Validation("The appointment time has already passed.");
+        if (day < VietnamTime.Today || day > moveIn)
+            return Error.Validation("The appointment must be between today and the move-in date.");
+        if (at.AddHours(7).Hour is < 7 or >= 21)
+            return Error.Validation("The appointment must be during opening hours (07:00–21:00).");
+        return null;
     }
 
     public async Task<(int Expired, int Proposed)> RunDailyAsync(DateOnly today, int lookAheadDays, CancellationToken ct)
