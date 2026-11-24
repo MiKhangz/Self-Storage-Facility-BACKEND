@@ -163,18 +163,10 @@ public class ShiftService(IUnitOfWork uow, ICurrentUser currentUser) : IShiftSer
                 .FirstAsync(s => s.UserId == request.UserId && s.FacilityId == request.FacilityId, ct);
             link.Timetable = FormatTimetable(slots);
 
-            // Rebuild from today: drop the timetable's own future shifts that nobody changed and that carry no tasks.
+            // Rebuild from today.
             // shortcut: a day off made by deleting one of these shifts comes back when the timetable is saved again; add a skip list if managers need it.
             var today = VietnamTime.Today;
-            var now = VietnamTime.Now;
-            var withTasks = uow.Repository<StaffTask>().Query().Where(t => t.ShiftId != null).Select(t => t.ShiftId!.Value);
-            var old = await uow.Repository<Shift>().Query()
-                .Where(s => s.UserId == request.UserId && s.FacilityId == request.FacilityId && s.FromTimetable
-                    && s.ShiftDate >= today && !withTasks.Contains(s.ShiftId))
-                .ToListAsync(ct);
-            foreach (var shift in old.Where(s => Start(s.ShiftDate, s.StartTime) > now))
-                uow.Repository<Shift>().Remove(shift);
-            await uow.SaveChangesAsync(ct);
+            await DropTimetableShiftsAsync(uow, request.UserId, request.FacilityId, ct);
 
             link.TimetableThrough = today.AddDays(-1);
             var (_, skipped) = await FillAsync(link, slots, today.AddDays(TimetableDays - 1), ct);
@@ -231,6 +223,24 @@ public class ShiftService(IUnitOfWork uow, ICurrentUser currentUser) : IShiftSer
             }
         link.TimetableThrough = until;
         return (created, skipped);
+    }
+
+    /// <summary>
+    /// Removes the timetable's own shifts that have not begun, that nobody changed by hand and that carry no tasks,
+    /// at one facility or (with no <paramref name="facilityId"/>) at all of them.
+    /// </summary>
+    public static async Task DropTimetableShiftsAsync(IUnitOfWork uow, int userId, int? facilityId, CancellationToken ct)
+    {
+        var today = VietnamTime.Today;
+        var now = VietnamTime.Now;
+        var withTasks = uow.Repository<StaffTask>().Query().Where(t => t.ShiftId != null).Select(t => t.ShiftId!.Value);
+        var old = await uow.Repository<Shift>().Query()
+            .Where(s => s.UserId == userId && (facilityId == null || s.FacilityId == facilityId) && s.FromTimetable
+                && s.ShiftDate >= today && !withTasks.Contains(s.ShiftId))
+            .ToListAsync(ct);
+        foreach (var shift in old.Where(s => Start(s.ShiftDate, s.StartTime) > now))
+            uow.Repository<Shift>().Remove(shift);
+        await uow.SaveChangesAsync(ct);
     }
 
     /// <summary>"Mon:Morning,Wed:Afternoon": short day names, so a full week (14 slots, 181 characters) fits the 200-character column.</summary>

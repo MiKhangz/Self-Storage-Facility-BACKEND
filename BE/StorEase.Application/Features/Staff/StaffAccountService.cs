@@ -95,6 +95,9 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
             if (request.FullName is not null) user.FullName = request.FullName.Trim();
             if (request.PhoneNumber is not null) user.PhoneNumber = request.PhoneNumber.Trim();
             if (request.Status is not null) user.Status = request.Status.Value;
+            // No longer someone who works shifts: their timetable stops filling the roster, so its future shifts go too.
+            if (user.Status != UserStatus.Active || user.Role.RoleName is not (Roles.FacilityStaff or Roles.FacilityManager))
+                await ShiftService.DropTimetableShiftsAsync(uow, userId, null, ct);
             return userId;
         }, ct);
         return changed.IsSuccess ? await GetAsync(userId, ct) : changed.Error;
@@ -164,8 +167,11 @@ public class StaffAccountService(IUnitOfWork uow, ICurrentUser currentUser, IPas
                               o.Status == MaintenanceOrderStatus.InProgress), ct);
         if (shifts + tickets + tasks + orders == 0)
             return null;
+        var timetable = await uow.Repository<StaffFacility>().Query()
+            .AnyAsync(s => s.UserId == userId && facilityIds.Contains(s.FacilityId) && s.Timetable != null, ct);
         return Error.Conflict($"Cannot unassign a facility with open work: {shifts} upcoming shift(s), {tickets} open ticket(s), " +
-                              $"{tasks} open task(s), {orders} open maintenance order(s). Reassign or finish them first.");
+                              $"{tasks} open task(s), {orders} open maintenance order(s). Reassign or finish them first." +
+                              (timetable ? " Clear their weekly timetable first; that removes its shifts." : ""));
     }
 
     // Customers are not managed here; this service only sees staff roles, and a facility manager facility staff and

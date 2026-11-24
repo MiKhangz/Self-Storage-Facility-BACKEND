@@ -253,6 +253,8 @@ public static class ErrorText
         ["Access codes are issued for an Active contract; this one is {0}."] = "Mã ra vào chỉ cấp cho hợp đồng đang hiệu lực; hợp đồng này: {0}.",
         ["Cannot unassign a facility with open work: {0} upcoming shift(s), {1} open ticket(s), {2} open task(s), {3} open maintenance order(s). Reassign or finish them first."] =
             "Không thể bỏ giao cơ sở khi còn việc: {0} ca sắp tới, {1} yêu cầu, {2} công việc, {3} lệnh bảo trì. Hãy giao lại hoặc hoàn thành trước.",
+        ["Cannot unassign a facility with open work: {0} upcoming shift(s), {1} open ticket(s), {2} open task(s), {3} open maintenance order(s). Reassign or finish them first. Clear their weekly timetable first; that removes its shifts."] =
+            "Không thể bỏ giao cơ sở khi còn việc: {0} ca sắp tới, {1} yêu cầu, {2} công việc, {3} lệnh bảo trì. Hãy giao lại hoặc hoàn thành trước. Hãy xóa lịch tuần của người này trước; việc đó gỡ các ca của lịch.",
         ["Customers still hold units on this floor: {0}."] = "Vẫn còn khách thuê kho ở tầng này: {0}.",
         ["Fee code {0} already exists in this policy."] = "Mã phí {0} đã có trong chính sách này.",
         ["Floor {0} already exists in this facility."] = "Tầng {0} đã có trong cơ sở này.",

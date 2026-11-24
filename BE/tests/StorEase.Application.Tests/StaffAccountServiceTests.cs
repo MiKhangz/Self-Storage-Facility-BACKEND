@@ -283,4 +283,23 @@ public class StaffAccountServiceTests
         r.Error!.Type.Should().Be(ErrorType.Conflict);
         r.Error.Message.Should().Contain("1 upcoming shift");
     }
+
+    [Fact]
+    public async Task Deactivating_drops_the_timetable_shifts_and_unassigning_points_to_the_timetable()
+    {
+        var w = new World();
+        var id = (await w.AsAdmin().CreateAsync(World.Create(), default)).Value!.UserId;
+        await w.AsAdmin().SetFacilitiesAsync(id, new SetStaffFacilitiesRequest([w.F1.FacilityId]), default);
+        var shifts = new ShiftService(w.Db.Uow, new FakeCurrentUser(w.Admin.UserId, Roles.SystemAdministrator));
+        var everyDay = Enum.GetValues<DayOfWeek>().Select(d => new TimetableSlot(d, ShiftType.Afternoon)).ToList();
+        (await shifts.SaveTimetableAsync(new(id, w.F1.FacilityId, everyDay), default)).IsSuccess.Should().BeTrue();
+        var byHand = VietnamTime.Today.AddDays(20);
+        (await shifts.CreateAsync(new(id, w.F1.FacilityId, byHand, new(8, 0), new(12, 0), ShiftType.Morning), default)).IsSuccess.Should().BeTrue();
+
+        var blocked = await w.AsAdmin().SetFacilitiesAsync(id, new SetStaffFacilitiesRequest([]), default);
+        await w.AsAdmin().UpdateAsync(id, new UpdateStaffAccountRequest(null, null, null, UserStatus.Disabled), default);
+
+        blocked.Error!.Message.Should().Contain("weekly timetable");
+        (await w.Db.Db.Shifts.Where(s => s.UserId == id).Select(s => s.ShiftDate).ToListAsync()).Should().Equal(byHand);
+    }
 }
