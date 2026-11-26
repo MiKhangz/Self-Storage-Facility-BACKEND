@@ -15,5 +15,6 @@ public class CreateReservationRequestValidator : AbstractValidator<CreateReserva
             .GreaterThanOrEqualTo(_ => DateOnly.FromDateTime(DateTime.UtcNow))
             .WithMessage("Move-in date cannot be in the past.");
         RuleFor(x => x.RentalMonths).InclusiveBetween(1, MaxRentalMonths);
+        RuleFor(x => x.StorageUnitId).GreaterThan(0).When(x => x.StorageUnitId is not null);
     }
 }

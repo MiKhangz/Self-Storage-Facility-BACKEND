@@ -41,6 +41,21 @@ public class ReservationServiceTests
     }
 
     [Fact]
+    public async Task Reserving_a_specific_unit_holds_that_unit_and_rejects_an_unavailable_one()
+    {
+        using var t = Create();
+
+        var chosen = await As(t, Customer).CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn, 3, A102), default);
+        var taken = await As(t, OtherCustomer).CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId, MoveIn, 3, A102), default);
+
+        chosen.IsSuccess.Should().BeTrue();
+        chosen.Value!.UnitCode.Should().Be("A-102");
+        UnitStatus(t, A102).Should().Be(StorageUnitStatus.Reserved);
+        UnitStatus(t, A101).Should().Be(StorageUnitStatus.Available);
+        taken.Error!.Type.Should().Be(ErrorType.Conflict);
+    }
+
+    [Fact]
     public async Task Reserving_a_type_with_no_available_unit_is_a_conflict()
     {
         using var t = Create();

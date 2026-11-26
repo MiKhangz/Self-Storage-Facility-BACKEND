@@ -65,6 +65,31 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
 
         var created = await uow.InTransactionAsync<int>(async () =>
         {
+<<<<<<< Updated upstream
+=======
+            // The booking holds the chosen unit when given, or the first unit free for the whole stay; staff confirm it later.
+            var lastDay = UnitSchedule.EndOf(request.MoveInDate, request.RentalMonths);
+            var free = await UnitSchedule.FreeUnitsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, lastDay, ct);
+            var unplaced = await UnitSchedule.UnplacedBookingsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, lastDay, ct);
+            if (free.Count <= unplaced)
+                return Error.Conflict("No unit of this type is available at this facility.");
+            StorageUnit expected;
+            if (request.StorageUnitId is { } chosenId)
+            {
+                var unit = await uow.Repository<StorageUnit>().FindAsync(chosenId, ct);
+                if (unit is null || unit.FacilityId != request.FacilityId || unit.UnitTypeId != request.UnitTypeId)
+                    return Error.Conflict("The unit does not match the chosen facility and size.");
+                var chosen = free.FirstOrDefault(u => u.StorageUnitId == chosenId);
+                if (chosen is null)
+                    return Error.Conflict($"Unit {unit.UnitCode} is not available for the selected dates.");
+                expected = chosen;
+            }
+            else
+            {
+                expected = free[0];
+            }
+
+>>>>>>> Stashed changes
             var reservation = new Reservation
             {
                 CustomerId = currentUser.UserId,
