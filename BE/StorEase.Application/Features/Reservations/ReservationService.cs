@@ -5,6 +5,7 @@ using StorEase.Application.Features.Invoices;
 using StorEase.Application.Features.Notifications;
 using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.StorageUnits;
+using StorEase.Application.Features.StorageUnits.Dtos;
 using StorEase.Application.Features.Reservations.Dtos;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
@@ -16,6 +17,8 @@ public interface IReservationService
 {
     Task<Result<ReservationDto>> CreateAsync(CreateReservationRequest request, CancellationToken ct);
     Task<Result<ReservationDto>> GetAsync(int reservationId, CancellationToken ct);
+    Task<Result<IReadOnlyList<UnitSlotDto>>> AvailableUnitsAsync(int reservationId, CancellationToken ct);
+    Task<Result<ReservationDto>> UpdateDatesAsync(int reservationId, UpdateReservationDatesRequest request, CancellationToken ct);
 
     /// <summary>
     /// The reservation queue. <paramref name="search"/> matches the code, customer name, phone or email; the
@@ -36,6 +39,9 @@ public interface IReservationService
     /// <summary>Staff mark a reservation whose move-in date has passed as a no-show; the deposit is forfeited.</summary>
     Task<Result<ReservationCancellationDto>> MarkNoShowAsync(int reservationId, CancellationToken ct);
 
+    /// <summary>Customer requests the partial refund (amount paid minus 100,000 VND) for a cancelled or expired same-day booking.</summary>
+    Task<Result<ReservationCancellationDto>> RequestRefundAsync(int reservationId, CancellationToken ct);
+
     Task<Result<HandoverChecklistDto>> GetHandoverChecklistAsync(int reservationId, CancellationToken ct);
 
     /// <summary>The customer agrees to the unit staff proposed instead of the expected one.</summary>
@@ -54,13 +60,41 @@ public interface IReservationService
     /// booking is cancelled with the whole deposit back. Bookings starting soon whose held unit is blocked are flagged
     /// for staff and offered another free unit. Returns (expired as no-show, proposed).
     /// </summary>
-    Task<(int Expired, int Proposed)> RunDailyAsync(DateOnly today, int lookAheadDays, CancellationToken ct);
+    Task<(int Expired, int Proposed)> RunDailyAsync(DateOnly today, int lookAheadDays, CancellationToken ct, DateTime? utcNow = null);
 }
 
-public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmailService email) : IReservationService
+public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmailService email, AppOptions? appOptions = null) : IReservationService
 {
+    public async Task<Result<IReadOnlyList<UnitSlotDto>>> AvailableUnitsAsync(int reservationId, CancellationToken ct)
+    {
+        var reservation = await Visible().AsNoTracking().FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
+        if (reservation is null)
+            return Error.NotFound("Reservation not found.");
+        var free = await UnitSchedule.FreeUnitsAsync(uow, reservation.FacilityId, reservation.UnitTypeId,
+            reservation.MoveInDate, UnitSchedule.EndOf(reservation.MoveInDate, reservation.RentalMonths), ct,
+            exceptReservationId: reservationId);
+        var ids = free.Select(u => u.StorageUnitId).ToList();
+        var slots = await uow.Repository<StorageUnit>().Query().Where(u => ids.Contains(u.StorageUnitId))
+            .OrderBy(u => u.UnitCode)
+            .Select(u => new UnitSlotDto(u.StorageUnitId, u.UnitCode, u.Floor.Name ?? "", u.Zone, u.Status, true))
+            .ToListAsync(ct);
+        return slots;
+    }
+
+    private readonly AppOptions options = appOptions ?? new AppOptions();
     /// <summary>How long a booking holds its unit before any of the deposit is paid.</summary>
     public const int DepositHoldHours = 24;
+    public static DateTime SameDayNoShowAt(DateOnly moveInDate) => VietnamTime.StartOf(moveInDate).AddHours(20).AddMinutes(30);
+
+    public Priority ComputeConsultPriority(DateOnly moveInDate, DateOnly? today = null)
+    {
+        var days = moveInDate.DayNumber - (today ?? VietnamTime.Today).DayNumber;
+        if (days <= options.ConsultUrgentWithinDays)
+            return Priority.Urgent;
+        if (days <= options.ConsultHighWithinDays)
+            return Priority.High;
+        return Priority.Normal;
+    }
 
     public async Task<Result<ReservationDto>> CreateAsync(CreateReservationRequest request, CancellationToken ct)
     {
@@ -72,45 +106,87 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
         if (!await StaffScope.StaffedFacilityIds(uow).AnyAsync(id => id == facility.FacilityId, ct))
             return Error.Conflict("This facility is not taking bookings yet: no staff work there.");
 
-        if (!await uow.Repository<UnitType>().Query().AnyAsync(t => t.UnitTypeId == request.UnitTypeId, ct))
+        var unitType = await uow.Repository<UnitType>().Query()
+            .FirstOrDefaultAsync(t => t.UnitTypeId == request.UnitTypeId, ct);
+        if (unitType is null)
             return Error.NotFound("Unit type not found.");
 
         // Without a policy there is no price, so the deposit is skipped rather than blocking the booking.
-        var terms = await RentCalculator.TermsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, request.RentalMonths, ct);
+        var terms = await RentCalculator.TermsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, request.RentalMonths, ct, sameDay: request.SameDay);
+        var isStaffAssisted = request.UnitAssignmentMode == UnitAssignmentMode.STAFF_ASSISTED;
+        var cleanPrefs = request.Preferences?
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim())
+            .Distinct()
+            .ToList();
+        var serializedPrefs = cleanPrefs is { Count: > 0 } ? string.Join(",", cleanPrefs) : null;
+        var cleanNote = string.IsNullOrWhiteSpace(request.PreferenceNote) ? null : request.PreferenceNote.Trim();
 
         var created = await uow.InExclusiveTransactionAsync<int>(async () =>
         {
-            // The booking holds the first unit free for the whole stay (the "expected unit"); staff confirm it later.
+            // The booking holds the chosen unit when given, or the first unit free for the whole stay (AUTO),
+            // or holds capacity at the SIZE level with no unit yet (STAFF_ASSISTED).
             var lastDay = UnitSchedule.EndOf(request.MoveInDate, request.RentalMonths);
             var free = await UnitSchedule.FreeUnitsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, lastDay, ct);
             var unplaced = await UnitSchedule.UnplacedBookingsAsync(uow, request.FacilityId, request.UnitTypeId, request.MoveInDate, lastDay, ct);
             if (free.Count <= unplaced)
                 return Error.Conflict("No unit of this type is available at this facility.");
-            var expected = free[0];
+
+            StorageUnit? expected = null;
+            if (!isStaffAssisted)
+            {
+                if (request.StorageUnitId is { } chosenId)
+                {
+                    var unit = await uow.Repository<StorageUnit>().FindAsync(chosenId, ct);
+                    if (unit is null || unit.FacilityId != request.FacilityId || unit.UnitTypeId != request.UnitTypeId)
+                        return Error.Conflict("The unit does not match the chosen facility and size.");
+                    var chosen = free.FirstOrDefault(u => u.StorageUnitId == chosenId);
+                    if (chosen is null)
+                        return Error.Conflict($"Unit {unit.UnitCode} is not available for the selected dates.");
+                    expected = chosen;
+                }
+                else
+                {
+                    expected = free[0];
+                }
+            }
 
             var reservation = new Reservation
             {
                 CustomerId = currentUser.UserId,
                 FacilityId = request.FacilityId,
                 UnitTypeId = request.UnitTypeId,
-                StorageUnitId = expected.StorageUnitId,
+                StorageUnitId = expected?.StorageUnitId,
                 ReservationCode = NewReservationCode(),
                 MoveInDate = request.MoveInDate,
                 RentalMonths = request.RentalMonths,
                 // The version this quote came from; the contract is drafted from it even if prices change before move-in.
                 PricingPolicyId = terms.IsSuccess ? terms.Value.Policy.PricingPolicyId : null,
                 FacilityPriceVersionId = terms.IsSuccess ? terms.Value.FacilityPriceVersionId : null,
-                Status = ReservationStatus.Pending,
+                SameDay = request.SameDay,
+                UnitAssignmentMode = request.UnitAssignmentMode,
+                Preferences = serializedPrefs,
+                PreferenceNote = cleanNote,
+                Status = isStaffAssisted ? ReservationStatus.PENDING_UNIT_SELECTION : ReservationStatus.Pending,
                 CreatedAt = DateTime.UtcNow,
             };
             uow.Repository<Reservation>().Add(reservation);
             // A unit free today is held now; one still rented until before move-in is held when its renter leaves.
-            if (expected.Status == StorageUnitStatus.Available)
+            if (expected is { Status: StorageUnitStatus.Available })
                 expected.Status = StorageUnitStatus.Reserved;
             await uow.SaveChangesAsync(ct);
 
+            if (isStaffAssisted)
+            {
+                await CreateConsultTicketAsync(reservation, facility, unitType, cleanPrefs, cleanNote, ct);
+            }
+
             if (terms.IsSuccess)
-                AddDepositInvoice(uow, reservation, terms.Value.Deposit);
+            {
+                // For same-day booking, the customer pays 1 whole month of rent upfront (which covers 1-day deposit).
+                var upfront = request.SameDay ? terms.Value.MonthlyRent : terms.Value.Deposit;
+                AddDepositInvoice(uow, reservation, upfront);
+            }
             return reservation.ReservationId;
         }, ct);
         if (!created.IsSuccess)
@@ -118,11 +194,70 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
 
         var dto = await GetAsync(created.Value, ct);
         if (dto.IsSuccess)
+        {
+            var unitLine = isStaffAssisted
+                ? "Nhân viên sẽ tư vấn và chọn kho phù hợp cho bạn trong yêu cầu hỗ trợ."
+                : $"Kho dự kiến: {dto.Value.UnitCode} (nhân viên xác nhận trước ngày dọn vào).";
             await NotifyAsync(dto.Value, "Đã nhận yêu cầu đặt kho",
                 $"Chúng tôi đã nhận yêu cầu đặt kho {dto.Value.UnitTypeName} tại {facility.Name}, dọn vào ngày {dto.Value.MoveInDate:dd/MM/yyyy}. " +
-                $"Kho dự kiến: {dto.Value.UnitCode} (nhân viên xác nhận trước ngày dọn vào)." +
+                unitLine +
                 (dto.Value.DepositAmount is { } amount ? $"\nVui lòng thanh toán tiền cọc {Money.Text(amount)} ₫ trong {DepositHoldHours} giờ và không muộn hơn ngày dọn vào, nếu không đơn sẽ bị huỷ." : ""), ct);
+        }
         return dto;
+    }
+
+    private async Task CreateConsultTicketAsync(
+        Reservation reservation, Facility facility, UnitType unitType, IReadOnlyList<string>? prefs, string? note, CancellationToken ct)
+    {
+        var category = await uow.Repository<TicketCategory>().Query().OrderBy(c => c.CategoryId).FirstOrDefaultAsync(ct);
+        if (category is null)
+        {
+            category = new TicketCategory { Name = "Tư vấn chọn kho", DefaultPriority = Priority.High };
+            uow.Repository<TicketCategory>().Add(category);
+            await uow.SaveChangesAsync(ct);
+        }
+
+        var customerName = await uow.Repository<User>().Query()
+            .Where(u => u.UserId == reservation.CustomerId)
+            .Select(u => u.FullName)
+            .FirstOrDefaultAsync(ct) ?? "Customer";
+        var endDate = UnitSchedule.EndOf(reservation.MoveInDate, reservation.RentalMonths);
+        var prefsText = prefs is { Count: > 0 } ? string.Join(", ", prefs) : "None";
+        var noteText = string.IsNullOrWhiteSpace(note) ? "None" : note;
+        var body = $"Storage availability consult for {reservation.ReservationCode}\n" +
+                   $"Customer: {customerName}\n" +
+                   $"Location: {facility.Name}\n" +
+                   $"Size: {unitType.Code} ({unitType.Name})\n" +
+                   $"Move-in: {reservation.MoveInDate:dd/MM/yyyy} → {endDate:dd/MM/yyyy} ({reservation.RentalMonths} month(s))\n" +
+                   $"Preferences: {prefsText}\n" +
+                   $"Note: {noteText}";
+
+        var now = DateTime.UtcNow;
+        var priority = reservation.SameDay ? Priority.Urgent : ComputeConsultPriority(reservation.MoveInDate);
+        var ticket = new SupportTicket
+        {
+            CustomerId = reservation.CustomerId,
+            FacilityId = reservation.FacilityId,
+            ReservationId = reservation.ReservationId,
+            CategoryId = category.CategoryId,
+            TicketCode = $"TK{now:yyMMdd}{Random.Shared.Next(1_000_000):D6}",
+            Subject = $"Storage availability consult: {reservation.ReservationCode}",
+            Priority = priority,
+            Status = SupportTicketStatus.New,
+            CreatedAt = now,
+            TicketMessages =
+            [
+                new TicketMessage
+                {
+                    SenderId = reservation.CustomerId,
+                    Body = body,
+                    IsInternalNote = false,
+                    SentAt = now,
+                },
+            ],
+        };
+        uow.Repository<SupportTicket>().Add(ticket);
+        await uow.SaveChangesAsync(ct);
     }
 
     public async Task<Result<ReservationDto>> GetAsync(int reservationId, CancellationToken ct)
@@ -164,7 +299,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             if (reservation is null)
                 return Error.NotFound("Reservation not found.");
             // A Confirmed reservation without a unit is one whose handover was cancelled (SR-02); it is assigned again.
-            var awaitingUnit = reservation.Status == ReservationStatus.Pending
+            var awaitingUnit = reservation.Status is ReservationStatus.Pending or ReservationStatus.PENDING_UNIT_SELECTION
                 || (reservation.Status == ReservationStatus.Confirmed && reservation.StorageUnitId is null);
             if (!awaitingUnit)
                 return Error.Conflict($"Only a reservation waiting for a unit can be assigned one; this one is {reservation.Status}.");
@@ -189,7 +324,6 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
                 return (reservation.ReservationId, true);
             }
 
-            // ponytail: no row-version check, so two staff assigning the same unit at the same instant could both pass; add a concurrency token on StorageUnit if that ever matters.
             if (reservation.StorageUnitId != unit.StorageUnitId)
                 reservation.UnitBlocked = false;
             reservation.StorageUnitId = unit.StorageUnitId;
@@ -197,6 +331,9 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             reservation.ProposedStorageUnitId = null;
             if (unit.Status == StorageUnitStatus.Available)
                 unit.Status = StorageUnitStatus.Reserved;
+
+            await PostLinkedTicketMessageAsync(reservation.ReservationId, unit.StorageUnitId,
+                $"Unit {unit.UnitCode} has been assigned", currentUser.UserId > 0 ? currentUser.UserId : reservation.CustomerId, ct);
             return (reservation.ReservationId, false);
         }, ct);
 
@@ -208,9 +345,9 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             if (assigned.Value.Proposed)
                 await NotifyProposalAsync(dto.Value, ct);
             else
-                await NotifyAsync(dto.Value, "Đặt kho đã được xác nhận",
-                    $"Đơn {dto.Value.ReservationCode} đã được xác nhận với kho {dto.Value.UnitCode} tại {dto.Value.FacilityName}. " +
-                    $"Hẹn gặp bạn ngày {dto.Value.MoveInDate:dd/MM/yyyy}.", ct);
+                await NotifyAsync(dto.Value, "Kho của bạn đã sẵn sàng",
+                    $"Đơn {dto.Value.ReservationCode} đã được nhân viên kiểm tra và xếp kho {dto.Value.UnitCode} tại {dto.Value.FacilityName}. " +
+                    $"Kho của bạn đã sẵn sàng, vui lòng chọn ngày/giờ hẹn kiểm tra và nhận kho (muộn nhất ngày {dto.Value.MoveInDate:dd/MM/yyyy}).", ct);
         }
         return dto;
     }
@@ -222,7 +359,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
     public async Task<Result<ReservationDto>> ChangeUnitAsync(
         int reservationId, AssignUnitRequest request, CancellationToken ct)
     {
-        var changed = await uow.InExclusiveTransactionAsync<int>(async () =>
+        var changed = await uow.InExclusiveTransactionAsync<(int Id, string OldCode, string NewCode)>(async () =>
         {
             var reservation = await Visible().Include(r => r.StorageUnit)
                 .FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
@@ -246,6 +383,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
                 return Error.Conflict($"Unit {unit.UnitCode} is booked or rented for part of this stay.");
 
             var oldUnit = reservation.StorageUnit;
+            var oldCode = oldUnit.UnitCode;
             unit.Status = StorageUnitStatus.Reserved;
             reservation.StorageUnitId = unit.StorageUnitId;
             // The customer chose at the desk, so an offer still open is out of date.
@@ -254,12 +392,105 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             reservation.UnitBlocked = false;
 
             await MoveDraftAsync(reservationId, unit.StorageUnitId, ct);
+            await PostLinkedTicketMessageAsync(reservationId, unit.StorageUnitId,
+                $"Unit reassigned from {oldCode} to {unit.UnitCode}", currentUser.UserId > 0 ? currentUser.UserId : reservation.CustomerId, ct);
             await uow.SaveChangesAsync(ct);
             if (oldUnit.Status == StorageUnitStatus.Reserved)
                 await UnitSchedule.ReleaseAsync(uow, oldUnit, ct);
+            return (reservation.ReservationId, oldCode, unit.UnitCode);
+        }, ct);
+        if (!changed.IsSuccess)
+            return changed.Error;
+        var dto = await GetAsync(changed.Value.Id, ct);
+        if (dto.IsSuccess && dto.Value.UnitAssignmentMode == UnitAssignmentMode.STAFF_ASSISTED)
+            await NotifyAsync(dto.Value, "Đã đổi kho cho đơn đặt của bạn",
+                $"Đơn {dto.Value.ReservationCode} đã được đổi từ kho {changed.Value.OldCode} sang kho {changed.Value.NewCode} tại {dto.Value.FacilityName}.", ct);
+        return dto;
+    }
+
+    public async Task<Result<ReservationDto>> UpdateDatesAsync(
+        int reservationId, UpdateReservationDatesRequest request, CancellationToken ct)
+    {
+        var updated = await uow.InExclusiveTransactionAsync<int>(async () =>
+        {
+            var reservation = await Visible().Include(r => r.StorageUnit)
+                .FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
+            if (reservation is null)
+                return Error.NotFound("Reservation not found.");
+            if (reservation.Status is not (ReservationStatus.Pending or ReservationStatus.PENDING_UNIT_SELECTION or ReservationStatus.Confirmed))
+                return Error.Conflict($"Only a booking not yet handed over can change its dates; this one is {reservation.Status}.");
+
+            var lastDay = UnitSchedule.EndOf(request.MoveInDate, request.RentalMonths);
+            var free = await UnitSchedule.FreeUnitsAsync(uow, reservation.FacilityId, reservation.UnitTypeId, request.MoveInDate, lastDay, ct, exceptReservationId: reservation.ReservationId);
+            var unplaced = await UnitSchedule.UnplacedBookingsAsync(uow, reservation.FacilityId, reservation.UnitTypeId, request.MoveInDate, lastDay, ct, exceptReservationId: reservation.ReservationId);
+            if (free.Count <= unplaced)
+                return Error.Conflict("No unit of this type is available at this facility.");
+
+            if (reservation.StorageUnit is { } held && free.All(u => u.StorageUnitId != held.StorageUnitId))
+            {
+                if (reservation.UnitAssignmentMode == UnitAssignmentMode.STAFF_ASSISTED)
+                {
+                    reservation.StorageUnitId = null;
+                    reservation.Status = ReservationStatus.PENDING_UNIT_SELECTION;
+                    if (held.Status == StorageUnitStatus.Reserved)
+                        await UnitSchedule.ReleaseAsync(uow, held, ct);
+                }
+                else
+                {
+                    var next = free[0];
+                    reservation.StorageUnitId = next.StorageUnitId;
+                    if (next.Status == StorageUnitStatus.Available)
+                        next.Status = StorageUnitStatus.Reserved;
+                    if (held.Status == StorageUnitStatus.Reserved)
+                        await UnitSchedule.ReleaseAsync(uow, held, ct);
+                }
+            }
+
+            reservation.MoveInDate = request.MoveInDate;
+            reservation.RentalMonths = request.RentalMonths;
+            reservation.HandoverSlot = null;
+
+            var ticket = await uow.Repository<SupportTicket>().Query()
+                .FirstOrDefaultAsync(t => t.ReservationId == reservation.ReservationId && t.Status != SupportTicketStatus.Closed, ct);
+            if (ticket is not null)
+            {
+                ticket.Priority = reservation.SameDay ? Priority.Urgent : ComputeConsultPriority(request.MoveInDate);
+                ticket.StorageUnitId = reservation.StorageUnitId;
+                uow.Repository<TicketMessage>().Add(new TicketMessage
+                {
+                    TicketId = ticket.TicketId,
+                    SenderId = currentUser.UserId > 0 ? currentUser.UserId : reservation.CustomerId,
+                    Body = $"Rental dates updated to {request.MoveInDate:dd/MM/yyyy} → {lastDay:dd/MM/yyyy} ({request.RentalMonths} month(s)).",
+                    IsInternalNote = false,
+                    SentAt = DateTime.UtcNow,
+                });
+            }
+
+            await uow.SaveChangesAsync(ct);
             return reservation.ReservationId;
         }, ct);
-        return changed.IsSuccess ? await GetAsync(changed.Value, ct) : changed.Error;
+
+        return updated.IsSuccess ? await GetAsync(updated.Value, ct) : updated.Error;
+    }
+
+    private async Task PostLinkedTicketMessageAsync(int reservationId, int? storageUnitId, string body, int senderId, CancellationToken ct)
+    {
+        var ticket = await uow.Repository<SupportTicket>().Query()
+            .FirstOrDefaultAsync(t => t.ReservationId == reservationId && t.Status != SupportTicketStatus.Closed, ct);
+        if (ticket is null)
+            return;
+        if (storageUnitId is not null)
+            ticket.StorageUnitId = storageUnitId;
+        if (ticket.Status == SupportTicketStatus.New)
+            ticket.Status = SupportTicketStatus.InProgress;
+        uow.Repository<TicketMessage>().Add(new TicketMessage
+        {
+            TicketId = ticket.TicketId,
+            SenderId = senderId,
+            Body = body,
+            IsInternalNote = false,
+            SentAt = DateTime.UtcNow,
+        });
     }
 
     public async Task<Result<ReservationDto>> AcceptProposedUnitAsync(int reservationId, CancellationToken ct)
@@ -292,7 +523,14 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
                 await UnitSchedule.ReleaseAsync(uow, oldUnit, ct);
             return reservation.ReservationId;
         }, ct);
-        return accepted.IsSuccess ? await GetAsync(accepted.Value, ct) : accepted.Error;
+        if (!accepted.IsSuccess)
+            return accepted.Error;
+        var dto = await GetAsync(accepted.Value, ct);
+        if (dto.IsSuccess)
+            await NotifyAsync(dto.Value, "Kho của bạn đã sẵn sàng",
+                $"Bạn đã đồng ý nhận kho {dto.Value.UnitCode} tại {dto.Value.FacilityName} cho đơn {dto.Value.ReservationCode}. " +
+                $"Kho của bạn đã sẵn sàng, vui lòng chọn ngày/giờ hẹn kiểm tra và nhận kho (muộn nhất ngày {dto.Value.MoveInDate:dd/MM/yyyy}).", ct);
+        return dto;
     }
 
     /// <summary>
@@ -347,31 +585,92 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             return Error.Validation("The appointment must be between today and the move-in date.");
         if (at.AddHours(7).Hour is < 7 or >= 21)
             return Error.Validation("The appointment must be during opening hours (07:00–21:00).");
+        if (reservation.SameDay && at >= SameDayNoShowAt(reservation.MoveInDate))
+            return Error.Validation("Same-day move-in must be before 20:30 Vietnam time.");
         reservation.HandoverSlot = at;
         await uow.SaveChangesAsync(ct);
         return await GetAsync(reservationId, ct);
     }
 
-    public async Task<(int Expired, int Proposed)> RunDailyAsync(DateOnly today, int lookAheadDays, CancellationToken ct)
+    public async Task<(int Expired, int Proposed)> RunDailyAsync(DateOnly today, int lookAheadDays, CancellationToken ct, DateTime? utcNow = null)
     {
         runningAsJob = true;
+        var now = utcNow ?? DateTime.UtcNow;
         // Nobody blocks a unit for free: a booking without any of its deposit lets go of it after a day.
-        var heldSince = DateTime.UtcNow.AddHours(-DepositHoldHours);
+        var heldSince = now.AddHours(-DepositHoldHours);
         var deposits = uow.Repository<Invoice>().Query();
         var unpaid = await uow.Repository<Reservation>().Query()
-            .Where(r => (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed) && r.CreatedAt <= heldSince
+            .Where(r => !r.SameDay && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.PENDING_UNIT_SELECTION || r.Status == ReservationStatus.Confirmed) && r.CreatedAt <= heldSince
                 && deposits.Any(i => i.ReservationId == r.ReservationId && i.ContractId == null && i.PaidAmount == 0
                     && i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.WrittenOff))
             .Select(r => r.ReservationId).ToListAsync(ct);
         foreach (var id in unpaid)
             await CloseAsync(id, noShow: false, ct, unpaid: true);
 
+        // Fallback for STAFF_ASSISTED reservations: if no unit is assigned by 24h (configurable) before move-in,
+        // auto-assign a unit, notify the customer in chat and by email, and flag the ticket for staff review.
+        var fallbackCutoffDays = (int)Math.Ceiling(options.ConsultFallbackHoursBeforeMoveIn / 24.0);
+        var fallbackDate = today.AddDays(fallbackCutoffDays);
+        var unassignedAssisted = await uow.Repository<Reservation>().Query()
+            .Where(r => r.Status == ReservationStatus.PENDING_UNIT_SELECTION && r.StorageUnitId == null && r.MoveInDate <= fallbackDate)
+            .Select(r => r.ReservationId)
+            .ToListAsync(ct);
+        foreach (var id in unassignedAssisted)
+        {
+            var autoAssigned = await uow.InExclusiveTransactionAsync<bool>(async () =>
+            {
+                var r = await uow.Repository<Reservation>().Query()
+                    .FirstOrDefaultAsync(x => x.ReservationId == id && x.Status == ReservationStatus.PENDING_UNIT_SELECTION && x.StorageUnitId == null, ct);
+                if (r is null)
+                    return false;
+                var lastDay = UnitSchedule.EndOf(r.MoveInDate, r.RentalMonths);
+                var free = await UnitSchedule.FreeUnitsAsync(uow, r.FacilityId, r.UnitTypeId, r.MoveInDate, lastDay, ct, exceptReservationId: r.ReservationId);
+                if (free.Count == 0)
+                {
+                    r.UnitBlocked = true;
+                    await uow.SaveChangesAsync(ct);
+                    return false;
+                }
+                var unit = free[0];
+                r.StorageUnitId = unit.StorageUnitId;
+                r.Status = ReservationStatus.Confirmed;
+                if (unit.Status == StorageUnitStatus.Available)
+                    unit.Status = StorageUnitStatus.Reserved;
+
+                var ticket = await uow.Repository<SupportTicket>().Query()
+                    .FirstOrDefaultAsync(t => t.ReservationId == r.ReservationId && t.Status != SupportTicketStatus.Closed, ct);
+                if (ticket is not null)
+                {
+                    ticket.StorageUnitId = unit.StorageUnitId;
+                    ticket.FlaggedForReview = true;
+                    uow.Repository<TicketMessage>().Add(new TicketMessage
+                    {
+                        TicketId = ticket.TicketId,
+                        SenderId = r.CustomerId,
+                        Body = $"Unit {unit.UnitCode} has been auto-assigned (24h before move-in fallback). Ticket flagged for staff review.",
+                        IsInternalNote = false,
+                        SentAt = DateTime.UtcNow,
+                    });
+                }
+                await uow.SaveChangesAsync(ct);
+                return true;
+            }, ct);
+
+            if (autoAssigned.IsSuccess && autoAssigned.Value && await GetAsync(id, ct) is { IsSuccess: true } dto)
+            {
+                await NotifyAsync(dto.Value, "Đã tự động xếp kho cho đơn của bạn",
+                    $"Đơn {dto.Value.ReservationCode} sắp đến ngày nhận kho nên hệ thống đã tự động xếp kho {dto.Value.UnitCode} tại {dto.Value.FacilityName}. " +
+                    $"Bạn có thể nhắn trong yêu cầu hỗ trợ nếu cần đổi kho trước khi nhận.", ct);
+            }
+        }
+
         // Missed appointments: the deposit is forfeited, as the customer was told when booking.
         var open = await uow.Repository<Reservation>().Query()
-            .Where(r => r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
-            .Select(r => new { r.ReservationId, r.MoveInDate, r.HandoverSlot })
+            .Where(r => r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.PENDING_UNIT_SELECTION || r.Status == ReservationStatus.Confirmed)
+            .Select(r => new { r.ReservationId, r.MoveInDate, r.HandoverSlot, r.SameDay })
             .ToListAsync(ct);
-        var missed = open.Where(r => (r.HandoverSlot is { } s ? VietnamTime.DayOf(s) : r.MoveInDate) < today)
+        var missed = open.Where(r => r.SameDay ? now >= SameDayNoShowAt(r.MoveInDate)
+                : (r.HandoverSlot is { } s ? VietnamTime.DayOf(s) : r.MoveInDate) < today)
             .Select(r => r.ReservationId).ToList();
         var expired = 0;
         foreach (var id in missed)
@@ -379,10 +678,10 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             var r = await uow.Repository<Reservation>().Query().Include(x => x.StorageUnit).FirstAsync(x => x.ReservationId == id, ct);
             if (!await MissIsOursAsync(r, ct))
             {
-                if ((await CloseAsync(id, noShow: true, ct, today: today)).IsSuccess)
+                if ((await CloseAsync(id, noShow: true, ct, today: today, utcNow: now)).IsSuccess)
                     expired++;
             }
-            else if (today <= r.MoveInDate)
+            else if (!r.SameDay && today <= r.MoveInDate)
                 await ClearAppointmentAsync(r, ct); // an early appointment: the booking can still be served by move-in day
             else
                 await CloseAsync(id, noShow: false, ct, refundAnyway: true);
@@ -464,8 +763,50 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
     public Task<Result<ReservationCancellationDto>> MarkNoShowAsync(int reservationId, CancellationToken ct) =>
         CloseAsync(reservationId, noShow: true, ct);
 
+    public async Task<Result<ReservationCancellationDto>> RequestRefundAsync(int reservationId, CancellationToken ct)
+    {
+        var requested = await uow.InExclusiveTransactionAsync<decimal>(async () =>
+        {
+            var reservation = await Visible().FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
+            if (reservation is null)
+                return Error.NotFound("Reservation not found.");
+            if (reservation.Status is not (ReservationStatus.Cancelled or ReservationStatus.Expired))
+                return Error.Conflict("A refund can be requested only after the booking is cancelled or expired.");
+            if (!reservation.SameDay)
+                return Error.Conflict("Only a same-day booking is eligible for this partial upfront refund.");
+
+            var existing = await uow.Repository<DepositRefund>().Query()
+                .Where(d => d.ReservationId == reservationId)
+                .Select(d => (decimal?)d.Amount)
+                .FirstOrDefaultAsync(ct);
+            if (existing is { } already)
+                return already;
+
+            var deposit = await uow.Repository<Invoice>().Query()
+                .FirstOrDefaultAsync(i => i.ReservationId == reservationId && i.ContractId == null, ct);
+            var paid = deposit?.PaidAmount ?? 0m;
+            if (paid <= 0)
+                return Error.Conflict("No upfront payment was recorded for this booking.");
+
+            var retainedFund = RentCalculator.SameDayDepositOf(deposit?.TotalAmount ?? paid);
+            var refundAmount = Math.Max(Money.Round(paid - retainedFund), 0m);
+            if (refundAmount <= 0)
+                return Error.Conflict("No refundable amount remains after deducting the 1-day deposit.");
+
+            DepositRefundService.Owe(uow, reservation, refundAmount);
+            return refundAmount;
+        }, ct);
+
+        if (!requested.IsSuccess)
+            return requested.Error;
+        var dto = await GetAsync(reservationId, ct);
+        return dto.IsSuccess
+            ? new ReservationCancellationDto(dto.Value, requested.Value, requested.Value > 0)
+            : dto.Error;
+    }
+
     /// <param name="refundAnyway">StorEase could not give the unit promised (offer turned down, or not ready by the handover day), so the deposit comes back in full.</param>
-    private async Task<Result<ReservationCancellationDto>> CloseAsync(int reservationId, bool noShow, CancellationToken ct, bool refundAnyway = false, DateOnly? today = null, bool unpaid = false)
+    private async Task<Result<ReservationCancellationDto>> CloseAsync(int reservationId, bool noShow, CancellationToken ct, bool refundAnyway = false, DateOnly? today = null, bool unpaid = false, DateTime? utcNow = null)
     {
         var closed = await uow.InExclusiveTransactionAsync<(int Id, decimal Paid, bool Refundable, bool OurFault)>(async () =>
         {
@@ -473,17 +814,19 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
                 .FirstOrDefaultAsync(r => r.ReservationId == reservationId, ct);
             if (reservation is null)
                 return Error.NotFound("Reservation not found.");
-            if (reservation.Status is not (ReservationStatus.Pending or ReservationStatus.Confirmed))
+            if (reservation.Status is not (ReservationStatus.Pending or ReservationStatus.PENDING_UNIT_SELECTION or ReservationStatus.Confirmed))
                 return Error.Conflict($"Only a Pending or Confirmed reservation can be closed; this one is {reservation.Status}.");
-            if (noShow && HandoverDay(reservation) >= (today ?? VietnamTime.Today))
-                return Error.Conflict("A reservation can only be marked as a no-show after its handover appointment day.");
+            if (noShow && (reservation.SameDay ? (utcNow ?? DateTime.UtcNow) < SameDayNoShowAt(reservation.MoveInDate)
+                    : HandoverDay(reservation) >= (today ?? VietnamTime.Today)))
+                return Error.Conflict(reservation.SameDay ? "Same-day no-show starts at 20:30 Vietnam time."
+                    : "A reservation can only be marked as a no-show after its handover appointment day.");
             if (noShow && await MissIsOursAsync(reservation, ct))
                 return Error.Conflict("The unit was not ready for this customer, so this is not a no-show; cancel the booking to refund the deposit.");
             // Read under the lock: a payment may have landed since the job looked.
             if (unpaid && await uow.Repository<Invoice>().Query()
                     .AnyAsync(i => i.ReservationId == reservationId && i.ContractId == null && i.PaidAmount > 0, ct))
                 return Error.Conflict("The deposit was paid meanwhile.");
-            var ourFault = !noShow && !unpaid && (refundAnyway || reservation.UnitBlocked || await IsBlockedAsync(reservation, ct));
+            var ourFault = !noShow && !unpaid && (refundAnyway || reservation.UnitBlocked || (reservation.Status != ReservationStatus.PENDING_UNIT_SELECTION && await IsBlockedAsync(reservation, ct)));
 
             reservation.UnitBlocked = false;
             reservation.Status = noShow ? ReservationStatus.Expired : ReservationStatus.Cancelled;
@@ -491,6 +834,24 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             await uow.SaveChangesAsync(ct);
             if (reservation.StorageUnit is { Status: StorageUnitStatus.Reserved } unit)
                 await UnitSchedule.ReleaseAsync(uow, unit, ct);
+
+            // Close any open consultation ticket linked to this reservation.
+            var tickets = await uow.Repository<SupportTicket>().Query()
+                .Where(t => t.ReservationId == reservationId && t.Status != SupportTicketStatus.Closed)
+                .ToListAsync(ct);
+            foreach (var ticket in tickets)
+            {
+                ticket.Status = SupportTicketStatus.Closed;
+                ticket.ResolvedAt ??= DateTime.UtcNow;
+                uow.Repository<TicketMessage>().Add(new TicketMessage
+                {
+                    TicketId = ticket.TicketId,
+                    SenderId = currentUser.UserId > 0 ? currentUser.UserId : reservation.CustomerId,
+                    Body = $"Reservation {reservation.ReservationCode} was {(noShow ? "expired" : "cancelled")}; ticket closed automatically.",
+                    IsInternalNote = false,
+                    SentAt = DateTime.UtcNow,
+                });
+            }
 
             // A Draft contract still claims the unit (business rule 1), so it ends with the reservation.
             var drafts = await uow.Repository<Contract>().Query()
@@ -504,17 +865,33 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             if (deposit is not null && paid == 0 && deposit.Status != InvoiceStatus.Paid)
                 deposit.Status = InvoiceStatus.WrittenOff;
 
-            var refundable = false;
-            if (paid > 0 && !noShow)
+            var refundAmount = 0m;
+            if (paid > 0)
             {
-                // The free-cancellation window the customer was quoted when booking.
-                var policy = await RentCalculator.PolicyOfAsync(uow, reservation.PricingPolicyId, reservation.MoveInDate, ct);
-                var freeUntil = reservation.CreatedAt.AddHours(policy?.CancelFreeHours ?? 0);
-                refundable = ourFault || !currentUser.IsCustomer || DateTime.UtcNow <= freeUntil;
+                if (reservation.SameDay)
+                {
+                    // Same-day booking: full refund if cancelled within 3 hours of booking (or staff cancellation / our fault);
+                    // cancelling after 3 hours or no-show retains 1/30 of monthly rent (minimum 100,000 VND).
+                    var now = utcNow ?? DateTime.UtcNow;
+                    var freeUntil = reservation.CreatedAt.AddHours(RentCalculator.SameDayCancelFreeHours);
+                    var withinFreeWindow = !noShow && now <= freeUntil;
+                    var retainedFund = RentCalculator.SameDayDepositOf(deposit?.TotalAmount ?? paid);
+                    refundAmount = !noShow && (ourFault || withinFreeWindow || (!runningAsJob && !currentUser.IsCustomer))
+                        ? paid : Math.Max(Money.Round(paid - retainedFund), 0m);
+                }
+                else if (!noShow)
+                {
+                    // The free-cancellation window the customer was quoted when booking.
+                    var policy = await RentCalculator.PolicyOfAsync(uow, reservation.PricingPolicyId, reservation.MoveInDate, ct);
+                    var freeUntil = reservation.CreatedAt.AddHours(policy?.CancelFreeHours ?? 0);
+                    if (ourFault || !currentUser.IsCustomer || (utcNow ?? DateTime.UtcNow) <= freeUntil)
+                        refundAmount = paid;
+                }
             }
+            var refundable = refundAmount > 0;
             if (refundable)
-                DepositRefundService.Owe(uow, reservation, paid);
-            return (reservation.ReservationId, paid, refundable, ourFault);
+                DepositRefundService.Owe(uow, reservation, refundAmount);
+            return (reservation.ReservationId, refundable ? refundAmount : paid, refundable, ourFault);
         }, ct);
 
         if (!closed.IsSuccess)
@@ -583,6 +960,7 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
     {
         var contracts = uow.Repository<Contract>().Query();
         var invoices = uow.Repository<Invoice>().Query();
+        var tickets = uow.Repository<SupportTicket>().Query();
         return source.Select(r => new ReservationDto(
             r.ReservationId,
             r.ReservationCode,
@@ -608,7 +986,13 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             r.ProposedStorageUnitId,
             r.ProposedStorageUnit != null ? r.ProposedStorageUnit.UnitCode : null,
             r.HandoverSlot,
-            r.UnitBlocked));
+            r.UnitBlocked,
+            r.SameDay,
+            r.UnitAssignmentMode,
+            r.Preferences != null && r.Preferences != "" ? r.Preferences.Split(',', StringSplitOptions.RemoveEmptyEntries) : Array.Empty<string>(),
+            r.PreferenceNote,
+            tickets.Where(t => t.ReservationId == r.ReservationId).OrderByDescending(t => t.TicketId).Select(t => (int?)t.TicketId).FirstOrDefault(),
+            tickets.Where(t => t.ReservationId == r.ReservationId).OrderByDescending(t => t.TicketId).Select(t => t.TicketCode).FirstOrDefault()));
     }
 
     /// <summary>The bell always; email as well.</summary>
@@ -639,7 +1023,8 @@ public class ReservationService(IUnitOfWork uow, ICurrentUser currentUser, IEmai
             DueDate = holdEnds < reservation.MoveInDate ? holdEnds : reservation.MoveInDate,
             Status = InvoiceStatus.Issued,
         };
-        deposit.InvoiceItems.Add(InvoiceBook.Line(InvoiceBook.DepositDescription, amount));
+        var description = reservation.SameDay ? "Thanh toán trước 1 tháng tiền thuê sau giảm giá (cọc tối thiểu 100.000 ₫)" : InvoiceBook.DepositDescription;
+        deposit.InvoiceItems.Add(InvoiceBook.Line(description, amount));
         InvoiceBook.Retotal(deposit, VietnamTime.Today);
         uow.Repository<Invoice>().Add(deposit);
         return deposit;

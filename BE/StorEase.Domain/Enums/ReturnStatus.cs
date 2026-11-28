@@ -5,6 +5,7 @@ public enum ReturnStatus
     Requested,
     Approved,
     Inspected,
+    AwaitingPayout,
     Completed,
     Cancelled
 }

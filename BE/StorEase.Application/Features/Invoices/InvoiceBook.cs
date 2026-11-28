@@ -18,6 +18,8 @@ public static class InvoiceBook
 
     public static string MonthlyNumber(int contractId, DateOnly period) => $"INV{period:yyyyMM}C{contractId}";
 
+    public static string DamageShortfallNumber(int unitReturnId) => $"DMG-R{unitReturnId}";
+
     /// <summary>The booking still owes its deposit; no deposit invoice means none was due.</summary>
     public static Task<bool> DepositOpenAsync(IUnitOfWork uow, int reservationId, CancellationToken ct) =>
         uow.Repository<Invoice>().Query().AnyAsync(i => i.ReservationId == reservationId

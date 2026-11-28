@@ -119,7 +119,7 @@ public class FacilityService(IUnitOfWork uow, ICurrentUser currentUser) : IFacil
             var inUse = await uow.Repository<StorageUnit>().Query().AnyAsync(u => u.FacilityId == facilityId
                 && (u.Status == StorageUnitStatus.Reserved || u.Status == StorageUnitStatus.Occupied), ct);
             var waiting = await uow.Repository<Reservation>().Query().AnyAsync(r => r.FacilityId == facilityId
-                && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed), ct);
+                && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.PENDING_UNIT_SELECTION || r.Status == ReservationStatus.Confirmed), ct);
             if (inUse || waiting)
                 return Error.Conflict("The facility still has reserved or occupied units, or open reservations.");
         }

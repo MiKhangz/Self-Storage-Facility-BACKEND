@@ -28,7 +28,13 @@ public sealed record ReservationDto(
     int? ProposedStorageUnitId = null,
     string? ProposedUnitCode = null,
     DateTime? HandoverSlot = null,
-    bool UnitBlocked = false);
+    bool UnitBlocked = false,
+    bool SameDay = false,
+    UnitAssignmentMode UnitAssignmentMode = UnitAssignmentMode.AUTO,
+    IReadOnlyList<string>? Preferences = null,
+    string? PreferenceNote = null,
+    int? TicketId = null,
+    string? TicketCode = null);
 
 public sealed record CancelReservationRequest(string? Reason);
 

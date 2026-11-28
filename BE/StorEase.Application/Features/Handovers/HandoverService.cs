@@ -4,6 +4,7 @@ using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Features.Contracts;
 using StorEase.Application.Features.Handovers.Dtos;
 using StorEase.Application.Features.Invoices;
+using StorEase.Application.Features.Reservations;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
 using StorEase.Domain.Enums;
@@ -74,6 +75,8 @@ public class HandoverService(IUnitOfWork uow, ICurrentUser currentUser, IContrac
             if (reservation.Status != ReservationStatus.Confirmed || reservation.StorageUnitId is null)
                 return Error.Conflict($"The reservation must be Confirmed with a unit assigned; it is {reservation.Status}.");
 
+            if (reservation.SameDay && DateTime.UtcNow >= ReservationService.SameDayNoShowAt(reservation.MoveInDate))
+                return Error.Conflict("Same-day move-in must be completed before 20:30 Vietnam time.");
             // The deposit comes before the keys (DEMO_PLAN step order); no deposit invoice means none was due.
             if (await InvoiceBook.DepositOpenAsync(uow, reservation.ReservationId, ct))
                 return Error.Conflict("The deposit has not been paid yet.");

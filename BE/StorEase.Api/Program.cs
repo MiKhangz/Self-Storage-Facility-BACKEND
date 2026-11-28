@@ -32,6 +32,9 @@ builder.Services.AddSingleton(new AppOptions
     FrontendBaseUrl = appOptions.FrontendBaseUrl,
     // Without SMTP the verification link only reaches the API log, so Development skips verification.
     AutoVerifyEmail = builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(smtp.Host),
+    ConsultUrgentWithinDays = appOptions.ConsultUrgentWithinDays,
+    ConsultHighWithinDays = appOptions.ConsultHighWithinDays,
+    ConsultFallbackHoursBeforeMoveIn = appOptions.ConsultFallbackHoursBeforeMoveIn,
 });
 var gateway = builder.Configuration.GetSection("PaymentGateway").Get<PaymentGatewayOptions>() ?? new PaymentGatewayOptions();
 builder.Services.AddSingleton(new PaymentGatewayOptions

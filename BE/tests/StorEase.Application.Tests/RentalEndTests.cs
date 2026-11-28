@@ -97,8 +97,8 @@ public class RentalEndTests
         moved.Value!.Status.Should().Be(ContractStatus.Closed);
         t.Db.ChangeTracker.Clear();
         // Deposit 900,000 − 8 days × 45,000 overstay fee.
-        t.Db.DepositRefunds.Should().ContainSingle(r => r.Amount == 540_000m);
-        t.Db.UnitReturns.Should().ContainSingle(r => r.ContractId == id && r.Status == ReturnStatus.Completed);
+        t.Db.DepositRefunds.Should().ContainSingle(r => r.Amount == 540_000m && r.Status == DepositRefundStatus.Pending);
+        t.Db.UnitReturns.Should().ContainSingle(r => r.ContractId == id && r.Status == ReturnStatus.AwaitingPayout);
         t.Db.StorageUnits.Find(A101)!.Status.Should().Be(StorageUnitStatus.Reserved, "the next customer's booking holds it");
         t.Db.Invoices.Where(i => i.ContractId == id).Should().OnlyContain(i => i.Status == InvoiceStatus.Paid,
             "the deposit paid the overstay fee, so nothing is left to pay online");

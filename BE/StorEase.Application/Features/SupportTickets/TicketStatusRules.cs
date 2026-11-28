@@ -7,16 +7,16 @@ namespace StorEase.Application.Features.SupportTickets;
 internal static class TicketStatusRules
 {
     /// <summary>Null when <paramref name="role"/> may move a ticket from <paramref name="from"/> to <paramref name="to"/>.</summary>
-    public static Error? CheckMove(string role, bool isCustomer, SupportTicketStatus from, SupportTicketStatus to)
+    public static Error? CheckMove(string role, bool isCustomer, SupportTicketStatus from, SupportTicketStatus to, bool isConsultTicket = false)
     {
         if (from == SupportTicketStatus.Closed)
             return Error.Conflict("A Closed ticket cannot change status.");
         if (from == to)
             return Error.Conflict($"The ticket is already {to}.");
 
-        // Who may reach each target: the owning customer or a manager closes; staff do the rest.
+        // Who may reach each target: the owning customer or a manager closes (or facility staff on a booking consult ticket); staff do the rest.
         if (to == SupportTicketStatus.Closed)
-            return !isCustomer && role != Roles.FacilityManager
+            return !isCustomer && role != Roles.FacilityManager && !(isConsultTicket && role == Roles.FacilityStaff)
                 ? Error.Forbidden("Only the customer or a facility manager can close a ticket.")
                 : null;
         if (isCustomer)

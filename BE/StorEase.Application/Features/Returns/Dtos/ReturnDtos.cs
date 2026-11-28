@@ -25,4 +25,4 @@ public sealed record ReturnDto(
 /// <summary>EarlyTerminationPenalty is also added to the inspection's OtherDeduction; DamageDeductions excludes it.</summary>
 public sealed record DepositSettlementDto(
     int UnitReturnId, decimal DepositAmount, decimal DamageDeductions, decimal EarlyTerminationPenalty, decimal OutstandingInvoices,
-    decimal RefundAmount, decimal Shortfall, ReturnStatus Status);
+    decimal RefundAmount, decimal Shortfall, ReturnStatus Status, int? ShortfallInvoiceId = null, string? ShortfallInvoiceNumber = null);

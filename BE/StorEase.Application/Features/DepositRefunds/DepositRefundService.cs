@@ -52,7 +52,7 @@ public class DepositRefundService(IUnitOfWork uow, ICurrentUser currentUser) : I
     public async Task<Result<DepositRefundDto>> MarkPaidAsync(
         int depositRefundId, MarkDepositRefundPaidRequest request, CancellationToken ct)
     {
-        var refund = await Visible().FirstOrDefaultAsync(r => r.DepositRefundId == depositRefundId, ct);
+        var refund = await Visible().Include(r => r.UnitReturn).FirstOrDefaultAsync(r => r.DepositRefundId == depositRefundId, ct);
         if (refund is null)
             return Error.NotFound("Deposit refund not found.");
         if (refund.Status == DepositRefundStatus.Paid)
@@ -63,32 +63,41 @@ public class DepositRefundService(IUnitOfWork uow, ICurrentUser currentUser) : I
         refund.ReferenceNo = string.IsNullOrWhiteSpace(request.ReferenceNo) ? null : request.ReferenceNo.Trim();
         refund.PaidAt = DateTime.UtcNow;
         refund.PaidBy = currentUser.UserId;
+        if (refund.UnitReturn is { Status: ReturnStatus.AwaitingPayout or ReturnStatus.Completed } unitReturn)
+            unitReturn.Status = ReturnStatus.Completed;
         await uow.SaveChangesAsync(ct);
         return await Project(Visible().Where(r => r.DepositRefundId == depositRefundId)).FirstAsync(ct);
     }
 
     /// <summary>
-    /// Records a deposit StorEase now owes back, as Pending, in the caller's transaction (no save). Called by a
-    /// refundable cancellation, by a payment landing on a closed booking and by a return settlement with a refund.
+    /// Records a deposit StorEase now owes back, as Pending (or Paid immediately when a settled return has a zero
+    /// refund balance), in the caller's transaction (no save). Called by a refundable cancellation, by a payment
+    /// landing on a closed booking and by a return settlement.
     /// </summary>
-    internal static void Owe(IUnitOfWork uow, Reservation reservation, decimal amount, UnitReturn? unitReturn = null,
+    internal static DepositRefund? Owe(IUnitOfWork uow, Reservation reservation, decimal amount, UnitReturn? unitReturn = null,
         DepositRefundSource source = DepositRefundSource.Cancellation)
     {
-        if (amount <= 0)
-            return;
-        uow.Repository<DepositRefund>().Add(new DepositRefund
+        var rounded = Math.Max(Money.Round(amount), 0m);
+        if (rounded <= 0m && unitReturn is null)
+            return null;
+        var isZeroReturn = unitReturn is not null && rounded == 0m;
+        var now = DateTime.UtcNow;
+        var record = new DepositRefund
         {
             CustomerId = reservation.CustomerId,
             FacilityId = reservation.FacilityId,
             ReservationId = reservation.ReservationId,
             UnitReturnId = unitReturn?.UnitReturnId,
             Source = unitReturn is null ? source : DepositRefundSource.Return,
-            Amount = Money.Round(amount),
+            Amount = rounded,
             Method = unitReturn?.RefundMethod,
             RefundAccount = unitReturn?.RefundAccount,
-            Status = DepositRefundStatus.Pending,
-            CreatedAt = DateTime.UtcNow,
-        });
+            Status = isZeroReturn ? DepositRefundStatus.Paid : DepositRefundStatus.Pending,
+            CreatedAt = now,
+            PaidAt = isZeroReturn ? now : null,
+        };
+        uow.Repository<DepositRefund>().Add(record);
+        return record;
     }
 
     private IQueryable<DepositRefund> Visible()

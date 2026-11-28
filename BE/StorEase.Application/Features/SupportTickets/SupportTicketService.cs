@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.Notifications;
 using StorEase.Application.Features.SupportTickets.Dtos;
 using StorEase.Application.Interfaces;
 using StorEase.Domain.Entities;
@@ -16,7 +17,7 @@ public interface ISupportTicketService
     Task<Result<TicketMessageDto>> PostMessageAsync(int ticketId, PostTicketMessageRequest request, CancellationToken ct);
 }
 
-public class SupportTicketService(IUnitOfWork uow, ICurrentUser currentUser) : ISupportTicketService
+public class SupportTicketService(IUnitOfWork uow, ICurrentUser currentUser, IEmailService? email = null) : ISupportTicketService
 {
     // A customer can raise a ticket about a unit they still hold under one of these contract states.
     private static readonly ContractStatus[] HeldStatuses =
@@ -177,6 +178,9 @@ public class SupportTicketService(IUnitOfWork uow, ICurrentUser currentUser) : I
                 }
                 else if (ticket.Status == SupportTicketStatus.New)
                     ticket.Status = SupportTicketStatus.InProgress;
+
+                NotificationService.Add(uow, ticket.CustomerId, $"Phản hồi mới cho yêu cầu {ticket.TicketCode}",
+                    request.Body.Trim(), $"/support/requests/{ticket.TicketId}");
             }
 
             await uow.SaveChangesAsync(ct);
@@ -185,6 +189,17 @@ public class SupportTicketService(IUnitOfWork uow, ICurrentUser currentUser) : I
 
         if (!posted.IsSuccess)
             return posted.Error;
+
+        if (!isCustomer && !request.IsInternalNote && email is not null)
+        {
+            var customerInfo = await uow.Repository<SupportTicket>().Query()
+                .Where(t => t.TicketId == ticketId)
+                .Select(t => new { t.TicketCode, t.Subject, t.Customer.Email, t.Customer.FullName })
+                .FirstOrDefaultAsync(ct);
+            if (customerInfo?.Email is { } to)
+                await email.SendAsync(to, $"Phản hồi mới cho yêu cầu {customerInfo.TicketCode}",
+                    $"Xin chào {customerInfo.FullName},\n\nNhân viên đã trả lời yêu cầu {customerInfo.TicketCode} ({customerInfo.Subject}):\n\n{request.Body.Trim()}", ct);
+        }
 
         var messageId = posted.Value;
         return await uow.Repository<TicketMessage>().Query()
@@ -226,7 +241,19 @@ public class SupportTicketService(IUnitOfWork uow, ICurrentUser currentUser) : I
             t.AssignedTo,
             t.DueDate,
             t.CreatedAt,
-            t.ResolvedAt));
+            t.ResolvedAt,
+            t.ReservationId,
+            t.Reservation != null ? t.Reservation.ReservationCode : null,
+            t.Reservation != null ? t.Reservation.Status : null,
+            t.Reservation != null ? t.Reservation.UnitTypeId : null,
+            t.Reservation != null ? t.Reservation.UnitType.Name : null,
+            t.Reservation != null ? t.Reservation.MoveInDate : null,
+            t.Reservation != null ? t.Reservation.RentalMonths : null,
+            t.Reservation != null && t.Reservation.Preferences != null && t.Reservation.Preferences != ""
+                ? t.Reservation.Preferences.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                : Array.Empty<string>(),
+            t.Reservation != null ? t.Reservation.PreferenceNote : null,
+            t.FlaggedForReview));
 
     // ponytail: random suffix, ~1-in-a-million clash per day; a clash is reported as a 409 to retry. Switch to a sequence if volume grows.
     protected virtual string NewTicketCode() => $"TK{DateTime.UtcNow:yyMMdd}{Random.Shared.Next(1_000_000):D6}";

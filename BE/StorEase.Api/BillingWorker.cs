@@ -18,9 +18,14 @@ public class BillingWorker(IServiceScopeFactory scopes, ILogger<BillingWorker> l
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromHours(1));
         do
         {
+            // Wake at 20:30 Vietnam time as well as hourly to release missed same-day bookings.
+            var now = DateTime.UtcNow;
+            var releaseAt = ReservationService.SameDayNoShowAt(VietnamTime.DayOf(now));
+            if (releaseAt <= now)
+                releaseAt = releaseAt.AddDays(1);
+            var nextRun = releaseAt < now.AddHours(1) ? releaseAt : now.AddHours(1);
             try
             {
                 using var scope = scopes.CreateScope();
@@ -51,6 +56,9 @@ public class BillingWorker(IServiceScopeFactory scopes, ILogger<BillingWorker> l
             {
                 logger.LogError(ex, "Billing run crashed");
             }
-        } while (await timer.WaitForNextTickAsync(stoppingToken));
+            var delay = nextRun - DateTime.UtcNow;
+            if (delay > TimeSpan.Zero)
+                await Task.Delay(delay, stoppingToken);
+        } while (!stoppingToken.IsCancellationRequested);
     }
 }

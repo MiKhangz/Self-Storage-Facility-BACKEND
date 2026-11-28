@@ -27,6 +27,12 @@ public class Reservation
     /// unit freed late that day does not turn our delay into the customer's no-show.
     /// </summary>
     public bool UnitBlocked { get; set; }
+    /// <summary>Same-day booking: deposit at least 100,000 VND, discounted monthly rent upfront; customer cancellation/no-show at 20:30 retains 100,000 VND.</summary>
+    public bool SameDay { get; set; }
+    public UnitAssignmentMode UnitAssignmentMode { get; set; } = UnitAssignmentMode.AUTO;
+    /// <summary>Comma-separated preference tags chosen for a STAFF_ASSISTED booking.</summary>
+    public string? Preferences { get; set; }
+    public string? PreferenceNote { get; set; }
     public ReservationStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
 

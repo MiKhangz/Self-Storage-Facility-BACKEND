@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using StorEase.Application.Common;
 using StorEase.Application.Features.Reservations;
 using StorEase.Application.Features.Reservations.Dtos;
+using StorEase.Application.Features.StorageUnits.Dtos;
 using StorEase.Domain.Enums;
 
 namespace StorEase.Api.Controllers;
@@ -56,6 +57,14 @@ public class ReservationsController(IReservationService reservations, IWalkInSer
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
+    [HttpGet("{id:int}/available-units")]
+    [Authorize(Roles = Roles.Staff)]
+    public async Task<ActionResult<IReadOnlyList<UnitSlotDto>>> AvailableUnits(int id, CancellationToken ct)
+    {
+        var result = await reservations.AvailableUnitsAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
     /// <summary>The customer (own reservation) or staff cancel; a held unit is released and a Draft contract ends.</summary>
     [HttpPost("{id:int}/cancel")]
     [Authorize(Roles = Roles.StorageCustomer + "," + Roles.Staff)]
@@ -71,6 +80,15 @@ public class ReservationsController(IReservationService reservations, IWalkInSer
     public async Task<ActionResult<ReservationCancellationDto>> NoShow(int id, CancellationToken ct)
     {
         var result = await reservations.MarkNoShowAsync(id, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>Request a refund on a closed same-day booking (after 6h cancel or no-show: monthly rent minus 1-day deposit).</summary>
+    [HttpPost("{id:int}/request-refund")]
+    [Authorize(Roles = Roles.StorageCustomer)]
+    public async Task<ActionResult<ReservationCancellationDto>> RequestRefund(int id, CancellationToken ct)
+    {
+        var result = await reservations.RequestRefundAsync(id, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
@@ -124,6 +142,15 @@ public class ReservationsController(IReservationService reservations, IWalkInSer
     public async Task<ActionResult<ReservationDto>> ChangeUnit(int id, AssignUnitRequest request, CancellationToken ct)
     {
         var result = await reservations.ChangeUnitAsync(id, request, ct);
+        return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
+    }
+
+    /// <summary>Update move-in date or rental period on an open reservation; re-checks capacity and updates any linked ticket.</summary>
+    [HttpPost("{id:int}/dates")]
+    [Authorize(Roles = Roles.StorageCustomer + "," + Roles.Staff)]
+    public async Task<ActionResult<ReservationDto>> UpdateDates(int id, UpdateReservationDatesRequest request, CancellationToken ct)
+    {
+        var result = await reservations.UpdateDatesAsync(id, request, ct);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 }

@@ -39,8 +39,9 @@ public static class ErrorText
         ["Reminder"] = "nhắc nhở", ["LateFee"] = "phí trễ hạn", ["ClearOut"] = "dọn kho", ["Resolved"] = "đã giải quyết", ["Pending"] = "đang chờ",
         ["Succeeded"] = "thành công", ["Failed"] = "thất bại", ["Refunded"] = "đã hoàn", ["Superseded"] = "đã thay thế", ["Confirmed"] = "đã xác nhận",
         ["HandedOver"] = "đã bàn giao", ["Rejected"] = "bị từ chối", ["Expired"] = "hết hạn", ["Requested"] = "đã yêu cầu", ["Approved"] = "đã duyệt", ["AwaitingCustomer"] = "chờ khách xác nhận",
-        ["Inspected"] = "đã kiểm tra", ["Completed"] = "hoàn thành", ["New"] = "mới", ["WaitingForCustomer"] = "chờ khách phản hồi", ["ToDo"] = "cần làm",
+        ["Inspected"] = "đã kiểm tra", ["AwaitingPayout"] = "chờ hoàn tiền", ["Completed"] = "hoàn thành", ["New"] = "mới", ["WaitingForCustomer"] = "chờ khách phản hồi", ["ToDo"] = "cần làm",
         ["Available"] = "còn trống", ["Reserved"] = "đã giữ chỗ", ["Occupied"] = "đang thuê", ["Maintenance"] = "bảo trì", ["Retired"] = "ngừng sử dụng", ["Overstay"] = "quá hạn trả kho",
+        ["PENDING_UNIT_SELECTION"] = "chờ chọn kho",
     };
 
     private static readonly Dictionary<string, string> Vietnamese = new()
@@ -148,6 +149,11 @@ public static class ErrorText
         ["The unit already has another contract that has not ended."] = "Kho này còn hợp đồng khác chưa kết thúc.",
         ["The unit does not match the chosen facility and size."] = "Kho không khớp với cơ sở và cỡ đã chọn.",
         ["The unit does not match the reservation's facility and unit type."] = "Kho không khớp với cơ sở và loại kho của đơn đặt.",
+        ["A refund can be requested only after the booking is cancelled or expired."] = "Chỉ yêu cầu hoàn tiền được sau khi đơn đặt kho đã hủy hoặc hết hạn.",
+        ["Only a same-day booking is eligible for a partial upfront refund after the cancellation window."] = "Chỉ đơn đặt nhận trong ngày mới được hoàn một phần khoản trả trước sau thời hạn hủy miễn phí.",
+        ["No upfront payment was recorded for this booking."] = "Đơn đặt kho này chưa ghi nhận khoản thanh toán trước.",
+        ["No refundable amount remains after deducting the 1-day deposit."] = "Không còn số tiền hoàn lại sau khi trừ 1 ngày tiền cọc.",
+        ["Cannot close the ticket while the reservation is still pending unit selection unless an override reason is provided."] = "Không thể đóng yêu cầu khi đơn đặt kho vẫn đang chờ chọn kho, trừ khi nhập lý do ngoại lệ.",
 
         // Access codes and visits
         ["Access is not suspended for this case."] = "Hồ sơ này không bị khóa ra vào.",
@@ -197,6 +203,12 @@ public static class ErrorText
         ["This contract already has a renewal waiting for approval."] = "Hợp đồng này đã có yêu cầu gia hạn đang chờ duyệt.",
         ["This contract already has an open return request."] = "Hợp đồng này đã có yêu cầu trả kho đang mở.",
         ["You have no active contract on this storage unit."] = "Bạn không có hợp đồng đang hiệu lực với kho này.",
+        ["Please pay your outstanding invoices before requesting a return."] = "Vui lòng thanh toán các hóa đơn chưa hoàn tất trước khi gửi yêu cầu trả kho.",
+        ["Same-day move-in must be completed before 20:30 Vietnam time."] = "Nhận kho trong ngày phải hoàn tất trước 20:30 giờ Việt Nam.",
+        ["Same-day move-in must be before 20:30 Vietnam time."] = "Nhận kho trong ngày phải trước 20:30 giờ Việt Nam.",
+        ["Only a same-day booking is eligible for this partial upfront refund."] = "Chỉ đơn đặt nhận trong ngày mới được hoàn một phần khoản trả trước này.",
+        ["No refundable amount remains after deducting 100,000 VND."] = "Không còn số tiền hoàn lại sau khi trừ 100.000 ₫.",
+        ["Same-day no-show starts at 20:30 Vietnam time."] = "Chỉ đánh dấu không đến nhận kho trong ngày từ 20:30 giờ Việt Nam.",
 
         // Support tickets
         ["A Closed ticket cannot change status."] = "Yêu cầu đã đóng không đổi được trạng thái.",
@@ -289,6 +301,8 @@ public static class ErrorText
         ["Unit {0} was taken meanwhile; staff will offer another."] = "Kho {0} vừa có người đặt; nhân viên sẽ đề xuất kho khác.",
         ["This booking is {0}."] = "Đơn đặt kho này: {0}.",
         ["Only a booking not yet handed over can get an appointment; this one is {0}."] = "Chỉ đặt lịch hẹn cho đơn chưa bàn giao; đơn này: {0}.",
+        ["Only a booking not yet handed over can change its dates; this one is {0}."] = "Chỉ đổi ngày cho đơn chưa bàn giao; đơn này: {0}.",
+        ["Unit {0} is not available for the selected dates."] = "Kho {0} không còn trống trong khoảng thời gian đã chọn.",
         ["Unit {0} already has a contract that has not ended."] = "Kho {0} còn hợp đồng chưa kết thúc.",
         ["Unit {0} is retired; restore it before ordering work on it."] = "Kho {0} đã ngừng sử dụng; hãy khôi phục trước khi tạo lệnh.",
         ["Unit {0} is {1}, expected Reserved."] = "Kho {0} đang ở trạng thái {1}, cần là đã giữ chỗ.",

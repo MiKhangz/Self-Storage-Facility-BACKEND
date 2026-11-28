@@ -19,7 +19,17 @@ public sealed record TicketDto(
     int? AssignedTo,
     DateTime? DueDate,
     DateTime CreatedAt,
-    DateTime? ResolvedAt);
+    DateTime? ResolvedAt,
+    int? ReservationId = null,
+    string? ReservationCode = null,
+    ReservationStatus? ReservationStatus = null,
+    int? ReservationUnitTypeId = null,
+    string? ReservationUnitTypeName = null,
+    DateOnly? ReservationMoveInDate = null,
+    int? ReservationRentalMonths = null,
+    IReadOnlyList<string>? ReservationPreferences = null,
+    string? ReservationPreferenceNote = null,
+    bool FlaggedForReview = false);
 
 public sealed record TicketMessageDto(
     int MessageId,

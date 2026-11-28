@@ -27,17 +27,17 @@ public sealed class UnitTypesController(IUnitCatalogService catalog) : ApiContro
 
     [HttpGet("{id:int}/availability")]
     [AllowAnonymous]
-    public async Task<ActionResult<UnitAvailabilityDto>> Availability(int id, int facilityId, DateOnly moveInDate, CancellationToken ct, int rentalMonths = 1)
+    public async Task<ActionResult<UnitAvailabilityDto>> Availability(int id, int facilityId, DateOnly moveInDate, CancellationToken ct, int rentalMonths = 1, int? storageUnitId = null)
     {
-        var result = await catalog.GetAvailabilityAsync(facilityId, id, moveInDate, ct, rentalMonths);
+        var result = await catalog.GetAvailabilityAsync(facilityId, id, moveInDate, ct, rentalMonths, storageUnitId);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 
     [HttpGet("{id:int}/quote")]
     [AllowAnonymous]
-    public async Task<ActionResult<UnitPriceQuoteDto>> Quote(int id, int facilityId, DateOnly moveInDate, int rentalMonths, CancellationToken ct)
+    public async Task<ActionResult<UnitPriceQuoteDto>> Quote(int id, int facilityId, DateOnly moveInDate, int rentalMonths, CancellationToken ct, int? storageUnitId = null, bool sameDay = false)
     {
-        var result = await catalog.QuoteAsync(facilityId, id, moveInDate, rentalMonths, ct);
+        var result = await catalog.QuoteAsync(facilityId, id, moveInDate, rentalMonths, ct, storageUnitId, sameDay);
         return result.IsSuccess ? Ok(result.Value) : Failure(result.Error);
     }
 

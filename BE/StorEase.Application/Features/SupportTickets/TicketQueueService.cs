@@ -88,13 +88,28 @@ public class TicketQueueService(IUnitOfWork uow, ICurrentUser currentUser) : ITi
     {
         var done = await uow.InTransactionAsync<int>(async () =>
         {
-            var ticket = await Visible().FirstOrDefaultAsync(t => t.TicketId == ticketId, ct);
+            var ticket = await Visible().Include(t => t.Reservation).FirstOrDefaultAsync(t => t.TicketId == ticketId, ct);
             if (ticket is null)
                 return Error.NotFound("Ticket not found.");
 
             var target = request.Status;
-            if (TicketStatusRules.CheckMove(currentUser.Role, currentUser.IsCustomer, ticket.Status, target) is { } refused)
+            if (TicketStatusRules.CheckMove(currentUser.Role, currentUser.IsCustomer, ticket.Status, target, ticket.ReservationId is not null) is { } refused)
                 return refused;
+
+            if (target == SupportTicketStatus.Closed && ticket.Reservation is { Status: ReservationStatus.PENDING_UNIT_SELECTION })
+            {
+                if (string.IsNullOrWhiteSpace(request.OverrideReason))
+                    return Error.Conflict("Cannot close the ticket while the reservation is still pending unit selection unless an override reason is provided.");
+
+                uow.Repository<TicketMessage>().Add(new TicketMessage
+                {
+                    TicketId = ticket.TicketId,
+                    SenderId = currentUser.UserId,
+                    Body = $"Ticket closed without unit assignment. Override reason: {request.OverrideReason.Trim()}",
+                    IsInternalNote = false,
+                    SentAt = DateTime.UtcNow,
+                });
+            }
 
             ticket.Status = target;
             if (target == SupportTicketStatus.Resolved)
@@ -144,5 +159,8 @@ public class TicketQueueService(IUnitOfWork uow, ICurrentUser currentUser) : ITi
             t.AssignedToUser != null ? t.AssignedToUser.FullName : null,
             t.DueDate,
             t.CreatedAt,
-            t.ResolvedAt));
+            t.ResolvedAt,
+            t.ReservationId,
+            t.Reservation != null ? t.Reservation.ReservationCode : null,
+            t.FlaggedForReview));
 }

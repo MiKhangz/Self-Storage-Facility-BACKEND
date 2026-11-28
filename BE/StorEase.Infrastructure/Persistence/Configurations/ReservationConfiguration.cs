@@ -21,7 +21,10 @@ public class ReservationConfiguration : IEntityTypeConfiguration<Reservation>
         builder.HasOne(x => x.CreatedByUser).WithMany().HasForeignKey(x => x.CreatedBy);
         builder.Property(x => x.ReservationCode).HasMaxLength(20).IsUnicode(false);
         builder.HasIndex(x => x.MoveInDate);
-        builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
+        builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(30).IsUnicode(false);
+        builder.Property(x => x.UnitAssignmentMode).HasConversion<string>().HasMaxLength(20).IsUnicode(false);
+        builder.Property(x => x.Preferences).HasMaxLength(500);
+        builder.Property(x => x.PreferenceNote).HasMaxLength(500);
         builder.HasIndex(x => x.Status);
         builder.HasIndex(x => x.ReservationCode).IsUnique();
     }

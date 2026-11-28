@@ -13,6 +13,7 @@ public class SupportTicketConfiguration : IEntityTypeConfiguration<SupportTicket
 
         builder.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId);
         builder.HasOne(x => x.StorageUnit).WithMany().HasForeignKey(x => x.StorageUnitId);
+        builder.HasOne(x => x.Reservation).WithMany().HasForeignKey(x => x.ReservationId);
         builder.HasOne(x => x.Facility).WithMany().HasForeignKey(x => x.FacilityId);
         builder.HasOne(x => x.Category).WithMany().HasForeignKey(x => x.CategoryId);
         builder.HasOne(x => x.AssignedToUser).WithMany().HasForeignKey(x => x.AssignedTo);

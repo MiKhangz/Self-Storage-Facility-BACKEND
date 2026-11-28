@@ -21,4 +21,7 @@ public sealed record TicketQueueItemDto(
     string? AssignedToName,
     DateTime? DueDate,
     DateTime CreatedAt,
-    DateTime? ResolvedAt);
+    DateTime? ResolvedAt,
+    int? ReservationId = null,
+    string? ReservationCode = null,
+    bool FlaggedForReview = false);

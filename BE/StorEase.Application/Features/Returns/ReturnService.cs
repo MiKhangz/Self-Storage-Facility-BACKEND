@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
 using StorEase.Application.Features.StorageUnits;
 using StorEase.Application.Features.DepositRefunds;
+using StorEase.Application.Features.Invoices;
+using StorEase.Application.Features.Notifications;
 using StorEase.Application.Features.Pricing;
 using StorEase.Application.Features.Returns.Dtos;
 using StorEase.Application.Interfaces;
@@ -45,10 +47,18 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
             if (contract.Status != ContractStatus.Active && !overstaying)
                 return Error.Conflict($"Only an Active or overstaying contract can be handed back; this one is {contract.Status}.");
 
+            var hasUnresolvedPayment = await uow.Repository<Invoice>().Query().AnyAsync(i =>
+                i.ContractId == contract.ContractId &&
+                (i.Status == InvoiceStatus.Issued || i.Status == InvoiceStatus.Overdue) &&
+                i.PaidAmount < i.TotalAmount &&
+                !i.InvoiceNumber.StartsWith("OVS-"), ct);
+            if (hasUnresolvedPayment)
+                return Error.Conflict("Please pay your outstanding invoices before requesting a return.");
+
             var open = await uow.Repository<UnitReturn>().Query().AnyAsync(m =>
                 m.ContractId == contract.ContractId &&
                 (m.Status == ReturnStatus.Requested || m.Status == ReturnStatus.Approved ||
-                 m.Status == ReturnStatus.Inspected), ct);
+                 m.Status == ReturnStatus.Inspected || m.Status == ReturnStatus.AwaitingPayout), ct);
             if (open)
                 return Error.Conflict("This contract already has an open return request.");
 
@@ -98,6 +108,18 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
     public async Task<Result<PagedResult<ReturnDto>>> ListAsync(
         ReturnStatus? status, int page, int pageSize, CancellationToken ct)
     {
+        // Reconcile any return settled under the previous logic (marked Completed while its DepositRefund is still Pending).
+        var pendingPayoutReturns = await uow.Repository<UnitReturn>().Query()
+            .Where(m => m.Status == ReturnStatus.Completed
+                && uow.Repository<DepositRefund>().Query().Any(d => d.UnitReturnId == m.UnitReturnId && d.Status == DepositRefundStatus.Pending))
+            .ToListAsync(ct);
+        if (pendingPayoutReturns.Count > 0)
+        {
+            foreach (var r in pendingPayoutReturns)
+                r.Status = ReturnStatus.AwaitingPayout;
+            await uow.SaveChangesAsync(ct);
+        }
+
         var query = Visible();
         if (status is not null)
             query = query.Where(m => m.Status == status);
@@ -184,14 +206,61 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
             var policy = await RentCalculator.PolicyOfAsync(uow, contract.PricingPolicyId, contract.StartDate, ct);
             var penalty = DepositSettlement.EarlyTerminationPenalty(
                 contract.DepositAmount, policy?.EarlyTerminationPercent ?? 0m, unitReturn.PlannedReturnDate, contract.EndDate);
+            var otherInspectionFee = inspection.OtherDeduction;
             inspection.OtherDeduction += penalty;
             var (refund, shortfall) = DepositSettlement.Calculate(contract.DepositAmount, damage + penalty, outstanding);
 
             inspection.RefundAmount = refund;
             await DepositCover.ApplyAsync(uow, contract, Math.Max(contract.DepositAmount - damage - penalty, 0m), DateTime.UtcNow, ct);
             var reservation = (await uow.Repository<Reservation>().FindAsync(contract.ReservationId, ct))!;
-            DepositRefundService.Owe(uow, reservation, refund, unitReturn);
-            unitReturn.Status = ReturnStatus.Completed;
+            var payout = DepositRefundService.Owe(uow, reservation, refund, unitReturn);
+
+            var unit = (await uow.Repository<StorageUnit>().FindAsync(contract.StorageUnitId, ct))!;
+            var damageShortfall = Money.Round(Math.Max(damage + penalty - contract.DepositAmount, 0m));
+            int? shortfallInvoiceId = null;
+            string? shortfallInvoiceNumber = null;
+            if (damageShortfall > 0m)
+            {
+                var today = VietnamTime.Today;
+                var shortfallNumber = InvoiceBook.DamageShortfallNumber(unitReturn.UnitReturnId);
+                var shortfallInvoice = new Invoice
+                {
+                    ContractId = contract.ContractId,
+                    CustomerId = contract.CustomerId,
+                    InvoiceNumber = shortfallNumber,
+                    IssueDate = today,
+                    DueDate = today.AddDays(7),
+                    Status = InvoiceStatus.Issued,
+                };
+                if (inspection.CleaningFee > 0m)
+                    shortfallInvoice.InvoiceItems.Add(InvoiceBook.Line($"Phí vệ sinh trả kho {unit.UnitCode}", inspection.CleaningFee));
+                if (inspection.RepairCharge > 0m)
+                    shortfallInvoice.InvoiceItems.Add(InvoiceBook.Line($"Phí sửa chữa trả kho {unit.UnitCode}", inspection.RepairCharge));
+                if (otherInspectionFee > 0m)
+                    shortfallInvoice.InvoiceItems.Add(InvoiceBook.Line($"Khấu trừ khác trả kho {unit.UnitCode}", otherInspectionFee));
+                if (penalty > 0m)
+                    shortfallInvoice.InvoiceItems.Add(InvoiceBook.Line($"Phí trả kho trước hạn {unit.UnitCode}", penalty));
+                if (contract.DepositAmount > 0m)
+                    shortfallInvoice.InvoiceItems.Add(InvoiceBook.Line("Trừ vào tiền cọc đang giữ", -contract.DepositAmount));
+                InvoiceBook.Retotal(shortfallInvoice, today);
+                uow.Repository<Invoice>().Add(shortfallInvoice);
+                await uow.SaveChangesAsync(ct);
+                shortfallInvoiceId = shortfallInvoice.InvoiceId;
+                shortfallInvoiceNumber = shortfallInvoice.InvoiceNumber;
+
+                NotificationService.Add(
+                    uow,
+                    contract.CustomerId,
+                    $"Phát sinh hóa đơn bồi thường kho {unit.UnitCode}",
+                    $"Chi phí kiểm tra trả kho {unit.UnitCode} vượt tiền cọc đang giữ. Hóa đơn {shortfallNumber} ({Money.Text(damageShortfall)} ₫) đã được tạo, hạn thanh toán {shortfallInvoice.DueDate:dd/MM/yyyy}.",
+                    "/payments");
+            }
+
+            // Settle moves the return to AwaitingPayout; if the refund is zero, the payout record is Paid immediately
+            // and the return closes to Completed in the same transaction.
+            unitReturn.Status = ReturnStatus.AwaitingPayout;
+            if (payout?.Status == DepositRefundStatus.Paid)
+                unitReturn.Status = ReturnStatus.Completed;
             contract.Status = ContractStatus.Closed;
 
             var codes = await uow.Repository<AccessCode>().Query()
@@ -200,14 +269,14 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
                 code.IsActive = false;
 
             // ponytail: a unit with major damage goes to Maintenance; staff flip it back through the unit board.
-            var unit = (await uow.Repository<StorageUnit>().FindAsync(contract.StorageUnitId, ct))!;
             if (inspection.ConditionResult == ConditionResult.MajorDamage)
                 unit.Status = StorageUnitStatus.Maintenance;
             else
                 await UnitSchedule.ReleaseAsync(uow, unit, ct); // held for the next booking, else back on sale
 
             return new DepositSettlementDto(
-                unitReturn.UnitReturnId, contract.DepositAmount, damage, penalty, outstanding, refund, shortfall, unitReturn.Status);
+                unitReturn.UnitReturnId, contract.DepositAmount, damage, penalty, outstanding, refund, shortfall, unitReturn.Status,
+                shortfallInvoiceId, shortfallInvoiceNumber);
         }, ct);
 
     /// <summary>Customers see their own; facility staff and managers the facilities they work at; admin and business ops all.</summary>
@@ -226,6 +295,7 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
     private IQueryable<ReturnDto> Project(IQueryable<UnitReturn> source)
     {
         var inspections = uow.Repository<ReturnInspection>().Query();
+        var refunds = uow.Repository<DepositRefund>().Query();
         return source.Select(m => new ReturnDto(
             m.UnitReturnId,
             m.ContractId,
@@ -240,7 +310,10 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
             m.InspectionSlot,
             m.RefundMethod,
             m.RefundAccount,
-            m.Status,
+            m.Status == ReturnStatus.Completed
+                && refunds.Any(d => d.UnitReturnId == m.UnitReturnId && d.Status == DepositRefundStatus.Pending)
+                ? ReturnStatus.AwaitingPayout
+                : m.Status,
             m.MoveOutDeadline,
             m.AccessLockedAt,
             inspections.Where(i => i.UnitReturnId == m.UnitReturnId)

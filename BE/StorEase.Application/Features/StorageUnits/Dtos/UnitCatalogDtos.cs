@@ -15,6 +15,15 @@ public sealed record UnitTypeDto(
     bool IsClimateControlled,
     decimal? MonthlyPrice);
 
+/// <summary>One unit of the requested size at the facility, and whether it can be booked for the stay.</summary>
+public sealed record UnitSlotDto(
+    int StorageUnitId,
+    string UnitCode,
+    string FloorName,
+    string? Zone,
+    StorageUnitStatus Status,
+    bool IsAvailable);
+
 /// <summary>AvailableUnits counts units free for the whole stay (move-in date for RentalMonths); ExpectedUnitCode is the
 /// unit a booking made now would hold, or null when none is free.</summary>
 public sealed record UnitAvailabilityDto(
@@ -24,7 +33,8 @@ public sealed record UnitAvailabilityDto(
     int AvailableUnits,
     int TotalUnits,
     int RentalMonths = 1,
-    string? ExpectedUnitCode = null);
+    string? ExpectedUnitCode = null,
+    IReadOnlyList<UnitSlotDto>? Units = null);
 
 public sealed record UnitPriceQuoteDto(
     int FacilityId,
@@ -37,7 +47,9 @@ public sealed record UnitPriceQuoteDto(
     decimal RentSubtotal,
     decimal DepositAmount,
     decimal TotalAmount,
-    string? ExpectedUnitCode = null);
+    string? ExpectedUnitCode = null,
+    bool SameDay = false,
+    decimal UpfrontAmount = 0m);
 
 public sealed record UnitTypeRequest(
     string Code,

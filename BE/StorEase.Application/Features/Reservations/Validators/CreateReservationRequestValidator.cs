@@ -16,5 +16,19 @@ public class CreateReservationRequestValidator : AbstractValidator<CreateReserva
             .GreaterThanOrEqualTo(_ => VietnamTime.Today)
             .WithMessage("Move-in date cannot be in the past.");
         RuleFor(x => x.RentalMonths).InclusiveBetween(1, MaxRentalMonths);
+        RuleFor(x => x.PreferenceNote)
+            .MaximumLength(300)
+            .When(x => !string.IsNullOrEmpty(x.PreferenceNote));
+    }
+}
+
+public class UpdateReservationDatesRequestValidator : AbstractValidator<UpdateReservationDatesRequest>
+{
+    public UpdateReservationDatesRequestValidator()
+    {
+        RuleFor(x => x.MoveInDate)
+            .GreaterThanOrEqualTo(_ => VietnamTime.Today)
+            .WithMessage("Move-in date cannot be in the past.");
+        RuleFor(x => x.RentalMonths).InclusiveBetween(1, CreateReservationRequestValidator.MaxRentalMonths);
     }
 }

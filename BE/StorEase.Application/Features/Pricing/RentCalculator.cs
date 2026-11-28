@@ -26,6 +26,11 @@ public sealed record PricePin(int? PricingPolicyId, int? FacilityPriceVersionId)
 /// </summary>
 public static class RentCalculator
 {
+    public const decimal SameDayMinimumDeposit = 100_000m;
+    public const int SameDayCancelFreeHours = 3;
+
+    public static decimal SameDayDepositOf(decimal monthlyRent) =>
+        Math.Max(Money.Round(monthlyRent / 30m), SameDayMinimumDeposit);
     // A Superseded version still governs the dates it covered; only Drafts were never in force.
     public static Task<PricingPolicy?> PolicyForAsync(IUnitOfWork uow, DateOnly date, CancellationToken ct) =>
         uow.Repository<PricingPolicy>().Query()
@@ -108,7 +113,7 @@ public static class RentCalculator
     /// between does not reach it.
     /// </summary>
     public static async Task<Result<RentTerms>> TermsAsync(
-        IUnitOfWork uow, int facilityId, int unitTypeId, DateOnly moveInDate, int rentalMonths, CancellationToken ct, PricePin? pin = null)
+        IUnitOfWork uow, int facilityId, int unitTypeId, DateOnly moveInDate, int rentalMonths, CancellationToken ct, PricePin? pin = null, bool sameDay = false)
     {
         var policy = await PolicyOfAsync(uow, pin?.PricingPolicyId, moveInDate, ct);
         if (policy is null)
@@ -120,6 +125,7 @@ public static class RentCalculator
             return Error.NotFound("No price is configured for this unit type in the active policy.");
 
         var monthlyRent = Money.Round(price.BasePricePerMonth * (1m - price.Discount(rentalMonths) / 100m));
-        return new RentTerms(policy, monthlyRent, Money.Round(monthlyRent * policy.DepositMonths), price.FacilityPriceVersionId);
+        var deposit = sameDay ? SameDayDepositOf(monthlyRent) : Money.Round(monthlyRent * policy.DepositMonths);
+        return new RentTerms(policy, monthlyRent, deposit, price.FacilityPriceVersionId);
     }
 }

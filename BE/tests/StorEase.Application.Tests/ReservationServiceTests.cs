@@ -17,6 +17,55 @@ public class ReservationServiceTests
 {
     private static ReservationService As(TestDb t, Application.Interfaces.ICurrentUser user) => new(t.Uow, user, new FakeEmailService());
 
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, true)]
+    public async Task Staff_picker_checks_rental_dates_instead_of_current_unit_status(int moveInOffset, bool available)
+    {
+        using var t = Create();
+        var occupiedUntil = VietnamTime.Today.AddMonths(3).AddDays(-1);
+        RentOut(t, A101, VietnamTime.Today, occupiedUntil);
+        var moveIn = occupiedUntil.AddDays(moveInOffset);
+        var booked = await As(t, Customer).CreateAsync(new CreateReservationRequest(FacilityId, SmallTypeId,
+            moveIn, 3, UnitAssignmentMode: UnitAssignmentMode.STAFF_ASSISTED), default);
+        booked.IsSuccess.Should().BeTrue(booked.Error?.Message);
+
+        var units = await As(t, Staff).AvailableUnitsAsync(booked.Value!.ReservationId, default);
+        units.IsSuccess.Should().BeTrue();
+        units.Value!.Any(u => u.StorageUnitId == A101).Should().Be(available);
+        units.Value.Should().Contain(u => u.StorageUnitId == A102);
+    }
+
+    [Fact]
+    public async Task Staff_picker_keeps_the_bookings_own_unit_and_respects_visibility()
+    {
+        using var t = Create();
+        var id = await Reserve(t);
+        var units = await As(t, Staff).AvailableUnitsAsync(id, default);
+        units.Value.Should().Contain(u => u.StorageUnitId == A101);
+        var hidden = await As(t, new FakeCurrentUser(OtherCustomerId, Roles.StorageCustomer)).AvailableUnitsAsync(id, default);
+        hidden.Error!.Type.Should().Be(ErrorType.NotFound);
+    }
+
+    [Fact]
+    public async Task Same_day_selected_unit_is_held_until_2030_then_released()
+    {
+        using var t = Create();
+        var day = VietnamTime.Today;
+        var request = new CreateReservationRequest(FacilityId, SmallTypeId, day, 3, A102, SameDay: true);
+        var booked = await As(t, Customer).CreateAsync(request, default);
+        booked.IsSuccess.Should().BeTrue(booked.Error?.Message);
+        booked.Value!.StorageUnitId.Should().Be(A102);
+        (await As(t, Customer).CreateAsync(request, default)).Error!.Type.Should().Be(ErrorType.Conflict);
+
+        var cutoff = ReservationService.SameDayNoShowAt(day);
+        await As(t, Staff).RunDailyAsync(day, 10, default, cutoff.AddSeconds(-1));
+        UnitStatus(t, A102).Should().Be(StorageUnitStatus.Reserved);
+        await As(t, Staff).RunDailyAsync(day, 10, default, cutoff);
+        UnitStatus(t, A102).Should().Be(StorageUnitStatus.Available);
+        t.Db.Reservations.Find(booked.Value.ReservationId)!.Status.Should().Be(ReservationStatus.Expired);
+    }
+
     private static async Task<int> Reserve(TestDb t, int unitTypeId = SmallTypeId)
     {
         var result = await As(t, Customer).CreateAsync(new CreateReservationRequest(FacilityId, unitTypeId, MoveIn, 3), default);
@@ -454,5 +503,92 @@ public class ReservationServiceTests
         t.Db.ChangeTracker.Clear();
         t.Db.Contracts.Find(contractId)!.Status.Should().Be(ContractStatus.Terminated);
         UnitStatus(t, A102).Should().Be(StorageUnitStatus.Occupied, "the renter is still inside");
+    }
+
+    [Fact]
+    public async Task Staff_assisted_reservation_holds_size_capacity_without_a_unit_and_creates_consult_ticket()
+    {
+        using var t = Create();
+        var moveIn5Days = VietnamTime.Today.AddDays(5);
+
+        var first = await As(t, Customer).CreateAsync(new CreateReservationRequest(
+            FacilityId, SmallTypeId, moveIn5Days, 3,
+            UnitAssignmentMode: UnitAssignmentMode.STAFF_ASSISTED,
+            Preferences: ["Ground floor", "Near elevator"],
+            PreferenceNote: "Need wide aisle"), default);
+
+        first.IsSuccess.Should().BeTrue(first.Error?.Message);
+        first.Value!.Status.Should().Be(ReservationStatus.PENDING_UNIT_SELECTION);
+        first.Value.StorageUnitId.Should().BeNull();
+        first.Value.UnitAssignmentMode.Should().Be(UnitAssignmentMode.STAFF_ASSISTED);
+        first.Value.Preferences.Should().Equal("Ground floor", "Near elevator");
+        first.Value.PreferenceNote.Should().Be("Need wide aisle");
+        first.Value.TicketId.Should().NotBeNull();
+
+        var ticket = t.Db.SupportTickets.Single(tk => tk.ReservationId == first.Value.ReservationId);
+        ticket.Subject.Should().Be($"Storage availability consult: {first.Value.ReservationCode}");
+        ticket.Priority.Should().Be(Priority.High, "move-in within 7 days is High");
+
+        // Second STAFF_ASSISTED booking takes the second small unit's capacity; a third must fail.
+        var second = await As(t, OtherCustomer).CreateAsync(new CreateReservationRequest(
+            FacilityId, SmallTypeId, moveIn5Days, 3,
+            UnitAssignmentMode: UnitAssignmentMode.STAFF_ASSISTED), default);
+        var third = await As(t, Customer).CreateAsync(new CreateReservationRequest(
+            FacilityId, SmallTypeId, moveIn5Days, 3,
+            UnitAssignmentMode: UnitAssignmentMode.AUTO), default);
+
+        second.IsSuccess.Should().BeTrue();
+        third.Error!.Type.Should().Be(ErrorType.Conflict, "pending unassigned reservations hold capacity at the size level");
+    }
+
+    [Fact]
+    public async Task Closing_consult_ticket_while_pending_unit_selection_requires_override_reason_until_unit_assigned()
+    {
+        using var t = Create();
+        var created = await As(t, Customer).CreateAsync(new CreateReservationRequest(
+            FacilityId, SmallTypeId, VietnamTime.Today.AddDays(1), 3,
+            UnitAssignmentMode: UnitAssignmentMode.STAFF_ASSISTED), default);
+        var resId = created.Value!.ReservationId;
+        var ticketId = created.Value.TicketId!.Value;
+        var queue = new StorEase.Application.Features.SupportTickets.TicketQueueService(t.Uow, Staff);
+
+        t.Db.SupportTickets.Find(ticketId)!.Priority.Should().Be(Priority.Urgent, "move-in within 2 days is Urgent");
+
+        // Blocked without override reason
+        var blockedClose = await queue.ChangeStatusAsync(ticketId, new StorEase.Application.Features.SupportTickets.Dtos.ChangeTicketStatusRequest(SupportTicketStatus.Closed), default);
+        blockedClose.Error!.Type.Should().Be(ErrorType.Conflict);
+
+        // Staff assigns unit from ticket
+        var assigned = await As(t, Staff).AssignUnitAsync(resId, new AssignUnitRequest(A101), default);
+        assigned.IsSuccess.Should().BeTrue();
+        assigned.Value!.Status.Should().Be(ReservationStatus.Confirmed);
+        assigned.Value.UnitCode.Should().Be("A-101");
+        t.Db.TicketMessages.Where(m => m.TicketId == ticketId).Select(m => m.Body)
+            .Should().Contain("Unit A-101 has been assigned");
+
+        // Now closing succeeds without override reason
+        var closed = await queue.ChangeStatusAsync(ticketId, new StorEase.Application.Features.SupportTickets.Dtos.ChangeTicketStatusRequest(SupportTicketStatus.Closed), default);
+        closed.IsSuccess.Should().BeTrue(closed.Error?.Message);
+        closed.Value!.Status.Should().Be(SupportTicketStatus.Closed);
+    }
+
+    [Fact]
+    public async Task Unassigned_staff_assisted_reservation_is_auto_assigned_24h_before_move_in_and_flagged()
+    {
+        using var t = Create();
+        var created = await As(t, Customer).CreateAsync(new CreateReservationRequest(
+            FacilityId, SmallTypeId, MoveIn, 3,
+            UnitAssignmentMode: UnitAssignmentMode.STAFF_ASSISTED), default);
+        var resId = created.Value!.ReservationId;
+        var ticketId = created.Value.TicketId!.Value;
+
+        await As(t, Staff).RunDailyAsync(VietnamTime.Today, 10, default);
+
+        t.Db.ChangeTracker.Clear();
+        var res = t.Db.Reservations.Find(resId)!;
+        res.Status.Should().Be(ReservationStatus.Confirmed);
+        res.StorageUnitId.Should().Be(A101);
+        var ticket = t.Db.SupportTickets.Find(ticketId)!;
+        ticket.FlaggedForReview.Should().BeTrue();
     }
 }

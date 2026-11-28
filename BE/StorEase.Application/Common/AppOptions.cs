@@ -8,6 +8,15 @@ public sealed class AppOptions
 
     /// <summary>New accounts start Active with no verification email. Development only: there is no real email yet.</summary>
     public bool AutoVerifyEmail { get; init; }
+
+    /// <summary>Days before move-in inside which a STAFF_ASSISTED consultation ticket gets Urgent priority (default 2).</summary>
+    public int ConsultUrgentWithinDays { get; init; } = 2;
+
+    /// <summary>Days before move-in inside which a STAFF_ASSISTED consultation ticket gets High priority (default 7; beyond this is Normal).</summary>
+    public int ConsultHighWithinDays { get; init; } = 7;
+
+    /// <summary>Hours before move-in day (00:00 Vietnam time) at which an unassigned STAFF_ASSISTED reservation falls back to auto-assign (default 24).</summary>
+    public int ConsultFallbackHoursBeforeMoveIn { get; init; } = 24;
 }
 
 /// <summary>

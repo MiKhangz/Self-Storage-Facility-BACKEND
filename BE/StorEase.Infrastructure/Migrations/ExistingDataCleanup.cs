@@ -29,4 +29,32 @@ WHERE [ContractId] IN (
 DELETE FROM [StaffFacility]
 WHERE [StaffFacilityId] NOT IN (
     SELECT MIN([StaffFacilityId]) FROM [StaffFacility] GROUP BY [UserId], [FacilityId])";
+
+    /// <summary>
+    /// Diagnostic query listing existing returns in Completed whose DepositRefund is missing or not Paid,
+    /// so business operations can review them without altering historical records automatically.
+    /// </summary>
+    public const string ListCompletedReturnsWithoutPaidRefund = @"
+SELECT
+    ur.[UnitReturnId],
+    ur.[ContractId],
+    c.[ContractNumber],
+    c.[CustomerId],
+    u.[FullName] AS [CustomerName],
+    su.[UnitCode],
+    ur.[PlannedReturnDate],
+    ur.[Status] AS [ReturnStatus],
+    ri.[RefundAmount] AS [InspectedRefundAmount],
+    dr.[DepositRefundId],
+    dr.[Amount] AS [PayoutAmount],
+    dr.[Status] AS [DepositRefundStatus]
+FROM [UnitReturn] ur
+INNER JOIN [Contract] c ON c.[ContractId] = ur.[ContractId]
+INNER JOIN [User] u ON u.[UserId] = c.[CustomerId]
+INNER JOIN [StorageUnit] su ON su.[StorageUnitId] = c.[StorageUnitId]
+LEFT JOIN [ReturnInspection] ri ON ri.[UnitReturnId] = ur.[UnitReturnId]
+LEFT JOIN [DepositRefund] dr ON dr.[UnitReturnId] = ur.[UnitReturnId]
+WHERE ur.[Status] = 'Completed'
+  AND (dr.[DepositRefundId] IS NULL OR dr.[Status] <> 'Paid')
+ORDER BY ur.[UnitReturnId] DESC";
 }

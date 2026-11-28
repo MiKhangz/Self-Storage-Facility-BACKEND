@@ -171,16 +171,18 @@ public class RentalEndService(IUnitOfWork uow, ICurrentUser currentUser, IEmailS
                 .Select(i => i.TotalAmount - i.PaidAmount).ToListAsync(ct)).Sum();
             var (refund, _) = DepositSettlement.Calculate(contract.DepositAmount, 0m, outstanding);
 
-            // Recorded as a completed hand-back, so it shows with the other returns and its refund in Deposit Refunds.
+            // Recorded as a hand-back: AwaitingPayout when a refund is owed in Deposit Refunds, or Completed immediately when zero.
             var unitReturn = new UnitReturn
             {
                 ContractId = contract.ContractId, RequestedAt = DateTime.UtcNow, PlannedReturnDate = today, MoveOutDeadline = today,
-                Reason = "Chuyển đồ về kho tổng sau khi quá hạn trả kho", Status = ReturnStatus.Completed,
+                Reason = "Chuyển đồ về kho tổng sau khi quá hạn trả kho", Status = ReturnStatus.AwaitingPayout,
             };
             uow.Repository<UnitReturn>().Add(unitReturn);
             await uow.SaveChangesAsync(ct);
             var reservation = (await uow.Repository<Reservation>().FindAsync(contract.ReservationId, ct))!;
-            DepositRefundService.Owe(uow, reservation, refund, unitReturn);
+            var payout = DepositRefundService.Owe(uow, reservation, refund, unitReturn);
+            if (payout?.Status == DepositRefundStatus.Paid)
+                unitReturn.Status = ReturnStatus.Completed;
             await DepositCover.ApplyAsync(uow, contract, contract.DepositAmount, DateTime.UtcNow, ct);
 
             // What the deposit did not cover stays owed on its invoice; the case itself is finished.

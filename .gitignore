@@ -426,3 +426,7 @@ BE/CLAUDE.md
 
 # Uploaded handover photos
 App_Data/
+
+# Verification build artifacts
+.verification/
+BE/.verification/

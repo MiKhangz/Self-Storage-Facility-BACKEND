@@ -17,8 +17,8 @@ public interface IUnitCatalogService
     Task<Result<UnitTypeDto>> CreateUnitTypeAsync(UnitTypeRequest request, CancellationToken ct);
     Task<Result<UnitTypeDto>> UpdateUnitTypeAsync(int unitTypeId, UnitTypeRequest request, CancellationToken ct);
     Task<Result<bool>> DeleteUnitTypeAsync(int unitTypeId, CancellationToken ct);
-    Task<Result<UnitAvailabilityDto>> GetAvailabilityAsync(int facilityId, int unitTypeId, DateOnly moveInDate, CancellationToken ct, int rentalMonths = 1);
-    Task<Result<UnitPriceQuoteDto>> QuoteAsync(int facilityId, int unitTypeId, DateOnly moveInDate, int rentalMonths, CancellationToken ct);
+    Task<Result<UnitAvailabilityDto>> GetAvailabilityAsync(int facilityId, int unitTypeId, DateOnly moveInDate, CancellationToken ct, int rentalMonths = 1, int? storageUnitId = null);
+    Task<Result<UnitPriceQuoteDto>> QuoteAsync(int facilityId, int unitTypeId, DateOnly moveInDate, int rentalMonths, CancellationToken ct, int? storageUnitId = null, bool sameDay = false);
 }
 
 public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
@@ -103,7 +103,7 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
     }
 
     public async Task<Result<UnitAvailabilityDto>> GetAvailabilityAsync(
-        int facilityId, int unitTypeId, DateOnly moveInDate, CancellationToken ct, int rentalMonths = 1)
+        int facilityId, int unitTypeId, DateOnly moveInDate, CancellationToken ct, int rentalMonths = 1, int? storageUnitId = null)
     {
         var facilityExists = await uow.Repository<Facility>().Query()
             .AnyAsync(f => f.FacilityId == facilityId && f.Status == FacilityStatus.Active, ct);
@@ -112,37 +112,48 @@ public sealed class UnitCatalogService(IUnitOfWork uow) : IUnitCatalogService
         if (!await uow.Repository<UnitType>().Query().AnyAsync(t => t.UnitTypeId == unitTypeId, ct))
             return Error.NotFound("Unit type not found.");
 
-        var total = await uow.Repository<StorageUnit>().Query()
-            .CountAsync(u => u.FacilityId == facilityId && u.UnitTypeId == unitTypeId && u.Status != StorageUnitStatus.Retired, ct);
+        var allUnits = await uow.Repository<StorageUnit>().Query()
+            .Where(u => u.FacilityId == facilityId && u.UnitTypeId == unitTypeId && u.Status != StorageUnitStatus.Retired)
+            .OrderBy(u => u.UnitCode)
+            .Select(u => new { u.StorageUnitId, u.UnitCode, FloorName = u.Floor.Name, u.Zone, u.Status })
+            .ToListAsync(ct);
+        var total = allUnits.Count;
         // Free for the whole stay, not just today: a unit rented now but handed back before move-in can be booked.
         var end = UnitSchedule.EndOf(moveInDate, Math.Max(rentalMonths, 1));
         var free = await UnitSchedule.FreeUnitsAsync(uow, facilityId, unitTypeId, moveInDate, end, ct);
         var unplaced = await UnitSchedule.UnplacedBookingsAsync(uow, facilityId, unitTypeId, moveInDate, end, ct);
         var available = Math.Max(free.Count - unplaced, 0);
-        return new UnitAvailabilityDto(facilityId, unitTypeId, moveInDate, available, total, rentalMonths,
-            available > 0 ? free[0].UnitCode : null);
+        var freeIds = available > 0 ? free.Select(u => u.StorageUnitId).ToHashSet() : [];
+        var units = allUnits.Select(u => new UnitSlotDto(
+            u.StorageUnitId, u.UnitCode, u.FloorName ?? "", u.Zone, u.Status, freeIds.Contains(u.StorageUnitId))).ToList();
+        var expectedCode = available > 0
+            ? (storageUnitId is { } chosenId ? free.FirstOrDefault(u => u.StorageUnitId == chosenId)?.UnitCode ?? free[0].UnitCode : free[0].UnitCode)
+            : null;
+        return new UnitAvailabilityDto(facilityId, unitTypeId, moveInDate, available, total, rentalMonths, expectedCode, units);
     }
 
     public async Task<Result<UnitPriceQuoteDto>> QuoteAsync(
-        int facilityId, int unitTypeId, DateOnly moveInDate, int rentalMonths, CancellationToken ct)
+        int facilityId, int unitTypeId, DateOnly moveInDate, int rentalMonths, CancellationToken ct, int? storageUnitId = null, bool sameDay = false)
     {
         if (rentalMonths is < 1 or > CreateReservationRequestValidator.MaxRentalMonths)
             return Error.Validation($"Rental months must be between 1 and {CreateReservationRequestValidator.MaxRentalMonths}.");
-        var availability = await GetAvailabilityAsync(facilityId, unitTypeId, moveInDate, ct, rentalMonths);
+        var availability = await GetAvailabilityAsync(facilityId, unitTypeId, moveInDate, ct, rentalMonths, storageUnitId);
         if (!availability.IsSuccess)
             return availability.Error!;
         if (availability.Value.AvailableUnits == 0)
             return Error.Conflict("No unit of this type is available at this facility.");
 
-        var terms = await RentCalculator.TermsAsync(uow, facilityId, unitTypeId, moveInDate, rentalMonths, ct);
+        var terms = await RentCalculator.TermsAsync(uow, facilityId, unitTypeId, moveInDate, rentalMonths, ct, sameDay: sameDay);
         if (!terms.IsSuccess)
             return terms.Error;
         var (policy, monthlyRent, deposit, _) = terms.Value;
         var rentSubtotal = Money.Round(monthlyRent * rentalMonths);
-        // Only what is billed: no invoice charges the policy's fee types.
+        // Same-day booking: deposit = 1 day of monthly rent, upfront payment = 1 whole month of rent.
+        var upfront = sameDay ? monthlyRent : deposit;
+        // Total contract + deposit (or for same-day: rentSubtotal + 1-day deposit).
         var total = Money.Round(rentSubtotal + deposit);
         return new UnitPriceQuoteDto(facilityId, unitTypeId, moveInDate, rentalMonths,
-            policy.PricingPolicyId, policy.Version, monthlyRent, rentSubtotal, deposit, total, availability.Value.ExpectedUnitCode);
+            policy.PricingPolicyId, policy.Version, monthlyRent, rentSubtotal, deposit, total, availability.Value.ExpectedUnitCode, sameDay, upfront);
     }
 
     private static Expression<Func<UnitType, UnitTypeDto>> ProjectUnitType() =>

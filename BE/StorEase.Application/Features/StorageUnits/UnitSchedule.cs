@@ -62,7 +62,7 @@ public static class UnitSchedule
     {
         var bookings = await uow.Repository<Reservation>().Query()
             .Where(r => r.FacilityId == facilityId && r.UnitTypeId == unitTypeId && r.StorageUnitId == null
-                && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
+                && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.PENDING_UNIT_SELECTION || r.Status == ReservationStatus.Confirmed)
                 && r.MoveInDate <= to && r.ReservationId != (exceptReservationId ?? 0))
             .Select(r => new { r.MoveInDate, r.RentalMonths })
             .ToListAsync(ct);

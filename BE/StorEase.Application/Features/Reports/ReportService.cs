@@ -50,7 +50,7 @@ public sealed class ReportService(IUnitOfWork uow, ICurrentUser currentUser) : I
             || c.Status == ContractStatus.Overdue || c.Status == ContractStatus.Suspended || c.Status == ContractStatus.PendingReturn
             || c.Status == ContractStatus.Overstay, ct);
         var upcoming = await uow.Repository<Reservation>().Query().CountAsync(r => scope.Contains(r.FacilityId)
-            && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
+            && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.PENDING_UNIT_SELECTION || r.Status == ReservationStatus.Confirmed)
             && r.MoveInDate >= today && r.MoveInDate <= today.AddDays(7), ct);
         var openCases = await uow.Repository<OverdueCase>().Query()
             .CountAsync(c => c.ResolvedAt == null && scope.Contains(c.Contract.StorageUnit.FacilityId), ct);
