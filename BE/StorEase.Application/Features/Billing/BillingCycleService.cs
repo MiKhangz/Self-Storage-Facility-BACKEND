@@ -75,7 +75,16 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
         var horizon = today.AddDays(IssueDaysAhead);
         var contracts = await uow.Repository<Contract>().Query()
             .Where(c => BillableStatuses.Contains(c.Status) && c.StartDate <= horizon)
-            .Select(c => new { Contract = c, Numbers = c.Invoices.Select(i => i.InvoiceNumber).ToList() })
+            .Select(c => new
+            {
+                Contract = c,
+                Numbers = c.Invoices.Select(i => i.InvoiceNumber).ToList(),
+                // An open hand-back: no rent for months that start after the day the customer said they leave.
+                LeavesOn = uow.Repository<UnitReturn>().Query()
+                    .Where(r => r.ContractId == c.ContractId && (r.Status == ReturnStatus.Requested ||
+                                r.Status == ReturnStatus.Approved || r.Status == ReturnStatus.Inspected))
+                    .Select(r => (DateOnly?)r.PlannedReturnDate).FirstOrDefault(),
+            })
             .ToListAsync(ct);
 
         var issued = 0;
@@ -86,7 +95,7 @@ public sealed class BillingCycleService(IUnitOfWork uow, IReminderService remind
             for (var k = 0; ; k++)
             {
                 var periodStart = contract.StartDate.AddMonths(k);
-                if (periodStart > contract.EndDate || periodStart > horizon)
+                if (periodStart > contract.EndDate || periodStart > horizon || periodStart > row.LeavesOn)
                     break;
                 var due = DueDateOf(contract, periodStart);
                 var number = InvoiceBook.MonthlyNumber(contract.ContractId, periodStart);

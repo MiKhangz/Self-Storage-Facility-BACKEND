@@ -283,6 +283,7 @@ public static class ErrorText
         ["The reservation must be Confirmed with a unit assigned; it is {0}."] = "Đơn đặt phải được xác nhận và có kho; đơn này: {0}.",
         ["The return inspection is {0}; resolve it before settling."] = "Kết quả kiểm tra trả kho: {0}; hãy xử lý trước khi quyết toán.",
         ["The ticket is already {0}."] = "Yêu cầu đã ở trạng thái {0}.",
+        ["Book the inspection on or before the move-out deadline, {0}."] = "Hãy hẹn kiểm tra kho trước hoặc đúng hạn dọn kho, {0}.",
         ["The unit must be emptied within {0} days, by {1}."] = "Phải dọn kho trong {0} ngày, trước {1}.",
         ["This case is already {0}."] = "Hồ sơ này đã ở trạng thái {0}.",
         ["This policy starts on {0}; activate it on or after that date."] = "Chính sách này bắt đầu từ {0}; hãy áp dụng từ ngày đó trở đi.",

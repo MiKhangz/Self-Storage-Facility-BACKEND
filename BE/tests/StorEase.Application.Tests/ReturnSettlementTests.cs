@@ -1,6 +1,8 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using StorEase.Application.Common;
+using StorEase.Application.Features.Billing;
+using StorEase.Application.Features.Invoices;
 using StorEase.Application.Features.Returns;
 using StorEase.Application.Features.Returns.Dtos;
 using StorEase.Domain.Entities;
@@ -62,6 +64,24 @@ public class ReturnSettlementTests
         settled.Value.RefundAmount.Should().Be(750_000m);
         (await t.Db.ReturnInspections.SingleAsync()).OtherDeduction.Should().Be(200_000m);
         pastDate.IsSuccess.Should().BeFalse("a return date in the past is refused");
+    }
+
+    [Fact]
+    public async Task An_open_return_stops_rent_after_the_planned_date_and_the_inspection_comes_by_the_deadline()
+    {
+        using var t = Create();
+        var contractId = SeedActiveContract(t, earlyTerminationPercent: 0);
+        var id = (await new ReturnService(t.Uow, Customer).RequestAsync(
+            new CreateReturnRequest(contractId, VietnamTime.Today.AddDays(1), null, RefundMethod.Cash, null), default)).Value!.UnitReturnId;
+
+        var late = await new ReturnService(t.Uow, Staff).ApproveAsync(id, new ApproveReturnRequest(DateTime.UtcNow.AddDays(20)), default);
+        // Staff take 40 days to settle: the month that starts after the customer left is not billed.
+        await new BillingCycleService(t.Uow, new ReminderService(t.Uow, Staff, new FakeEmailService()))
+            .RunAsync(VietnamTime.Today.AddDays(40), default);
+
+        late.IsSuccess.Should().BeFalse("an inspection after the move-out deadline is refused");
+        var periods = await t.Db.Invoices.Where(i => i.ContractId == contractId).CountAsync();
+        periods.Should().Be(2, "the months starting 30 days ago and about today, not the one after the hand-back");
     }
 
     [Fact]
