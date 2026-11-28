@@ -430,3 +430,9 @@ App_Data/
 # Verification build artifacts
 .verification/
 BE/.verification/
+
+# Rust PaymentReceiver build output & local SQLite demo DB
+PaymentReceiver/target/
+PaymentReceiver/*.db
+PaymentReceiver/*.db-shm
+PaymentReceiver/*.db-wal

@@ -1,0 +1,10 @@
+[package]
+name = "vietqr"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+serde.workspace = true
+qrcode = "0.14"
+image = { version = "0.25", default-features = false, features = ["png"] }

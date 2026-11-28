@@ -1,0 +1,323 @@
+openapi: 3.0.3
+info:
+  title: StorEase PaymentReceiver (VietQR) API
+  version: 0.1.0
+  description: >
+    Academic demo Rust service for dynamic NAPAS 247 VietQR generation, SSE live payment updates,
+    automatic bank feed/webhook reconciliation, and dual-control manual fallback recording.
+servers:
+  - url: http://localhost:4100
+paths:
+  /health:
+    get:
+      summary: Service health and masked receiver bank configuration
+      responses:
+        '200':
+          description: OK
+  /payment-requests:
+    post:
+      summary: Create or fetch an idempotent PENDING VietQR payment request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequestInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentRequestResponse'
+        '200':
+          description: Existing PENDING request returned (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentRequestResponse'
+  /payment-requests/{id}:
+    get:
+      summary: Poll status of a payment request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentRequestResponse'
+  /payment-requests/{id}/events:
+    get:
+      summary: Server-Sent Events (SSE) stream for live payment status transitions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: text/event-stream
+  /payment-requests/{id}/qr.png:
+    get:
+      summary: Render dynamic VietQR code as PNG
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: size
+          required: false
+          schema:
+            type: integer
+            default: 360
+      responses:
+        '200':
+          description: image/png
+  /payment-requests/{id}/qr.svg:
+    get:
+      summary: Render dynamic VietQR code as SVG
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: image/svg+xml
+  /payment-requests/{id}/cancel:
+    post:
+      summary: Cancel a PENDING payment request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Cancelled
+  /webhooks/bank:
+    post:
+      summary: Receive incoming bank transaction webhook (SePay / Casso / Canonical)
+      parameters:
+        - in: header
+          name: X-Signature
+          required: true
+          schema:
+            type: string
+          description: Hex HMAC-SHA256 over "<X-Timestamp>.<raw_body>"
+        - in: header
+          name: X-Timestamp
+          required: true
+          schema:
+            type: string
+          description: Unix epoch seconds (5-minute tolerance)
+      responses:
+        '200':
+          description: Reconciled
+        '401':
+          description: Invalid HMAC signature or replay timestamp
+  /demo/simulate-transfer:
+    post:
+      summary: Simulate an incoming bank transfer via MockBankFeed (DEMO_MODE=true only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_vnd, description]
+              properties:
+                amount_vnd:
+                  type: integer
+                  format: int64
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Simulated transfer processed
+  /payments/manual:
+    post:
+      summary: Record a manual payment entry (restricted to FINANCE, FACILITY_MANAGER, ADMIN)
+      parameters:
+        - in: header
+          name: X-Actor-Id
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Actor-Role
+          required: true
+          schema:
+            type: string
+            enum: [FINANCE, FACILITY_MANAGER, ADMIN]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualPaymentInput'
+      responses:
+        '201':
+          description: Recorded
+        '403':
+          description: Forbidden role
+  /payments/{id}/approve:
+    post:
+      summary: Second-person approval for a manual entry above the threshold
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: header
+          name: X-Actor-Id
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Actor-Role
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Approved
+        '403':
+          description: Forbidden or self-approval blocked
+  /payments/{id}/reverse:
+    post:
+      summary: Create an immutable reversing entry referencing an earlier manual payment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Reversing payment created
+  /transactions/unmatched:
+    get:
+      summary: List UNMATCHED and UNDER_REVIEW bank transactions
+      responses:
+        '200':
+          description: OK
+  /transactions/{id}/assign:
+    post:
+      summary: Assign an unmatched bank transaction to a payment request (role-restricted)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Assigned and marked PAID
+components:
+  schemas:
+    CreatePaymentRequestInput:
+      type: object
+      required: [subject_type, subject_id, purpose, amount_vnd, expires_at]
+      properties:
+        subject_type:
+          type: string
+          enum: [RESERVATION, CONTRACT]
+        subject_id:
+          type: string
+        purpose:
+          type: string
+          enum: [DEPOSIT, RENT, OTHER]
+        amount_vnd:
+          type: integer
+          format: int64
+        expires_at:
+          type: string
+          format: date-time
+        keyword:
+          type: string
+    PaymentRequestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        subject_type:
+          type: string
+        subject_id:
+          type: string
+        purpose:
+          type: string
+        amount_vnd:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [PENDING, PAID, EXPIRED, CANCELLED, UNDER_REVIEW, REFUNDED]
+        reference:
+          type: string
+        bank_name:
+          type: string
+        bank_bin:
+          type: string
+        account_no:
+          type: string
+        account_name:
+          type: string
+        qr_payload:
+          type: string
+        qr_png_url:
+          type: string
+        qr_svg_url:
+          type: string
+        events_sse_url:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+    ManualPaymentInput:
+      type: object
+      required: [payment_request_id, amount_vnd, bank_reference_code, transfer_time, reason, evidence]
+      properties:
+        payment_request_id:
+          type: string
+          format: uuid
+        amount_vnd:
+          type: integer
+          format: int64
+        bank_reference_code:
+          type: string
+        transfer_time:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        evidence:
+          type: string

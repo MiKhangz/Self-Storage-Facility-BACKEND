@@ -1,0 +1,28 @@
+[package]
+name = "payments-api"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vietqr = { path = "../vietqr" }
+payments-core = { path = "../payments-core" }
+axum = { version = "0.7", features = ["macros"] }
+tokio.workspace = true
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace", "limit"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "postgres", "chrono", "uuid"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+futures = "0.3"
+tokio-stream = { version = "0.1", features = ["sync"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+csv = "1.3"
