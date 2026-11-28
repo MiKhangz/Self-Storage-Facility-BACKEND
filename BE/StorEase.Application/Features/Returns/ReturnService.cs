@@ -113,8 +113,9 @@ public class ReturnService(IUnitOfWork uow, ICurrentUser currentUser) : IReturnS
             return Error.NotFound("Return request not found.");
         if (unitReturn.Status != ReturnStatus.Requested)
             return Error.Conflict($"Only a Requested return can be approved; this one is {unitReturn.Status}.");
-        // Past the move-out deadline the job locks access, so the inspection must come by then.
-        if (VietnamTime.DayOf(request.InspectionSlot) > unitReturn.MoveOutDeadline)
+        // Past the move-out deadline the job locks access, so the inspection must come by then; once it has passed,
+        // any upcoming time is fine, or the return could never be approved.
+        if (unitReturn.MoveOutDeadline >= VietnamTime.Today && VietnamTime.DayOf(request.InspectionSlot) > unitReturn.MoveOutDeadline)
             return Error.Validation($"Book the inspection on or before the move-out deadline, {unitReturn.MoveOutDeadline:dd/MM/yyyy}.");
 
         unitReturn.InspectionSlot = request.InspectionSlot;

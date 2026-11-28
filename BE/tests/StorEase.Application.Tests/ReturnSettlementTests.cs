@@ -80,6 +80,14 @@ public class ReturnSettlementTests
             .RunAsync(VietnamTime.Today.AddDays(40), default);
 
         late.IsSuccess.Should().BeFalse("an inspection after the move-out deadline is refused");
+
+        // Staff opened it only after the deadline: the return must still be approvable.
+        var row = await t.Db.UnitReturns.SingleAsync(r => r.UnitReturnId == id);
+        row.MoveOutDeadline = VietnamTime.Today.AddDays(-1);
+        await t.Db.SaveChangesAsync();
+        t.Db.ChangeTracker.Clear();
+        var afterDeadline = await new ReturnService(t.Uow, Staff).ApproveAsync(id, new ApproveReturnRequest(DateTime.UtcNow.AddDays(1)), default);
+        afterDeadline.IsSuccess.Should().BeTrue(afterDeadline.Error?.Message);
         var periods = await t.Db.Invoices.Where(i => i.ContractId == contractId).CountAsync();
         periods.Should().Be(2, "the months starting 30 days ago and about today, not the one after the hand-back");
     }
