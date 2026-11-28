@@ -107,6 +107,34 @@ public class RentalEndTests
     }
 
     [Fact]
+    public async Task A_return_left_past_its_move_out_deadline_becomes_an_overstay_and_can_go_to_the_central_warehouse()
+    {
+        using var t = Create();
+        var id = Rent(t, Today.AddDays(60));
+        // Asked to return early, never emptied the unit; the billing job locked access after the deadline 8 days ago.
+        var contract = t.Db.Contracts.Find(id)!;
+        contract.Status = ContractStatus.PendingReturn;
+        foreach (var code in t.Db.AccessCodes.Where(a => a.ContractId == id)) code.IsActive = false;
+        t.Db.Add(new UnitReturn
+        {
+            ContractId = id, RequestedAt = DateTime.UtcNow.AddDays(-23), PlannedReturnDate = Today.AddDays(-10),
+            MoveOutDeadline = Today.AddDays(-8), Status = ReturnStatus.Approved, AccessLockedAt = DateTime.UtcNow.AddDays(-7),
+        });
+        t.Db.SaveChanges();
+        t.Db.ChangeTracker.Clear();
+
+        await As(t, Staff).RunAsync(Today, default);
+        var moved = await As(t, Staff).MoveToCentralStorageAsync(id, default);
+
+        moved.IsSuccess.Should().BeTrue(moved.Error?.Message);
+        t.Db.ChangeTracker.Clear();
+        t.Db.UnitReturns.Should().Contain(r => r.ContractId == id && r.Status == ReturnStatus.Cancelled);
+        t.Db.Contracts.Find(id)!.EndDate.Should().Be(Today.AddDays(-8), "the rental ends at the move-out deadline");
+        // 8 days past the deadline × 45,000: the deposit pays it and the rest comes back.
+        t.Db.DepositRefunds.Should().ContainSingle(r => r.Amount == 540_000m);
+    }
+
+    [Fact]
     public async Task Unpaid_rent_at_the_clear_out_stage_ends_in_the_central_warehouse()
     {
         using var t = Create();

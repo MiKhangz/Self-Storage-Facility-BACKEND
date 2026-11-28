@@ -56,6 +56,26 @@ public class RentalEndService(IUnitOfWork uow, ICurrentUser currentUser, IEmailS
         if (policy is null)
             return new RentalEndRunDto(0, 0, 0);
         var now = DateTime.UtcNow;
+
+        // 0. A hand-back still not done after its move-out deadline (access already locked) becomes an overstay: the
+        // return is dropped, the rental ends at the deadline if that is sooner, and the fee and the central-warehouse
+        // move below take over.
+        var abandoned = await uow.Repository<UnitReturn>().Query().Include(r => r.Contract).ThenInclude(c => c.AccessCodes)
+            .Where(r => (r.Status == ReturnStatus.Requested || r.Status == ReturnStatus.Approved) && r.AccessLockedAt != null)
+            .ToListAsync(ct);
+        foreach (var r in abandoned)
+        {
+            r.Status = ReturnStatus.Cancelled;
+            var c = r.Contract;
+            if (r.MoveOutDeadline < c.EndDate)
+                c.EndDate = r.MoveOutDeadline;
+            c.Status = ContractStatus.Overstay;
+            // Marked like an overstay lock-out, so a new return request gives access back to empty the unit.
+            foreach (var code in c.AccessCodes.Where(a => !a.IsActive && a.SuspendedAt == null && a.ExpiresAt > now))
+                code.SuspendedAt = now;
+        }
+        await uow.SaveChangesAsync(ct);
+
         var openReturns = uow.Repository<UnitReturn>().Query()
             .Where(r => r.Status != ReturnStatus.Completed && r.Status != ReturnStatus.Cancelled).Select(r => r.ContractId);
         var waitingRenewals = uow.Repository<Domain.Entities.Renewal>().Query()
